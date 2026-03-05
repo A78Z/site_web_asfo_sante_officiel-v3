@@ -113,7 +113,7 @@ const OrganizationPage: React.FC = () => {
   ];
 
   return (
-    <div className="pt-20">
+    <div>
       {/* Hero Section */}
       <div 
         ref={heroRef}

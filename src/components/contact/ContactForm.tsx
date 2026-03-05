@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Button from '../common/Button';
 import { Send, AlertCircle, CheckCircle } from 'lucide-react';
+import { createObject } from '../../lib/parse';
 
 const ContactForm: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -68,7 +69,7 @@ const ContactForm: React.FC = () => {
     return isValid;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -78,22 +79,26 @@ const ContactForm: React.FC = () => {
     setIsSubmitting(true);
     setSubmitError('');
 
-    // Simulate form submission
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await createObject('ContactMessages', {
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
+        status: 'Nouveau',
+      });
+
       setSubmitSuccess(true);
-      
-      // Reset form after 5 seconds
       setTimeout(() => {
         setSubmitSuccess(false);
-        setFormData({
-          name: '',
-          email: '',
-          subject: '',
-          message: '',
-        });
+        setFormData({ name: '', email: '', subject: '', message: '' });
       }, 5000);
-    }, 1500);
+    } catch (err) {
+      console.error('Contact form error:', err);
+      setSubmitError('Impossible d\'envoyer le message. Veuillez réessayer.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

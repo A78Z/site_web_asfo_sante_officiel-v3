@@ -8,7 +8,7 @@ const PresidentMessagePage: React.FC = () => {
   }, []);
 
   return (
-    <div className="pt-20">
+    <div>
       {/* Hero Section */}
       <div className="relative py-16 bg-gradient-to-br from-teal-600 via-teal-700 to-teal-800">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent opacity-30"></div>

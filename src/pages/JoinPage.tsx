@@ -1,13 +1,45 @@
 import React, { useState } from 'react';
 import SectionTitle from '../components/common/SectionTitle';
 import Button from '../components/common/Button';
-import { Users, Calendar, Map, Activity, Briefcase, Verified, Heart, User } from 'lucide-react';
+import { Users, Calendar, Map, Activity, Briefcase, Verified, Heart, User, CheckCircle } from 'lucide-react';
+import { createObject } from '../lib/parse';
 
 const JoinPage: React.FC = () => {
-  // Set page title
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   React.useEffect(() => {
     document.title = 'Nous rejoindre | ASFO | Action Sanitaire pour le Fouta';
   }, []);
+
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const fd = new FormData(e.currentTarget);
+      await createObject('VolunteerRequests', {
+        firstName: fd.get('first-name') as string,
+        lastName: fd.get('last-name') as string,
+        email: fd.get('email') as string,
+        phone: fd.get('phone') as string,
+        profile: fd.get('profile') as string,
+        speciality: fd.get('specialty') as string || '',
+        experience: fd.get('experience') as string || '',
+        motivation: fd.get('motivation') as string,
+        availability: fd.get('availability') as string,
+        workplace: fd.get('workplace') as string || '',
+        status: 'En attente',
+      });
+      setSubmitSuccess(true);
+      e.currentTarget.reset();
+      setTimeout(() => setSubmitSuccess(false), 6000);
+    } catch (err) {
+      console.error('Volunteer submit error:', err);
+      alert('Une erreur est survenue. Veuillez réessayer.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const volunteerProfiles = [
     {
@@ -129,7 +161,7 @@ const JoinPage: React.FC = () => {
   };
 
   return (
-    <div className="pt-20">
+    <div>
       {/* Hero Section */}
       <div className="relative py-20 bg-teal-600">
         <div className="absolute inset-0 z-0">
@@ -316,7 +348,25 @@ const JoinPage: React.FC = () => {
           />
           
           <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8 mt-12">
-            <form>
+            {submitSuccess ? (
+              <div className="py-12 text-center">
+                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
+                  <CheckCircle className="h-10 w-10 text-green-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-3">
+                  Candidature envoyée avec succès !
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Merci pour votre intérêt. Nous examinerons votre candidature et vous contacterons très prochainement.
+                </p>
+                <div className="mx-auto max-w-sm rounded-lg bg-teal-50 border border-teal-200 p-4">
+                  <p className="text-sm text-teal-800">
+                    Un email de confirmation vous sera envoyé dans les prochaines minutes.
+                  </p>
+                </div>
+              </div>
+            ) : (
+            <form onSubmit={handleFormSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <label htmlFor="first-name" className="block text-sm font-medium text-gray-700 mb-1">
@@ -325,6 +375,7 @@ const JoinPage: React.FC = () => {
                   <input
                     type="text"
                     id="first-name"
+                    name="first-name"
                     className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     required
                     placeholder="Prénom"
@@ -337,6 +388,7 @@ const JoinPage: React.FC = () => {
                   <input
                     type="text"
                     id="last-name"
+                    name="last-name"
                     className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     required
                     placeholder="Nom"
@@ -352,6 +404,7 @@ const JoinPage: React.FC = () => {
                   <input
                     type="email"
                     id="email"
+                    name="email"
                     className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     required
                     placeholder="Email"
@@ -364,6 +417,7 @@ const JoinPage: React.FC = () => {
                   <input
                     type="tel"
                     id="phone"
+                    name="phone"
                     className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     required
                     placeholder="Téléphone"
@@ -377,6 +431,7 @@ const JoinPage: React.FC = () => {
                 </label>
                 <select
                   id="profile"
+                  name="profile"
                   className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   required
                 >
@@ -389,7 +444,6 @@ const JoinPage: React.FC = () => {
                 </select>
               </div>
               
-              {/* Champ conditionnel pour "Autre" avec React state */}
               <OtherProfileField />
               
               <div className="mb-6">
@@ -399,6 +453,7 @@ const JoinPage: React.FC = () => {
                 <input
                   type="text"
                   id="specialty"
+                  name="specialty"
                   className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   placeholder="Spécialité"
                 />
@@ -410,9 +465,10 @@ const JoinPage: React.FC = () => {
                 </label>
                 <textarea
                   id="experience"
+                  name="experience"
                   rows={3}
                   className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                   placeholder="Expérience humanitaire"
+                  placeholder="Expérience humanitaire"
                 ></textarea>
               </div>
               
@@ -422,6 +478,7 @@ const JoinPage: React.FC = () => {
                 </label>
                 <textarea
                   id="motivation"
+                  name="motivation"
                   rows={5}
                   className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   required
@@ -435,6 +492,7 @@ const JoinPage: React.FC = () => {
                 </label>
                 <select
                   id="availability"
+                  name="availability"
                   className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   required
                 >
@@ -449,11 +507,9 @@ const JoinPage: React.FC = () => {
                   <option value="pedagogique">Assistance aux activités pédagogiques</option>
                   <option value="sensibilisation">Pour la sensibilisation</option>
                   <option value="other">Autre</option>
-                  </select>
-
+                </select>
               </div>
               
-              {/* Champ conditionnel pour "Autre disponibilité" avec React state */}
               <OtherAvailabilityField />
               
               <div className="mb-6">
@@ -463,6 +519,7 @@ const JoinPage: React.FC = () => {
                 <input
                   type="text"
                   id="workplace"
+                  name="workplace"
                   className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   placeholder="Votre lieu de travail ou d'études (ex: Hôpital Principal de Dakar, UCAD, etc.)"
                 />
@@ -486,16 +543,25 @@ const JoinPage: React.FC = () => {
                 </div>
               </div>
               
-              <Button 
+              <button
                 type="submit"
-                variant="primary" 
-                size="large" 
-                fullWidth
-                icon={<Heart size={18} />}
+                disabled={isSubmitting}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
               >
-                Envoyer ma candidature
-              </Button>
+                {isSubmitting ? (
+                  <>
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    Envoi en cours...
+                  </>
+                ) : (
+                  <>
+                    <Heart size={18} />
+                    Envoyer ma candidature
+                  </>
+                )}
+              </button>
             </form>
+            )}
           </div>
         </div>
       </section>

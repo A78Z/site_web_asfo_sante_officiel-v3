@@ -1734,7 +1734,7 @@ const SingleArchivePage: React.FC = () => {
 
   if (!archive) {
     return (
-      <div className="pt-20 min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center p-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">Mission non trouvée</h1>
           <p className="text-gray-600 mb-8">La mission que vous recherchez n'existe pas ou a été déplacée.</p>
@@ -1747,7 +1747,7 @@ const SingleArchivePage: React.FC = () => {
   }
 
   return (
-    <div className="pt-20">
+    <div>
       {/* Hero Section */}
       <div className="relative h-[500px] overflow-hidden">
         <img 

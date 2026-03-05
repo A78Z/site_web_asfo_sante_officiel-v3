@@ -743,7 +743,7 @@ const ArchivesPage: React.FC = () => {
   };
 
   return (
-    <div className="pt-20">
+    <div>
       {/* Hero Section */}
       <div className="relative py-20 bg-gradient-to-br from-teal-500 via-teal-600 to-teal-700">
         <div className="absolute inset-0 z-0">

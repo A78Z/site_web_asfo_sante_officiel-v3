@@ -9,7 +9,7 @@ const MedicalTeamPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="pt-20">
+    <div>
       {/* Hero Section */}
       <div className="relative py-20 bg-teal-600">
         <div className="absolute inset-0 z-0">

@@ -43,7 +43,7 @@ const ServicesPage: React.FC = () => {
   };
 
   return (
-    <div className="pt-20">
+    <div>
       {/* Hero Section */}
       <div className="relative py-20 bg-gradient-to-br from-teal-600 via-teal-700 to-teal-800">
         <div className="absolute inset-0 z-0">

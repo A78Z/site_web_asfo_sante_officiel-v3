@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Upload, Mail, Phone, Camera, CheckCircle, User, CreditCard, MapPin, FileText, Heart } from 'lucide-react';
+import { uploadFile, createObject } from '../lib/parse';
 
 interface FormInputs {
   lastName: string;
@@ -44,13 +45,25 @@ const MemberCardPage: React.FC = () => {
 
   const onSubmit = async (data: FormInputs) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log('Member card request submitted:', data);
+      let photoFile = undefined;
+      if (data.photo?.[0]) {
+        const file = data.photo[0];
+        photoFile = await uploadFile(file.name, file);
+      }
+
+      await createObject('MemberRequests', {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        profession: data.profession,
+        village: data.address || '',
+        photo: photoFile,
+        status: 'En attente',
+      });
+
       setSubmitSuccess(true);
-      
-      // Reset form after 5 seconds
+
       setTimeout(() => {
         setSubmitSuccess(false);
         reset();
@@ -64,7 +77,7 @@ const MemberCardPage: React.FC = () => {
 
   if (submitSuccess) {
     return (
-      <div className="pt-20 min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 text-center">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="text-green-600" size={40} />
@@ -86,7 +99,7 @@ const MemberCardPage: React.FC = () => {
   }
 
   return (
-    <div className="pt-20">
+    <div>
       {/* Hero Section */}
       <div className="relative py-20 bg-gradient-to-br from-teal-600 via-teal-700 to-teal-800">
         <div className="absolute inset-0 z-0">

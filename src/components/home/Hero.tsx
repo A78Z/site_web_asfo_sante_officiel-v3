@@ -1,328 +1,218 @@
-import React, { useState, useEffect } from 'react';
-import Button from '../common/Button';
-import { ChevronRight, Heart, Archive, ChevronDown, Users, Stethoscope } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight, ChevronDown, Heart, Archive, Users, BookOpen, Phone } from 'lucide-react';
 
 interface Slide {
   id: number;
   title: string;
-  subtitle: string;
   description: string;
   image: string;
-  buttons: {
-    primary: { text: string; to: string; icon: React.ReactNode };
-    secondary?: { text: string; to: string; icon: React.ReactNode };
-  };
-  theme: 'teal' | 'teal-light' | 'teal-dark';
+  cta: { label: string; to: string; icon: React.ReactNode };
+  ctaSecondary: { label: string; to: string; icon: React.ReactNode };
 }
 
 const slides: Slide[] = [
   {
     id: 1,
-    title: "Soigner avec le cœur,",
-    subtitle: "Former pour demain",
-    description: "Depuis 2000, l'Action Sanitaire pour le Fouta (ASFO) mobilise des professionnels de santé et des bénévoles pour offrir des soins gratuits, des consultations spécialisées et des actions de sensibilisation au bénéfice des populations les plus vulnérables du Fouta.",
-    image: "/slide1.webp",
-    buttons: {
-      primary: { text: "Nos Rapports", to: "/services", icon: <Archive size={20} /> },
-      secondary: { text: "Faire un don", to: "/donate", icon: <Heart size={20} /> },
-    },
-    theme: 'teal'
+    title: 'Votre santé,\nnotre engagement',
+    description:
+      "Depuis sa création, l'ASFO facilite l'accès aux soins gratuits dans les zones les plus reculées du Fouta. Nos campagnes médicales incarnent un engagement durable envers les populations.",
+    image: '/slide1.webp',
+    cta: { label: 'Découvrir nos missions', to: '/services', icon: <ArrowRight className="h-4 w-4" /> },
+    ctaSecondary: { label: 'Voir les archives', to: '/archives', icon: <Archive className="h-4 w-4" /> },
   },
   {
     id: 2,
-    title: "Votre satisfaction,",
-    subtitle: "Notre crédo",
-    description: "Depuis sa création, l'ASFO a permis à des milliers de patients d'accéder à des soins gratuits dans les zones les plus reculées du Fouta. À travers ses campagnes médicales et actions de sensibilisation, elle incarne une jeunesse engagée qui soigne, forme et transforme durablement des vies.",
-    image: "/slide-2.webp",
-    buttons: {
-      primary: { text: "Voir les archives", to: "/archives", icon: <Archive size={20} /> },
-      secondary: { text: "Notre équipe", to: "/notre-equipe-medicale", icon: <Stethoscope size={20} /> },
-    },
-    theme: 'teal-light'
+    title: 'Soigner aujourd\'hui,\nformer pour demain',
+    description:
+      "Depuis plus de deux décennies, l'ASFO mobilise des professionnels de santé et des bénévoles pour offrir consultations, sensibilisation et espoir aux communautés vulnérables.",
+    image: '/slide-2.webp',
+    cta: { label: 'Nos rapports', to: '/reports', icon: <BookOpen className="h-4 w-4" /> },
+    ctaSecondary: { label: 'Faire un don', to: '/donate', icon: <Heart className="h-4 w-4" /> },
   },
   {
     id: 3,
-    title: "Ensemble, pour un avenir",
-    subtitle: "Plus sain et plus solidaire",
-    description: "Votre engagement peut réellement changer des vies. Rejoignez notre mission humanitaire en vous impliquant comme membre, partenaire ou volontaire. Chaque geste compte. Chaque soutien fait la différence.",
-    image: "/slide-3.webp",
-    buttons: {
-      primary: { text: "S'engager", to: "/join", icon: <Users size={20} /> },
-      secondary: { text: "Nous contacter", to: "/contact", icon: <ChevronRight size={20} /> },
-    },
-    theme: 'teal-dark'
+    title: 'Ensemble pour\nun avenir plus sain',
+    description:
+      "Votre soutien permet de transformer des vies. Rejoignez notre mission humanitaire en devenant partenaire, volontaire ou contributeur.",
+    image: '/slide-3.webp',
+    cta: { label: "S'engager", to: '/join', icon: <Users className="h-4 w-4" /> },
+    ctaSecondary: { label: 'Nous contacter', to: '/contact', icon: <Phone className="h-4 w-4" /> },
   },
 ];
 
-const Hero: React.FC = () => {
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+const stats = [
+  { value: '37+', label: 'Missions réalisées' },
+  { value: '25K+', label: 'Patients soignés' },
+  { value: '7', label: "Années d'activité" },
+];
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoaded(true);
-    }, 100);
-    return () => clearTimeout(timer);
+const INTERVAL = 7000;
+
+const Hero: React.FC = () => {
+  const [current, setCurrent] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  const next = useCallback(() => {
+    setCurrent((i) => (i + 1) % slides.length);
   }, []);
 
+  const goTo = useCallback((i: number) => {
+    if (i !== current) setCurrent(i);
+  }, [current]);
+
   useEffect(() => {
-    if (isPaused) return;
-    
-    const timer = setInterval(() => {
-      setIsTransitioning(true);
-      setTimeout(() => {
-        setCurrentSlide((prev) => (prev + 1) % slides.length);
-        setIsTransitioning(false);
-      }, 800);
-    }, 7000);
+    if (paused) return;
+    const id = setInterval(next, INTERVAL);
+    return () => clearInterval(id);
+  }, [paused, next]);
 
-    return () => clearInterval(timer);
-  }, [isPaused]);
-
-  const goToSlide = (index: number) => {
-    if (index === currentSlide) return;
-    
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setCurrentSlide(index);
-      setIsTransitioning(false);
-    }, 800);
-  };
-
-  const getThemeColors = (theme: string) => {
-    switch (theme) {
-      case 'teal':
-        return {
-          gradient: 'from-teal-900/90 via-teal-800/80 to-teal-700/70',
-          accent: 'text-teal-200',
-          primary: 'from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700',
-          secondary: 'from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
-        };
-      case 'teal-light':
-        return {
-          gradient: 'from-teal-800/85 via-teal-700/75 to-teal-600/65',
-          accent: 'text-teal-100',
-          primary: 'from-teal-400 to-teal-500 hover:from-teal-500 hover:to-teal-600',
-          secondary: 'from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
-        };
-      case 'teal-dark':
-        return {
-          gradient: 'from-teal-950/95 via-teal-900/85 to-teal-800/75',
-          accent: 'text-teal-300',
-          primary: 'from-red-500 to-red-600 hover:from-red-600 hover:to-red-700',
-          secondary: 'from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700'
-        };
-      default:
-        return {
-          gradient: 'from-teal-900/90 via-teal-800/80 to-teal-700/70',
-          accent: 'text-teal-200',
-          primary: 'from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700',
-          secondary: 'from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
-        };
-    }
-  };
-
-  const currentTheme = getThemeColors(slides[currentSlide].theme);
+  const slide = slides[current];
 
   return (
-    <div 
-      className="relative min-h-screen flex items-center overflow-hidden -mt-16"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
+    <section
+      className="relative h-screen min-h-[600px] max-h-[1000px] overflow-hidden"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
     >
-      {/* Background Images avec affichage optimisé */}
-      {slides.map((slide, index) => (
-        <div
+      {/* ─── Background images ─── */}
+      <AnimatePresence mode="popLayout">
+        <motion.div
           key={slide.id}
-          className={`absolute inset-0 z-0 transition-all duration-1000 ease-in-out ${
-            index === currentSlide ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
-          }`}
+          initial={{ opacity: 0, scale: 1.08 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1, ease: 'easeInOut' }}
+          className="absolute inset-0 z-0"
         >
-          {/* Container d'image optimisé */}
-          <div className="absolute inset-0">
-            <img
-              src={slide.image}
-              alt={`ASFO slide ${slide.id}`}
-              className="w-full h-full object-cover transition-transform duration-[12s] ease-out"
-              style={{
-                objectFit: 'cover',
-                objectPosition: 'center 40%', // Ajustement pour éviter le recadrage excessif
-                minHeight: '100vh',
-                transform: 'scale(1.05)' // Léger zoom pour éviter les bords blancs
-              }}
-            />
-          </div>
-          
-          {/* Dégradé thématique selon la charte ASFO */}
-          <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradient} transition-all duration-1000`}></div>
-          
-          {/* Pattern subtil aux couleurs ASFO */}
-          <div className="absolute inset-0 opacity-5">
-            <div 
-              className="w-full h-full"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2314b8a6' fill-opacity='0.3'%3E%3Ccircle cx='40' cy='40' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-              }}
-            />
-          </div>
-          
-          {/* Particules flottantes aux couleurs ASFO */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute top-1/4 left-1/4 w-3 h-3 bg-teal-300/40 rounded-full animate-ping" style={{ animationDelay: '0s', animationDuration: '4s' }}></div>
-            <div className="absolute top-2/3 right-1/3 w-2 h-2 bg-red-300/30 rounded-full animate-ping" style={{ animationDelay: '2s', animationDuration: '5s' }}></div>
-            <div className="absolute bottom-1/3 left-1/2 w-2.5 h-2.5 bg-teal-200/35 rounded-full animate-ping" style={{ animationDelay: '1s', animationDuration: '6s' }}></div>
-            <div className="absolute top-1/2 right-1/4 w-1.5 h-1.5 bg-teal-400/25 rounded-full animate-ping" style={{ animationDelay: '3s', animationDuration: '4s' }}></div>
-          </div>
-        </div>
-      ))}
+          <img
+            src={slide.image}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        </motion.div>
+      </AnimatePresence>
 
-      {/* Container de contenu avec espacement optimisé */}
-      <div className="container mx-auto px-8 lg:px-12 z-10 pt-16 md:pt-20 lg:pt-24">
-        <div className="max-w-5xl">
-          
-          {/* Badge amélioré aux couleurs ASFO */}
-          <div className={`inline-flex items-center px-8 py-4 bg-white/15 backdrop-blur-lg rounded-full text-white text-base font-medium mb-10 border border-white/25 shadow-2xl transition-all duration-1000 transform hover:scale-105 hover:bg-white/25 ${
-            isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-6'
-          }`}>
-            
-          
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
-          </div>
+      {/* ─── Gradient overlay ─── */}
+      <div className="absolute inset-0 z-[1] bg-gradient-to-r from-teal-950/85 via-teal-900/65 to-teal-800/30" />
+      <div className="absolute inset-0 z-[1] bg-gradient-to-t from-black/40 via-transparent to-black/10" />
 
-          {/* Contenu avec transitions fluides */}
-          <div className={`transition-all duration-800 ease-in-out transform ${
-            isTransitioning ? 'opacity-0 translate-y-8 scale-95' : 'opacity-100 translate-y-0 scale-100'
-          }`}>
-            
-            {/* Hiérarchie typographique claire */}
-            <div className="mb-12">
-              <h1 className={`text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white leading-tight mb-6 transition-all duration-1000 transform ${
-                isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-              }`}>
-                {slides[currentSlide].title}
-                <br />
-                <span className={`${currentTheme.accent} bg-gradient-to-r from-current via-white to-current bg-clip-text text-transparent`}>
-                  {slides[currentSlide].subtitle}
-                </span>
-              </h1>
-            </div>
+      {/* ─── Content ─── */}
+      <div className="relative z-10 flex h-full items-center">
+        <div className="mx-auto w-full max-w-7xl px-6 sm:px-8 lg:px-10">
+          <div className="max-w-2xl">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={slide.id}
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.6, ease: 'easeOut' }}
+              >
+                {/* Title */}
+                <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-[4.25rem]">
+                  {slide.title.split('\n').map((line, i) => (
+                    <React.Fragment key={i}>
+                      {i > 0 && <br />}
+                      {line}
+                    </React.Fragment>
+                  ))}
+                </h1>
 
-            {/* Description avec espacement généreux */}
-            <div className={`mb-16 transition-all duration-1000 transform ${
-              isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-            }`} style={{ transitionDelay: '400ms' }}>
-              <div className="bg-black/20 backdrop-blur-sm rounded-2xl p-8 border border-white/20 shadow-xl max-w-4xl">
-                <p className="text-xl md:text-2xl lg:text-3xl text-white/95 leading-relaxed font-light">
-                  {slides[currentSlide].description}
-                </p>
-              </div>
-            </div>
-
-            {/* Boutons modernisés avec espacement optimal */}
-            <div className={`flex flex-col sm:flex-row gap-8 transition-all duration-1000 transform ${
-              isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-            }`} style={{ transitionDelay: '600ms' }}>
-              
-              {/* Bouton principal */}
-              <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-white/30 to-white/40 rounded-3xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
-                <Button
-                  variant="primary"
-                  size="large"
-                  to={slides[currentSlide].buttons.primary.to}
-                  className={`relative bg-gradient-to-r ${currentTheme.primary} text-white font-bold py-5 px-10 rounded-3xl shadow-2xl transform hover:scale-110 hover:-translate-y-2 transition-all duration-400 border-0 min-w-[220px] justify-center text-lg`}
-                  icon={slides[currentSlide].buttons.primary.icon}
+                {/* Description — glassmorphism card */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.15 }}
+                  className="mt-8 max-w-xl rounded-xl border border-white/15 bg-white/10 p-5 backdrop-blur-md sm:p-6"
                 >
-                  {slides[currentSlide].buttons.primary.text}
-                </Button>
-              </div>
+                  <p className="text-base leading-relaxed text-gray-200 sm:text-lg">
+                    {slide.description}
+                  </p>
+                </motion.div>
 
-              {/* Bouton secondaire */}
-              {slides[currentSlide].buttons.secondary && (
-                <div className="relative group">
-                  <Button
-                    variant="outline"
-                    size="large"
-                    to={slides[currentSlide].buttons.secondary.to}
-                    className={`bg-white/15 backdrop-blur-lg text-white border-3 border-white/40 hover:bg-white/25 hover:border-white/60 rounded-3xl py-5 px-10 font-bold shadow-2xl hover:shadow-3xl transform hover:scale-110 hover:-translate-y-2 transition-all duration-400 min-w-[220px] justify-center text-lg`}
-                    icon={slides[currentSlide].buttons.secondary.icon}
+                {/* Buttons */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.3 }}
+                  className="mt-8 flex flex-col gap-3 sm:flex-row sm:gap-4"
+                >
+                  <Link
+                    to={slide.cta.to}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:bg-teal-600 hover:shadow-xl active:scale-[0.98]"
                   >
-                    {slides[currentSlide].buttons.secondary.text}
-                  </Button>
-                </div>
-              )}
-            </div>
+                    {slide.cta.label}
+                    {slide.cta.icon}
+                  </Link>
+                  <Link
+                    to={slide.ctaSecondary.to}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/30 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-all duration-200 hover:bg-white/10 hover:border-white/50 active:scale-[0.98]"
+                  >
+                    {slide.ctaSecondary.label}
+                    {slide.ctaSecondary.icon}
+                  </Link>
+                </motion.div>
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </div>
 
-      {/* Indicateur de scroll amélioré */}
-      <div className={`absolute bottom-16 left-1/2 transform -translate-x-1/2 flex flex-col items-center text-white transition-all duration-1000 ${
-        isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
-      }`}>
-        <div 
-          className="relative group cursor-pointer" 
-          onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
-        >
-          {/* Ligne animée */}
-          <div className="h-24 w-1 bg-gradient-to-b from-white/70 via-white/50 to-transparent mb-6 relative overflow-hidden rounded-full">
-            <div className="absolute top-0 left-0 w-full h-8 bg-white/90 animate-pulse rounded-full"></div>
-          </div>
-          
-          {/* Texte et flèche */}
-          <div className="flex flex-col items-center group-hover:scale-110 transition-all duration-300">
-            <span className="text-base font-semibold mb-4 group-hover:text-teal-200 transition-colors duration-300 tracking-wide">
-              Découvrir
-            </span>
-            <div className="relative">
-              <ChevronDown size={28} className="animate-bounce group-hover:text-teal-200 transition-colors duration-300" />
-              <div className="absolute inset-0 rounded-full bg-white/30 scale-0 group-hover:scale-150 transition-transform duration-500 blur-md"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Indicateurs de slides modernisés */}
-      <div className="absolute bottom-16 right-10 flex flex-col space-y-3 z-20">
-        {slides.map((slide, index) => (
+      {/* ─── Slide indicators (right) ─── */}
+      <div className="absolute right-6 top-1/2 z-20 hidden -translate-y-1/2 flex-col gap-3 lg:flex">
+        {slides.map((_, i) => (
           <button
-            key={index}
-            onClick={() => goToSlide(index)}
-            className={`relative group transition-all duration-500 ${
-              index === currentSlide 
-                ? 'w-3 h-10 bg-white shadow-xl scale-110' 
-                : 'w-2 h-6 bg-white/60 hover:bg-white/80 hover:scale-105'
-            } rounded-full`}
-            aria-label={`Aller au slide ${index + 1}`}
-          >
-            {/* Indicateur actif avec glow */}
-            {index === currentSlide && (
-              <div className="absolute inset-0 rounded-full bg-teal-400/40 blur-md animate-pulse"></div>
-            )}
-            
-            {/* Numéro de slide au hover */}
-            <div className="absolute -left-10 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <div className="bg-black/80 backdrop-blur-sm text-white text-sm px-3 py-2 rounded-lg whitespace-nowrap shadow-lg">
-                Slide {index + 1}
-              </div>
-            </div>
-          </button>
+            key={i}
+            onClick={() => goTo(i)}
+            aria-label={`Slide ${i + 1}`}
+            className={`rounded-full transition-all duration-500 ${
+              i === current
+                ? 'h-10 w-2.5 bg-white shadow-lg'
+                : 'h-6 w-2 bg-white/40 hover:bg-white/70'
+            }`}
+          />
         ))}
       </div>
 
-      {/* Barre de progression aux couleurs ASFO */}
-      <div className="absolute bottom-0 left-0 right-0 h-2 bg-black/30 z-20">
-        <div 
-          className="h-full bg-gradient-to-r from-teal-400 to-teal-500 transition-all duration-300 ease-linear shadow-lg"
-          style={{
-            width: isPaused ? '100%' : `${((currentSlide + 1) / slides.length) * 100}%`
-          }}
-        />
-      </div>
+      {/* ─── Scroll indicator ─── */}
+      <button
+        onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
+        className="absolute bottom-24 left-1/2 z-20 hidden -translate-x-1/2 flex-col items-center gap-2 text-white/70 transition-colors hover:text-white md:flex"
+      >
+        <span className="text-xs font-medium uppercase tracking-widest">Découvrir</span>
+        <ChevronDown className="h-5 w-5 animate-bounce" />
+      </button>
 
-    </div>
+      {/* ─── Floating stats bar ─── */}
+      <div className="absolute bottom-0 left-0 right-0 z-20">
+        <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-10">
+          <div className="mb-6 inline-flex divide-x divide-white/20 overflow-hidden rounded-xl border border-white/15 bg-white/10 backdrop-blur-lg sm:mb-8">
+            {stats.map((stat, i) => (
+              <div key={i} className="px-6 py-4 sm:px-8">
+                <p className="text-2xl font-bold text-white sm:text-3xl">{stat.value}</p>
+                <p className="mt-0.5 text-xs font-medium text-gray-300 sm:text-sm">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-1 w-full bg-white/10">
+          <motion.div
+            key={current}
+            initial={{ width: '0%' }}
+            animate={{ width: paused ? '100%' : '100%' }}
+            transition={{
+              duration: paused ? 0.3 : INTERVAL / 1000,
+              ease: 'linear',
+            }}
+            className="h-full bg-gradient-to-r from-teal-400 to-teal-300"
+          />
+        </div>
+      </div>
+    </section>
   );
 };
 

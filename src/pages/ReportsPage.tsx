@@ -12,7 +12,7 @@ const ReportsPage: React.FC = () => {
   const years = Array.from({ length: 26 }, (_, i) => 2025 - i);
 
   return (
-    <div className="pt-20">
+    <div>
       {/* Hero Section */}
       <div className="relative py-20 bg-teal-600">
         <div className="absolute inset-0 z-0">

@@ -11,7 +11,7 @@ const ContactPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="pt-20">
+    <div>
       {/* Hero Section */}
       <div className="relative py-16 bg-teal-600">
         <div className="absolute inset-0 z-0">
