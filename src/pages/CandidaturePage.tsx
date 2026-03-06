@@ -294,9 +294,10 @@ const CandidaturePage: React.FC = () => {
             </div>
           </div>
           <a
-            href="https://drive.google.com/file/d/1eHtz0EjORY4bpZAWP3bAvPxooIz_kjwb/view"
+            href="/GUIDE_DE_CANDIDATURE_CAMPAGNE_MEDICALE_ASFO.pdf"
             target="_blank"
             rel="noopener noreferrer"
+            download
             className="w-full md:w-auto shrink-0 inline-flex items-center justify-center gap-2 bg-white text-teal-700 border-2 border-teal-600 hover:bg-teal-50 px-6 py-3 rounded-lg font-semibold transition-all focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
           >
             <Download size={18} /> Télécharger le guide

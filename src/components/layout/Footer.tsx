@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, MapPin } from 'lucide-react';
 import WhatsAppButton from '../common/WhatsAppButton';
+import { Button } from '../ui/button';
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -9,15 +10,15 @@ const Footer: React.FC = () => {
   const socialLinks = [
     { icon: <Facebook size={20} />, href: 'https://www.facebook.com/share/1EuuqYDYVc/?mibextid=wwXIfr', label: 'Facebook', color: 'hover:bg-blue-600' },
     { icon: <Instagram size={20} />, href: 'https://www.instagram.com/asfo.sante?igsh=aXBpZGNsNzMycmJ2&utm_source=qr', label: 'Instagram', color: 'hover:bg-pink-600' },
-    { 
+    {
       icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-2.54v5.79a3.07 3.07 0 0 1-3.07 3.07 3.07 3.07 0 0 1-3.07-3.07V2H5.6v5.79a4.83 4.83 0 0 0 4.83 4.83c.24 0 .48 0 .72-.05v9.02h2.54v-9.02c.24.05.48.05.72.05a4.83 4.83 0 0 0 4.83-4.83V6.69h.35Z"/>
+          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-2.54v5.79a3.07 3.07 0 0 1-3.07 3.07 3.07 3.07 0 0 1-3.07-3.07V2H5.6v5.79a4.83 4.83 0 0 0 4.83 4.83c.24 0 .48 0 .72-.05v9.02h2.54v-9.02c.24.05.48.05.72.05a4.83 4.83 0 0 0 4.83-4.83V6.69h.35Z" />
         </svg>
-      ), 
-      href: 'https://www.tiktok.com/@asfo.sante?_t=ZM-8xhjTZx6pUM&_r=1', 
-      label: 'TikTok', 
-      color: 'hover:bg-black' 
+      ),
+      href: 'https://www.tiktok.com/@asfo.sante?_t=ZM-8xhjTZx6pUM&_r=1',
+      label: 'TikTok',
+      color: 'hover:bg-black'
     },
     { icon: <Youtube size={20} />, href: 'https://youtube.com/@asfosante2751?si=lAoZeT1B4ztPWG6s', label: 'YouTube', color: 'hover:bg-red-600' },
     { icon: <Linkedin size={20} />, href: 'https://linkedin.com', label: 'LinkedIn', color: 'hover:bg-blue-700' }
@@ -30,7 +31,7 @@ const Footer: React.FC = () => {
         <div className="absolute top-0 left-0 w-96 h-96 bg-teal-500 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-500 rounded-full blur-3xl transform translate-x-1/2 translate-y-1/2"></div>
       </div>
-      
+
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 lg:gap-16">
           {/* Logo and About */}
@@ -41,7 +42,7 @@ const Footer: React.FC = () => {
             <p className="text-gray-300 mb-8 leading-relaxed text-sm lg:text-base">
               Fondée dans les années 2000 par des étudiants en santé, l'ASFO œuvre pour l'accès aux soins et la solidarité en milieu communautaire.
             </p>
-            
+
             {/* Social Media Icons */}
             <div className="flex flex-wrap gap-3 mb-8">
               {socialLinks.map((social, index) => (
@@ -59,10 +60,10 @@ const Footer: React.FC = () => {
                 </a>
               ))}
             </div>
-            
+
             {/* WhatsApp Button */}
             <div>
-              <WhatsAppButton 
+              <WhatsAppButton
                 phoneNumber="+221710401760"
                 className="w-full justify-center bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-medium py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 border-0"
               />
@@ -73,7 +74,7 @@ const Footer: React.FC = () => {
           <div className="md:col-span-1 relative">
             {/* Subtle separator line */}
             <div className="hidden md:block absolute -left-6 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-700/50 to-transparent"></div>
-            
+
             <h3 className="text-xl font-bold mb-6 text-teal-400 relative">
               Liens rapides
               <div className="absolute -bottom-2 left-0 w-12 h-0.5 bg-gradient-to-r from-teal-400 to-transparent rounded-full"></div>
@@ -128,7 +129,7 @@ const Footer: React.FC = () => {
           <div className="md:col-span-1 relative">
             {/* Subtle separator line */}
             <div className="hidden md:block absolute -left-6 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-700/50 to-transparent"></div>
-            
+
             <h3 className="text-xl font-bold mb-6 text-teal-400 relative">
               Nos Services
               <div className="absolute -bottom-2 left-0 w-12 h-0.5 bg-gradient-to-r from-teal-400 to-transparent rounded-full"></div>
@@ -171,7 +172,7 @@ const Footer: React.FC = () => {
                 </Link>
               </li>
             </ul>
-            
+
             {/* Member Card Button */}
             <div className="mt-8 pt-6 border-t border-gray-700/50">
               <Link
@@ -181,7 +182,7 @@ const Footer: React.FC = () => {
                 <div className="absolute inset-0 rounded-xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <span className="relative z-10 flex items-center">
                   <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
+                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" />
                   </svg>
                   Commander ma carte membre
                 </span>
@@ -193,7 +194,7 @@ const Footer: React.FC = () => {
           <div className="md:col-span-1 relative">
             {/* Subtle separator line */}
             <div className="hidden md:block absolute -left-6 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-700/50 to-transparent"></div>
-            
+
             <h3 className="text-xl font-bold mb-6 text-teal-400 relative">
               Contact
               <div className="absolute -bottom-2 left-0 w-12 h-0.5 bg-gradient-to-r from-teal-400 to-transparent rounded-full"></div>
@@ -224,6 +225,19 @@ const Footer: React.FC = () => {
                 </span>
               </li>
             </ul>
+
+            {/* CTA Candidature Mobile & Desktop */}
+            <div className="mt-8 pt-6 border-t border-gray-700/50">
+              <Link to="/candidature" className="block w-full outline-none">
+                <Button
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold text-lg h-auto py-5 rounded-xl shadow-lg hover:shadow-xl hover:shadow-teal-500/20 transition-all duration-300 animate-[pulse_3s_ease-in-out_infinite] border-none flex items-center justify-center gap-3 relative overflow-hidden group"
+                >
+                  <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                  <span className="relative z-10 text-xl">🚑</span>
+                  <span className="relative z-10 tracking-wide">Déposer une candidature</span>
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -231,7 +245,7 @@ const Footer: React.FC = () => {
         <div className="relative mt-16 pt-8">
           {/* Gradient separator */}
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-700/50 to-transparent"></div>
-          
+
           <div className="flex flex-col md:flex-row justify-center md:justify-between items-center space-y-4 md:space-y-0">
             <p className="text-gray-300 text-sm lg:text-base flex items-center font-medium">
               &copy; {currentYear} ASFO - Tous droits réservés.

@@ -21,9 +21,10 @@ const GuideCandidaturePage: React.FC = () => {
 
                     <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
                         <a
-                            href="https://drive.google.com/file/d/1eHtz0EjORY4bpZAWP3bAvPxooIz_kjwb/view"
+                            href="/GUIDE_DE_CANDIDATURE_CAMPAGNE_MEDICALE_ASFO.pdf"
                             target="_blank"
                             rel="noopener noreferrer"
+                            download
                             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition"
                         >
                             <Download size={20} />
