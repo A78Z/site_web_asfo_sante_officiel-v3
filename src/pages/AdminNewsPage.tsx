@@ -228,8 +228,12 @@ const AdminNewsPage: React.FC = () => {
       try {
         const uploaded = await uploadFile(fImageFile.name, fImageFile);
         data.coverImage = uploaded;
+        data.imageUrl = uploaded.url;
       } catch (err) {
         console.error('Image upload failed', err);
+        alert('Erreur lors de l\'upload de l\'image. Vérifiez votre connexion et réessayez.');
+        setSaving(false);
+        return;
       }
     }
 

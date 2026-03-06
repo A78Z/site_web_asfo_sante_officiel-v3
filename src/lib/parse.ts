@@ -1,5 +1,6 @@
 const APP_ID = import.meta.env.VITE_PARSE_APP_ID as string;
 const REST_KEY = import.meta.env.VITE_PARSE_REST_KEY as string;
+const MASTER_KEY = import.meta.env.VITE_PARSE_MASTER_KEY as string;
 const SERVER_URL = import.meta.env.VITE_PARSE_SERVER_URL as string;
 
 const headers = (): HeadersInit => ({
@@ -33,12 +34,15 @@ export async function uploadFile(
     method: 'POST',
     headers: {
       'X-Parse-Application-Id': APP_ID,
-      'X-Parse-REST-API-Key': REST_KEY,
+      'X-Parse-Master-Key': MASTER_KEY,
       'Content-Type': file.type,
     },
     body: file,
   });
-  if (!res.ok) throw new Error('File upload failed');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'File upload failed');
+  }
   const data = await res.json();
   return { __type: 'File', name: data.name, url: data.url };
 }
