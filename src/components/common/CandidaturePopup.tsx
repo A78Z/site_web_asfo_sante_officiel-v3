@@ -10,36 +10,31 @@ export default function CandidaturePopup() {
 
     useEffect(() => {
         const seen = localStorage.getItem("asfo_candidature_popup");
+
         if (!seen) {
-            // Add a short delay so it feels natural when arriving on the site
             const timer = setTimeout(() => {
                 setOpen(true);
-            }, 1500);
+            }, 1000);
+            // Enregistrement immédiat pour éviter l'ouverture multiple en StrictMode
+            localStorage.setItem("asfo_candidature_popup", "true");
             return () => clearTimeout(timer);
         }
     }, []);
 
     const handleClose = () => {
         setOpen(false);
-        localStorage.setItem("asfo_candidature_popup", "true");
     };
 
     const handleApply = () => {
-        handleClose();
+        setOpen(false);
         navigate('/candidature');
     };
 
     return (
-        <Dialog open={open} onOpenChange={(isOpen: boolean) => {
-            if (!isOpen) {
-                handleClose();
-            } else {
-                setOpen(true);
-            }
-        }}>
+        <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="sm:max-w-md w-[95vw] rounded-2xl mx-auto p-0 overflow-hidden border-none shadow-2xl z-[100]">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 flex flex-col items-center justify-center text-white relative">
+                <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-8 flex flex-col items-center justify-center text-white relative">
                     <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4 ring-4 ring-white/10 shadow-inner">
                         <span className="text-3xl">🚑</span>
                     </div>
@@ -82,6 +77,6 @@ export default function CandidaturePopup() {
                     </Button>
                 </DialogFooter>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 }
