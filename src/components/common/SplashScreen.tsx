@@ -9,6 +9,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   const [showTitle, setShowTitle] = useState(false);
   const [showSubtitle, setShowSubtitle] = useState(false);
   const [showBody, setShowBody] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
     const timeline = async () => {
@@ -24,15 +25,19 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
       // 4. Afficher la description et le bouton (1600ms)
       setTimeout(() => setShowBody(true), 1600);
 
-      // On ne ferme plus le splash screen automatiquement, il devient le hero
-      // setTimeout(onComplete, 5000); 
+      // 5. Fermer le splash screen après 4 secondes
+      setTimeout(() => {
+        setIsExiting(true);
+        setTimeout(onComplete, 700); // Wait for fade-out animation
+      }, 4000);
     };
 
     timeline();
   }, [onComplete]);
 
   return (
-    <section className="relative py-24 md:py-32 text-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white min-h-[90vh] flex items-center mb-12">
+    <section className={`fixed inset-0 z-50 py-24 md:py-32 text-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white min-h-screen flex items-center justify-center transition-all duration-700 ${isExiting ? 'opacity-0 translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'
+      }`}>
       {/* Pattern subtil on background */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <div
