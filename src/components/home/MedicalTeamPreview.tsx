@@ -2,15 +2,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Stethoscope, Award, CalendarCheck } from 'lucide-react';
+import { presidents } from '../about/MedicalTeam';
 
-const team = [
-  { name: 'Dr. A. Thioye', specialty: 'Médecine générale', image: '/thioye.webp' },
-  { name: 'Dr. M. Diallo', specialty: 'Pédiatrie', image: '/medicalteam.webp' },
-  { name: 'Dr. F. Ndiaye', specialty: 'Chirurgie dentaire', image: '/slide1.webp' },
-  { name: 'Dr. I. Ba', specialty: 'Gynécologie', image: '/slide-2.webp' },
-  { name: 'Dr. O. Sow', specialty: 'Ophtalmologie', image: '/slide-3.webp' },
-  { name: 'Dr. K. Diop', specialty: 'Gériatrie', image: '/barre.webp' },
-];
+// Récupération des 6 médecins (présidents) les plus récents
+const latestTeam = [...presidents].reverse().slice(0, 6);
 
 const highlights = [
   { icon: Stethoscope, value: '50+', label: 'Médecins bénévoles' },
@@ -23,7 +18,7 @@ const cardFade = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, delay: i * 0.08, ease: 'easeOut' },
+    transition: { duration: 0.5, delay: i * 0.08, ease: 'easeOut' as const },
   }),
 };
 
@@ -80,7 +75,7 @@ const MedicalTeamPreview: React.FC = () => (
 
       {/* ─── Team grid ─── */}
       <div className="mt-16 grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-6 lg:grid-cols-6">
-        {team.map((member, i) => (
+        {latestTeam.map((member, i) => (
           <motion.div
             key={member.name}
             custom={i}
@@ -92,11 +87,16 @@ const MedicalTeamPreview: React.FC = () => (
           >
             <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-3 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl sm:p-4">
               {/* Image */}
-              <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-gray-100">
+              <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-gray-100 flex items-center justify-center">
                 <img
-                  src={member.image}
+                  src={member.imageUrl}
                   alt={member.name}
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  style={{ objectPosition: 'center top' }}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = '/photo-avatar-profil.png';
+                  }}
                 />
                 {/* Hover overlay */}
                 <div className="absolute inset-0 rounded-xl bg-teal-600/10 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
@@ -104,8 +104,9 @@ const MedicalTeamPreview: React.FC = () => (
 
               {/* Info */}
               <div className="mt-3 text-center sm:mt-4">
-                <h3 className="text-sm font-semibold text-gray-900 sm:text-base">{member.name}</h3>
-                <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">{member.specialty}</p>
+                <h3 className="text-sm font-semibold text-gray-900 sm:text-base line-clamp-1" title={member.name}>{member.name}</h3>
+                <p className="mt-0.5 text-xs text-teal-600 font-medium">{member.role}</p>
+                <p className="mt-1 text-xs text-gray-500 line-clamp-2" title={member.specialty}>{member.specialty}</p>
               </div>
             </div>
           </motion.div>

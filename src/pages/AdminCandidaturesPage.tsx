@@ -19,6 +19,8 @@ import {
   Loader2,
   RefreshCw,
   Trash2,
+  FileText,
+  AlertCircle
 } from 'lucide-react';
 import { queryObjects, updateObject, deleteObject } from '../lib/parse';
 
@@ -42,6 +44,7 @@ interface Candidature {
   statut: Statut;
   createdAt: string;
   documents?: unknown[];
+  dossierPDF?: { __type: string; name: string; url: string };
 }
 
 const statusConfig: Record<Statut, { bg: string; text: string; icon: typeof Clock }> = {
@@ -130,6 +133,46 @@ const CandidatureDrawer: React.FC<{
           <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
             <h4 className="mb-2 text-sm font-bold text-gray-800">Description sanitaire</h4>
             <p className="text-sm leading-relaxed text-gray-600">{candidature.description}</p>
+          </div>
+          <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800">
+              <FileDown className="h-4 w-4 text-teal-600" /> Documents du candidat
+            </h4>
+            {candidature.dossierPDF ? (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-50 text-red-500 rounded-md">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900 text-sm">Dossier complet (PDF)</p>
+                    <p className="text-xs text-gray-500 truncate max-w-[150px]" title={candidature.dossierPDF.name}>{candidature.dossierPDF.name}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <a
+                    href={candidature.dossierPDF.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-md transition"
+                  >
+                    <Eye className="w-3.5 h-3.5" /> Voir
+                  </a>
+                  <a
+                    href={candidature.dossierPDF.url}
+                    download
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-semibold rounded-md transition"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Télécharger
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-amber-700 bg-amber-50 p-3 rounded-lg text-sm font-medium border border-amber-100">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                ⚠ Aucun document téléversé
+              </div>
+            )}
           </div>
         </div>
         <div className="border-t border-gray-200 p-6">
@@ -313,6 +356,7 @@ const AdminCandidaturesPage: React.FC = () => {
                 <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 md:table-cell">Amicale</th>
                 <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 lg:table-cell">Contact</th>
                 <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500">Statut</th>
+                <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 xl:table-cell">Dossier</th>
                 <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 sm:table-cell">Date</th>
                 <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-gray-500">Actions</th>
               </tr>
@@ -332,6 +376,27 @@ const AdminCandidaturesPage: React.FC = () => {
                       <p className="text-xs text-gray-400">{c.email}</p>
                     </td>
                     <td className="px-5 py-4"><StatusBadge statut={c.statut} /></td>
+                    <td className="hidden px-5 py-4 xl:table-cell">
+                      {c.dossierPDF ? (
+                        <div className="flex flex-col gap-1.5">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full w-fit border border-emerald-100">
+                            📄 Document dispo
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <a href={c.dossierPDF.url} target="_blank" rel="noopener noreferrer" className="text-teal-600 hover:text-teal-800 hover:underline text-xs flex items-center gap-1">
+                              <Eye className="w-3 h-3" /> Voir
+                            </a>
+                            <a href={c.dossierPDF.url} download className="text-blue-600 hover:text-blue-800 hover:underline text-xs flex items-center gap-1">
+                              <Download className="w-3 h-3" /> Télécharger
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+                          ⚠ Aucun document
+                        </span>
+                      )}
+                    </td>
                     <td className="hidden px-5 py-4 sm:table-cell"><span className="text-sm text-gray-500">{fmt(c.createdAt)}</span></td>
                     <td className="px-5 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">

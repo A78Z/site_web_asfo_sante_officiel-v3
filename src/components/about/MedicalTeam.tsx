@@ -2,7 +2,7 @@ import React from 'react';
 import { useInView } from 'react-intersection-observer';
 import { Calendar, Award, Crown, Star, Sparkles } from 'lucide-react';
 
-interface PresidentProps {
+export interface PresidentProps {
   name: string;
   role: string;
   specialty: string;
@@ -11,7 +11,7 @@ interface PresidentProps {
   order: number;
 }
 
-const presidents: PresidentProps[] = [
+export const presidents: PresidentProps[] = [
   {
     name: "Dr. Bouna NDIAYE",
     role: "1er Président de l'ASFO",
@@ -182,11 +182,11 @@ const presidents: PresidentProps[] = [
   }
 ];
 
-const PresidentCard: React.FC<PresidentProps> = ({ 
-  name, 
-  role, 
-  specialty, 
-  imageUrl, 
+const PresidentCard: React.FC<PresidentProps> = ({
+  name,
+  role,
+  specialty,
+  imageUrl,
   years,
   order
 }) => {
@@ -199,16 +199,15 @@ const PresidentCard: React.FC<PresidentProps> = ({
   const isFounder = order === 1;
 
   return (
-    <div 
+    <div
       ref={ref}
-      className={`group relative bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-700 transform hover:scale-105 hover:shadow-2xl ${
-        inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-      } ${isCurrentPresident ? 'ring-4 ring-teal-400 ring-opacity-50' : ''}`}
+      className={`group relative bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-700 transform hover:scale-105 hover:shadow-2xl ${inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        } ${isCurrentPresident ? 'ring-4 ring-teal-400 ring-opacity-50' : ''}`}
       style={{ animationDelay: `${(order - 1) * 100}ms` }}
     >
       {/* Background Gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-teal-50 via-white to-blue-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-      
+
       {/* Special Badges */}
       {isCurrentPresident && (
         <div className="absolute -top-2 -right-2 z-20">
@@ -217,7 +216,7 @@ const PresidentCard: React.FC<PresidentProps> = ({
           </div>
         </div>
       )}
-      
+
       {isFounder && (
         <div className="absolute -top-2 -left-2 z-20">
           <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
@@ -233,12 +232,12 @@ const PresidentCard: React.FC<PresidentProps> = ({
           <Calendar size={14} className="mr-2" />
           {years}
         </div>
-        
+
         {/* Decorative Elements */}
         <div className="absolute top-4 right-4 z-10 opacity-30 group-hover:opacity-50 transition-opacity duration-300">
           <Sparkles size={24} className="text-teal-600 animate-pulse" />
         </div>
-        
+
         {/* Profile Image - New Design */}
         <div className="relative h-64 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6">
           <div className="relative">
@@ -248,7 +247,7 @@ const PresidentCard: React.FC<PresidentProps> = ({
                 src={imageUrl}
                 alt={name}
                 className="w-full h-full object-cover"
-                style={{ 
+                style={{
                   objectFit: 'cover',
                   objectPosition: 'center center'
                 }}
@@ -269,7 +268,7 @@ const PresidentCard: React.FC<PresidentProps> = ({
                 }}
               />
             </div>
-            
+
             {/* Order Badge - Repositioned */}
             <div className="absolute -bottom-3 -right-3 w-12 h-12 bg-gradient-to-br from-teal-600 to-teal-700 rounded-full flex items-center justify-center shadow-lg border-4 border-white">
               <span className="text-white font-bold text-sm">{order}</span>
@@ -303,7 +302,7 @@ const PresidentCard: React.FC<PresidentProps> = ({
             </div>
           </div>
         )}
-        
+
         {isFounder && (
           <div className="text-center">
             <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 text-sm font-semibold rounded-full border border-purple-300">
@@ -336,28 +335,27 @@ const MedicalTeam: React.FC = () => {
       </div>
 
       {/* Section Header */}
-      <div 
+      <div
         ref={titleRef}
-        className={`text-center mb-16 relative z-10 transition-all duration-1000 transform ${
-          titleInView 
-            ? 'opacity-100 translate-y-0' 
+        className={`text-center mb-16 relative z-10 transition-all duration-1000 transform ${titleInView
+            ? 'opacity-100 translate-y-0'
             : 'opacity-0 translate-y-8'
-        }`}
+          }`}
       >
         <div className="inline-flex items-center px-6 py-3 bg-white/80 backdrop-blur-sm rounded-full shadow-lg border border-teal-100 mb-6">
           <Award className="text-teal-600 mr-3" size={24} />
           <span className="text-teal-700 font-semibold text-lg">Héritage de Leadership</span>
         </div>
-        
+
         <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-800 via-teal-700 to-gray-800 bg-clip-text text-transparent mb-6">
           Nos Présidents à travers l'Histoire
         </h2>
-        
+
         <p className="text-xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
-          Depuis 2000, l'ASFO a été dirigée par des leaders visionnaires qui ont façonné son identité 
+          Depuis 2000, l'ASFO a été dirigée par des leaders visionnaires qui ont façonné son identité
           et guidé sa mission humanitaire. Découvrez les 21 présidents qui ont marqué notre histoire.
         </p>
-        
+
         {/* Decorative Line */}
         <div className="flex items-center justify-center mt-8">
           <div className="h-px bg-gradient-to-r from-transparent via-teal-400 to-transparent w-32"></div>

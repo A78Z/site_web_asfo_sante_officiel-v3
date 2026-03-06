@@ -8,143 +8,101 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   const [showLogo, setShowLogo] = useState(false);
   const [showTitle, setShowTitle] = useState(false);
   const [showSubtitle, setShowSubtitle] = useState(false);
-  const [titleText, setTitleText] = useState('');
-  const [isExiting, setIsExiting] = useState(false);
-
-  const fullTitle = "26e Édition de la Grande Caravane Médicale";
+  const [showBody, setShowBody] = useState(false);
 
   useEffect(() => {
     const timeline = async () => {
-      // 1. Afficher le logo avec fondu (500ms)
+      // 1. Afficher le logo et gradient (300ms)
       setTimeout(() => setShowLogo(true), 300);
 
-      // 2. Commencer l'effet machine à écrire après 1.2s
-      setTimeout(() => {
-        setShowTitle(true);
-        let currentIndex = 0;
-        
-        const typeWriter = () => {
-          if (currentIndex < fullTitle.length) {
-            setTitleText(fullTitle.slice(0, currentIndex + 1));
-            currentIndex++;
-            setTimeout(typeWriter, 80); // Vitesse de frappe
-          } else {
-            // 3. Afficher le sous-titre après la fin de la frappe
-            setTimeout(() => setShowSubtitle(true), 500);
-            
-            // 4. Commencer la sortie après 1.5s supplémentaires
-            setTimeout(() => {
-              setIsExiting(true);
-              // 5. Appeler onComplete après l'animation de sortie
-              setTimeout(onComplete, 800);
-            }, 1500);
-          }
-        };
-        
-        typeWriter();
-      }, 1200);
+      // 2. Afficher le titre après le logo (800ms)
+      setTimeout(() => setShowTitle(true), 800);
+
+      // 3. Afficher le sous-titre après le titre (1200ms)
+      setTimeout(() => setShowSubtitle(true), 1200);
+
+      // 4. Afficher la description et le bouton (1600ms)
+      setTimeout(() => setShowBody(true), 1600);
+
+      // On ne ferme plus le splash screen automatiquement, il devient le hero
+      // setTimeout(onComplete, 5000); 
     };
 
     timeline();
   }, [onComplete]);
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-800 ${
-      isExiting ? 'opacity-0 scale-105' : 'opacity-100 scale-100'
-    }`}>
-      {/* Background avec dégradé */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900">
-        {/* Pattern subtil */}
-        <div className="absolute inset-0 opacity-10">
-          <div 
-            className="w-full h-full"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2314b8a6' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-            }}
-          />
-        </div>
-        
-        {/* Particules flottantes */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-teal-400/30 rounded-full animate-ping" style={{ animationDelay: '0s', animationDuration: '4s' }}></div>
-          <div className="absolute top-2/3 right-1/3 w-1.5 h-1.5 bg-teal-300/20 rounded-full animate-ping" style={{ animationDelay: '2s', animationDuration: '5s' }}></div>
-          <div className="absolute bottom-1/3 left-1/2 w-2.5 h-2.5 bg-teal-200/25 rounded-full animate-ping" style={{ animationDelay: '1s', animationDuration: '6s' }}></div>
-          <div className="absolute top-1/2 right-1/4 w-1 h-1 bg-teal-400/20 rounded-full animate-ping" style={{ animationDelay: '3s', animationDuration: '4s' }}></div>
-        </div>
+    <section className="relative py-24 md:py-32 text-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white min-h-[90vh] flex items-center mb-12">
+      {/* Pattern subtil on background */}
+      <div className="absolute inset-0 opacity-10 pointer-events-none">
+        <div
+          className="w-full h-full"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2314b8a6' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+          }}
+        />
       </div>
 
-      {/* Contenu principal */}
-      <div className="relative z-10 text-center px-8 max-w-4xl mx-auto">
-        
-        {/* Logo ASFO avec animation de fondu */}
-        <div className={`mb-12 transition-all duration-1000 transform ${
-          showLogo ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
-        }`}>
+      <div className="max-w-4xl mx-auto px-6 relative z-10 w-full mt-[-4rem]">
+
+        {/* Logo ASFO avec effet lumineux */}
+        <div className={`mb-10 transition-all duration-1000 transform ${showLogo ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
+          }`}>
           <div className="relative inline-block">
-            {/* Effet de glow autour du logo */}
-            <div className="absolute inset-0 bg-teal-400/20 rounded-full blur-2xl scale-150 animate-pulse"></div>
-            
-            {/* Logo */}
-            <div className="relative w-32 h-32 md:w-40 md:h-40 mx-auto bg-white rounded-full shadow-2xl p-4 border-4 border-teal-100">
-              <img 
-                src="/logo.png" 
-                alt="ASFO Logo" 
+            {/* Effet lumineux derrière le logo */}
+            <div className="absolute inset-0 bg-teal-400/30 rounded-full blur-3xl scale-[1.8] animate-pulse"></div>
+
+            <div className="relative w-28 h-28 md:w-36 md:h-36 mx-auto bg-white rounded-full shadow-2xl p-3 border-4 border-teal-100/30">
+              <img
+                src="/logo.png"
+                alt="ASFO Logo"
                 className="w-full h-full object-contain"
               />
             </div>
           </div>
         </div>
 
-        {/* Titre avec effet machine à écrire */}
-        <div className={`mb-8 transition-all duration-500 ${
-          showTitle ? 'opacity-100' : 'opacity-0'
-        }`}>
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight">
-            <span className="bg-gradient-to-r from-teal-400 via-teal-300 to-teal-400 bg-clip-text text-transparent">
-              {titleText}
+        {/* Titre Principal */}
+        <h1 className={`text-4xl md:text-6xl font-bold mb-6 tracking-tight transition-all duration-700 transform ${showTitle ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          }`}>
+          APPEL À CANDIDATURE
+        </h1>
+
+        {/* Sous-titre */}
+        <h2 className={`text-2xl md:text-3xl text-teal-400 font-medium mb-6 transition-all duration-700 delay-100 transform ${showSubtitle ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          }`}>
+          Grande Campagne Médicale ASFO 2026
+        </h2>
+
+        {/* Description et informations (regroupées) */}
+        <div className={`transition-all duration-1000 delay-200 transform ${showBody ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
+          }`}>
+          <p className="text-lg md:text-xl opacity-90 mb-8 leading-relaxed max-w-3xl mx-auto text-slate-200">
+            Dans le cadre de l’organisation de la 27ᵉ édition de la Grande Campagne Médicale de l’ASFO,
+            les villages du département de Podor sont invités à soumettre leur candidature afin
+            d’accueillir cette mission médicale et humanitaire.
+          </p>
+
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 mb-10 text-lg font-medium text-slate-100">
+            <span className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm shadow-sm border border-white/5">
+              📅 Dépôt des dossiers : du 05 mars au 05 avril 2026
             </span>
-            {/* Curseur clignotant */}
-            {showTitle && titleText.length < fullTitle.length && (
-              <span className="inline-block w-1 h-8 md:h-10 lg:h-12 bg-teal-400 ml-1 animate-pulse"></span>
-            )}
-          </h1>
+            <span className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm shadow-sm border border-white/5">
+              📍 Département de Podor
+            </span>
+          </div>
+
+          <a
+            href="/candidature"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 px-8 py-4 rounded-xl text-lg font-semibold text-white shadow-xl shadow-teal-900/40 hover:scale-105 hover:shadow-teal-900/60 transition-all duration-300"
+          >
+            <span className="text-xl">🚑</span>
+            Déposer une candidature
+          </a>
         </div>
 
-        {/* Sous-titre avec fondu vers le haut */}
-        <div className={`transition-all duration-800 transform ${
-          showSubtitle ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
-        }`}>
-          <div className="relative">
-            {/* Effet de brillance */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 animate-shimmer"></div>
-            
-            <p className="text-xl md:text-2xl lg:text-3xl text-white/90 font-light">
-              <span className="bg-gradient-to-r from-white via-teal-100 to-white bg-clip-text text-transparent">
-                Région de Matam
-              </span>
-            </p>
-          </div>
-          
-          {/* Ligne décorative */}
-          <div className="flex items-center justify-center mt-6">
-            <div className="h-px bg-gradient-to-r from-transparent via-teal-400 to-transparent w-32"></div>
-            <div className="w-2 h-2 bg-teal-400 rounded-full mx-4 animate-pulse"></div>
-            <div className="h-px bg-gradient-to-r from-transparent via-teal-400 to-transparent w-32"></div>
-          </div>
-        </div>
-
-        {/* Indicateur de chargement subtil */}
-        <div className={`mt-12 transition-all duration-500 ${
-          showSubtitle ? 'opacity-100' : 'opacity-0'
-        }`}>
-          <div className="flex justify-center space-x-2">
-            <div className="w-2 h-2 bg-teal-400/60 rounded-full animate-bounce"></div>
-            <div className="w-2 h-2 bg-teal-400/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-            <div className="w-2 h-2 bg-teal-400/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-          </div>
-        </div>
       </div>
-    </div>
+    </section>
   );
 };
 

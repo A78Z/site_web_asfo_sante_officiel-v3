@@ -232,6 +232,7 @@ const CandidaturePage: React.FC = () => {
         description: data.description,
         statut: 'En attente',
         documents: uploadedDocs,
+        dossierPDF: uploadedDocs[0],
       });
 
       setNumeroDossier(numero);

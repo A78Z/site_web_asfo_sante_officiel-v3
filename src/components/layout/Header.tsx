@@ -76,11 +76,10 @@ const Header: React.FC = () => {
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-        isScrolled
+      className={`w-full transition-all duration-300 ${isScrolled
           ? 'bg-white/95 backdrop-blur-xl shadow-md border-b border-gray-200/80'
           : 'bg-white border-b border-gray-200'
-      }`}
+        }`}
     >
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 xl:px-10">
         {/* ─── Logo ─── */}
@@ -321,15 +320,13 @@ function NavLink({
   return (
     <Link
       to={to}
-      className={`group relative text-[13px] font-medium transition-colors duration-200 ${
-        active ? 'text-teal-600' : 'text-gray-600 hover:text-teal-600'
-      }`}
+      className={`group relative text-[13px] font-medium transition-colors duration-200 ${active ? 'text-teal-600' : 'text-gray-600 hover:text-teal-600'
+        }`}
     >
       {children}
       <span
-        className={`absolute -bottom-[1.6rem] left-0 h-[2px] rounded-full bg-teal-500 transition-all duration-300 ${
-          active ? 'w-full' : 'w-0 group-hover:w-full'
-        }`}
+        className={`absolute -bottom-[1.6rem] left-0 h-[2px] rounded-full bg-teal-500 transition-all duration-300 ${active ? 'w-full' : 'w-0 group-hover:w-full'
+          }`}
       />
     </Link>
   );
@@ -386,11 +383,10 @@ function MobileLink({
     <Link
       to={to}
       onClick={onClick}
-      className={`flex items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors duration-150 ${
-        active
+      className={`flex items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors duration-150 ${active
           ? 'bg-teal-50 text-teal-700'
           : 'text-gray-700 hover:bg-gray-50 hover:text-teal-600'
-      }`}
+        }`}
     >
       {children}
     </Link>

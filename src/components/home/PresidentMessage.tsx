@@ -26,7 +26,7 @@ const PresidentMessage: React.FC = () => (
           <div className="overflow-hidden rounded-2xl shadow-2xl ring-1 ring-black/5 transition-transform duration-500 hover:scale-[1.02]">
             <img
               src="/thioye.webp"
-              alt="Abdoulaye THIOYE — Président de l'ASFO"
+              alt="MAMADOU THIOYE — Président de l'ASFO"
               className="aspect-[4/5] w-full object-cover object-top"
             />
           </div>
@@ -76,12 +76,12 @@ const PresidentMessage: React.FC = () => (
             <div className="h-12 w-12 overflow-hidden rounded-full ring-2 ring-teal-100">
               <img
                 src="/thioye.webp"
-                alt="Abdoulaye THIOYE"
+                alt="MAMADOU THIOYE"
                 className="h-full w-full object-cover object-top"
               />
             </div>
             <div>
-              <p className="text-base font-bold text-gray-900">Abdoulaye THIOYE</p>
+              <p className="text-base font-bold text-gray-900">MAMADOU THIOYE</p>
               <p className="text-sm text-gray-500">Président de l'ASFO</p>
             </div>
           </div>

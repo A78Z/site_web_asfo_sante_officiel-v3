@@ -8,8 +8,10 @@ import CandidaturePopup from '../common/CandidaturePopup';
 const PublicLayout: React.FC = () => {
   return (
     <div className="flex min-h-screen flex-col">
-      <SponsorBanner />
-      <Header />
+      <div className="sticky top-0 z-50 w-full flex flex-col">
+        <SponsorBanner />
+        <Header />
+      </div>
       <main className="flex-grow">
         <Outlet />
       </main>
