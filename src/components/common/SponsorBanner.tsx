@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 
 interface Sponsor {
   id: string;
@@ -94,8 +94,7 @@ const SponsorBanner: React.FC = () => {
         {/* Label */}
         <div className="flex shrink-0 items-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">
-            <Sparkles className="h-3 w-3" />
-            Sponsorisé
+            📢 ANNONCE OFFICIELLE
           </span>
         </div>
 
@@ -150,11 +149,10 @@ const SponsorBanner: React.FC = () => {
                 key={i}
                 onClick={() => setCurrentIndex(i)}
                 aria-label={`Sponsor ${i + 1}`}
-                className={`rounded-full transition-all duration-300 ${
-                  i === currentIndex
-                    ? 'h-1.5 w-4 bg-white'
-                    : 'h-1.5 w-1.5 bg-white/50 hover:bg-white/70'
-                }`}
+                className={`rounded-full transition-all duration-300 ${i === currentIndex
+                  ? 'h-1.5 w-4 bg-white'
+                  : 'h-1.5 w-1.5 bg-white/50 hover:bg-white/70'
+                  }`}
               />
             ))}
           </div>

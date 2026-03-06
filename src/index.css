@@ -3,8 +3,17 @@
 @tailwind utilities;
 
 @keyframes softPulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 0 0 0 rgba(20,184,166,.4); }
-  50% { transform: scale(1.03); box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 0 0 10px rgba(20,184,166,0); }
+
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .1), 0 0 0 0 rgba(20, 184, 166, .4);
+  }
+
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .1), 0 0 0 10px rgba(20, 184, 166, 0);
+  }
 }
 
 html {
@@ -22,6 +31,155 @@ body {
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 1rem;
+}
+
+/* ── .article-content — CMS article rendering (institutional typography) ── */
+.article-content {
+  text-align: justify;
+  display: block;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  hyphens: none;
+  -webkit-hyphens: none;
+  font-size: 1.125rem;
+  line-height: 1.5;
+}
+
+/* Force all children: no leftward shift */
+.article-content p,
+.article-content div,
+.article-content span,
+.article-content li {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+  text-indent: 0 !important;
+}
+
+/* Spans must stay inline */
+.article-content span {
+  display: inline;
+}
+
+/* Vertical rhythm between all direct children */
+.article-content>*+* {
+  margin-top: 0.75rem;
+}
+
+.article-content p {
+  margin-top: 6px;
+  margin-bottom: 6px;
+  line-height: 1.5;
+  text-align: justify;
+  text-align-last: left;
+  text-justify: inter-word;
+}
+
+/* Tighter spacing between adjacent paragraphs (good for contact info, lists) */
+.article-content p+p {
+  margin-top: 4px;
+}
+
+/* Lines containing emojis or marked as notices */
+.article-content .notice-line {
+  text-align: left !important;
+  text-align-last: left !important;
+  font-weight: 600;
+  margin: 12px 0;
+}
+
+/* Prevent emoji images (Quill renders 🚨 as <img>) from floating right */
+.article-content p img {
+  display: inline;
+  vertical-align: middle;
+  height: 1.2em;
+  width: auto;
+  margin: 0 2px;
+}
+
+/* Inline elements must not stretch */
+.article-content strong,
+.article-content em,
+.article-content span {
+  display: inline;
+}
+
+.article-content strong {
+  font-weight: 600;
+  color: #111827;
+}
+
+.article-content a {
+  color: #0f766e;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.article-content a:hover {
+  color: #115e59;
+}
+
+.article-content ul,
+.article-content ol {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  padding-left: 1.2rem;
+}
+
+.article-content li {
+  margin-bottom: 0.5rem;
+}
+
+.article-content h2,
+.article-content h3 {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: left;
+}
+
+.article-content h2 {
+  font-size: 1.5rem;
+}
+
+.article-content h3 {
+  font-size: 1.25rem;
+}
+
+.article-content blockquote {
+  border-left: 4px solid #14b8a6;
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+  background: #f0fdfa;
+  border-radius: 0 0.5rem 0.5rem 0;
+  font-style: italic;
+  color: #374151;
+}
+
+
+.article-content img {
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  margin: 1.5rem 0;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Support Quill alignment classes */
+.article-content .ql-align-center {
+  text-align: center;
+}
+
+.article-content .ql-align-right {
+  text-align: right;
+}
+
+.article-content .ql-align-justify {
+  text-align: justify;
 }
 
 /* Animation classes */
@@ -42,6 +200,7 @@ body {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -52,6 +211,7 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -63,14 +223,16 @@ body {
     opacity: 0;
     transform: translateX(30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
   }
 }
-.logo{
- width: 70px;
- height: 70px;
+
+.logo {
+  width: 70px;
+  height: 70px;
 }
 
 /* Scroll offset for sticky header */
@@ -84,6 +246,7 @@ html {
     opacity: 0;
     transform: translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -99,6 +262,7 @@ html {
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
@@ -125,6 +289,7 @@ html {
   0% {
     transform: translateX(0);
   }
+
   100% {
     transform: translateX(-50%);
   }
@@ -135,6 +300,7 @@ html {
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
@@ -150,6 +316,7 @@ html {
     opacity: 0;
     transform: translateX(30px) scale(0.95);
   }
+
   100% {
     opacity: 1;
     transform: translateX(0) scale(1);
@@ -161,6 +328,7 @@ html {
     opacity: 1;
     transform: translateX(0) scale(1);
   }
+
   100% {
     opacity: 0;
     transform: translateX(-30px) scale(0.95);
@@ -183,6 +351,7 @@ html {
     transform: translateX(-100%);
     background: linear-gradient(90deg, transparent, rgba(20, 184, 166, 0.2), transparent);
   }
+
   100% {
     transform: translateX(100%);
     background: linear-gradient(90deg, transparent, rgba(20, 184, 166, 0.4), transparent);
@@ -216,6 +385,7 @@ html {
 .featured-news-glow:hover {
   box-shadow: 0 30px 60px -12px rgba(20, 184, 166, 0.4), 0 0 0 2px rgba(20, 184, 166, 0.2);
 }
+
 /* Pause animation au hover */
 .hover\:pause:hover {
   animation-play-state: paused;
@@ -231,6 +401,7 @@ html {
   0% {
     width: 0%;
   }
+
   100% {
     width: var(--progress-width);
   }
@@ -274,6 +445,7 @@ html {
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
+
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;

@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin, Users, UploadCloud, CheckCircle, Download, Home,
   FileText, X, Loader2, AlertCircle, Phone, Mail,
-  AlertTriangle, HeartPulse, Shield
+  AlertTriangle, HeartPulse, Shield, BookOpen, MousePointerClick, FileEdit, Send
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createObject, uploadFile } from '../lib/parse';
@@ -273,10 +273,59 @@ const CandidaturePage: React.FC = () => {
             <span role="img" aria-label="ambulance">🚑</span>
             Dépôt de candidature
           </h1>
-          <p className="text-gray-500 text-lg leading-relaxed max-w-2xl">
-            Vous êtes membre de l'Amicale des étudiants de votre village et souhaitez accueillir une caravane médicale dans votre localité ?
+          <p className="text-gray-600 leading-relaxed max-w-2xl">
+            Vous représentez une association de développement du village, une amicale d’étudiants ou un comité local, et vous souhaitez accueillir une caravane médicale dans votre localité ?
             Merci de remplir ce formulaire et de fournir les documents demandés.
           </p>
+        </div>
+
+        {/* --- NOUVEAU : Guide de candidature --- */}
+        <div className="bg-white border text-left border-gray-200 shadow-sm rounded-xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center gap-6 justify-between transform transition hover:shadow-md">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center shrink-0 border border-teal-100">
+              <BookOpen className="text-teal-600" size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 mb-1">Guide de candidature</h2>
+              <p className="text-gray-600 text-sm md:text-base leading-relaxed">
+                Avant de déposer votre dossier, consultez le guide officiel de la campagne médicale.
+                Il contient toutes les informations et critères de sélection.
+              </p>
+            </div>
+          </div>
+          <a
+            href="https://drive.google.com/file/d/1eHtz0EjORY4bpZAWP3bAvPxooIz_kjwb/view"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full md:w-auto shrink-0 inline-flex items-center justify-center gap-2 bg-white text-teal-700 border-2 border-teal-600 hover:bg-teal-50 px-6 py-3 rounded-lg font-semibold transition-all focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+          >
+            <Download size={18} /> Télécharger le guide
+          </a>
+        </div>
+
+        {/* --- NOUVEAU : Processus 5 étapes --- */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <CheckCircle className="text-teal-600" size={20} /> Comment candidater ?
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[
+              { icon: MousePointerClick, title: '1. S\'informer', desc: 'Lire le guide' },
+              { icon: FileText, title: '2. Préparer', desc: 'Rassembler les pièces' },
+              { icon: FileEdit, title: '3. Formulaire', desc: 'Remplir les infos' },
+              { icon: UploadCloud, title: '4. Transmettre', desc: 'Uploader le dossier' },
+              { icon: Send, title: '5. Valider', desc: 'Envoyer la demande' },
+            ].map((step, i) => (
+              <div key={i} className="bg-white border text-left border-gray-100 rounded-lg p-4 shadow-sm relative overflow-hidden group hover:border-teal-200 transition-colors">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500 to-green-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center mb-3 group-hover:bg-teal-50 transition-colors">
+                  <step.icon className="text-gray-500 group-hover:text-teal-600 transition-colors" size={20} />
+                </div>
+                <h3 className="font-semibold text-gray-900 text-sm mb-1">{step.title}</h3>
+                <p className="text-xs text-gray-500">{step.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* 2 — Carte Informations importantes */}
@@ -385,7 +434,7 @@ const CandidaturePage: React.FC = () => {
           <div className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
               <Users className="text-[#0F766E]" size={20} />
-              <h3 className="text-lg font-bold text-gray-900">Informations de l'amicale</h3>
+              <h3 className="text-lg font-bold text-gray-900">Informations sur l'association / organisation</h3>
             </div>
             <div className="p-6 md:p-8 grid md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
@@ -612,6 +661,15 @@ const CandidaturePage: React.FC = () => {
         </form>
 
       </div>
+
+      {/* --- NOUVEAU : Bouton flottant Guide --- */}
+      <Link
+        to="/guide-candidature"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-gray-900 text-white px-5 py-3 rounded-full shadow-xl hover:bg-gray-800 hover:scale-105 transition-transform focus:ring-4 focus:ring-gray-300"
+      >
+        <BookOpen size={20} />
+        <span className="font-semibold hidden sm:inline">Guide de candidature</span>
+      </Link>
     </div>
   );
 };

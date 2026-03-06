@@ -27,6 +27,7 @@ import SingleArchivePage from './pages/SingleArchivePage';
 import MedicalTeamPage from './pages/MedicalTeamPage';
 import MemberCardPage from './pages/MemberCardPage';
 import CandidaturePage from './pages/CandidaturePage';
+import GuideCandidaturePage from './pages/GuideCandidaturePage';
 import AdminCandidaturesPage from './pages/AdminCandidaturesPage';
 import AdminMemberRequestsPage from './pages/AdminMemberRequestsPage';
 import AdminVolunteersPage from './pages/AdminVolunteersPage';
@@ -76,6 +77,7 @@ function App() {
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/member-card" element={<MemberCardPage />} />
           <Route path="/candidature" element={<CandidaturePage />} />
+          <Route path="/guide-candidature" element={<GuideCandidaturePage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
 
