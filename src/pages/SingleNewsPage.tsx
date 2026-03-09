@@ -51,14 +51,15 @@ const getDate = (a: NewsArticle) => {
 
 const isHtml = (str: string) => /<[a-z][\s\S]*>/i.test(str);
 
-/** Sanitise CMS HTML: strip ALL inline styles, classes, indentation to prevent shifts */
+/** Sanitise CMS HTML for display: fix nbsp, styles, spans, empty blocks */
 const sanitizeCmsHtml = (raw: string): string => {
+  if (!raw) return '';
   let html = raw;
 
   // If the content is NOT html, convert plain-text → paragraphs
   if (!isHtml(html)) {
     html = html
-      .split(/\n\s*\n/) // double line breaks → paragraph separators
+      .split(/\n\s*\n/)
       .map((block) => {
         const lines = block.trim().split('\n').join('<br />');
         return lines ? `<p>${lines}</p>` : '';
@@ -66,40 +67,36 @@ const sanitizeCmsHtml = (raw: string): string => {
       .join('');
   }
 
-  // Strip ALL inline styles (margin-left, text-indent, text-align, etc.)
+  // 1. Replace ALL &nbsp; with normal spaces (fixes old articles too)
+  html = html.replace(/&nbsp;/gi, ' ');
+
+  // 2. Replace unicode non-breaking spaces
+  html = html.replace(/\u00A0/g, ' ');
+
+  // 3. Unwrap useless <span> wrappers — keep inner content
+  html = html.replace(/<span\s*[^>]*>([\s\S]*?)<\/span>/gi, '$1');
+
+  // 4. Strip ALL inline styles
   html = html.replace(/\s*style="[^"]*"/gi, '');
 
-  // Strip ALL class attributes (ql-indent-1, ql-align-center, etc.)
+  // 5. Strip ALL class attributes
   html = html.replace(/\s*class="[^"]*"/gi, '');
 
-  // Convert massive non-breaking space chains (used to simulate centering) into paragraph breaks
-  html = html.replace(/(?:&nbsp;|\u00A0){4,}/gi, '</p><p>');
+  // 6. Unwrap unnecessary wrapper divs → paragraphs
+  html = html.replace(/<div[^>]*>([\s\S]*?)<\/div>/gi, '<p>$1</p>');
 
-  // Unwrap useless <span> wrappers — keep inner content
-  html = html.replace(/<span[^>]*>(.*?)<\/span>/gi, '$1');
+  // 7. Collapse multiple consecutive spaces into one (preserve tags)
+  html = html.replace(/(<[^>]*>)|(\s{2,})/g, (_m, tag) => tag || ' ');
 
-  // Unwrap unnecessary wrapper divs → paragraphs
-  html = html.replace(/<div[^>]*>(.*?)<\/div>/gi, '<p>$1</p>');
+  // 8. Remove empty paragraphs
+  html = html.replace(/<p>\s*(<br\s*\/?>)?\s*<\/p>/gi, '');
 
-  // Remove empty paragraphs
-  html = html.replace(/<p>(?:&nbsp;|\u00A0|\s)*<\/p>/gi, '');
-
-  // Clean up stray CSS properties that might remain
+  // 9. Clean stray CSS properties
   html = html.replace(/margin-left:[^;"]*;?/gi, '');
   html = html.replace(/text-indent:[^;"]*;?/gi, '');
   html = html.replace(/padding-left:[^;"]*;?/gi, '');
 
-  // Detect paragraphs containing emojis and force left-align on them
-  // Emoji ranges: common emoji Unicode blocks
-  const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1FA00}-\u{1FA9F}]/u;
-  html = html.replace(/<p([^>]*)>(.*?)<\/p>/gis, (_match, attrs, inner) => {
-    if (emojiRegex.test(inner)) {
-      return `<p${attrs} class="notice-line">${inner}</p>`;
-    }
-    return `<p${attrs}>${inner}</p>`;
-  });
-
-  return html;
+  return html.trim();
 };
 
 const SingleNewsPage: React.FC = () => {
@@ -349,15 +346,16 @@ function NewsletterForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isValidEmail(email)) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!isValidEmail(normalizedEmail)) return;
     setStatus('loading');
     try {
       const { results } = await queryObjects('NewsletterSubscribers', {
-        where: { email },
+        where: { email: normalizedEmail },
         limit: 1,
       });
       if (results.length > 0) { setStatus('exists'); return; }
-      await createObject('NewsletterSubscribers', { email, status: 'Actif' });
+      await createObject('NewsletterSubscribers', { email: normalizedEmail, status: 'Actif' });
       setStatus('success');
       setEmail('');
     } catch {
@@ -376,7 +374,7 @@ function NewsletterForm() {
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
           <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setStatus('idle'); }} placeholder="Votre adresse email" className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" required />
-          <button type="submit" disabled={status === 'loading' || !isValidEmail(email)} className="w-full bg-teal-600 text-white py-3 rounded-lg font-medium hover:bg-teal-700 transition-colors disabled:opacity-60">
+          <button type="submit" disabled={status === 'loading' || !isValidEmail(email)} className="w-full bg-teal-600 text-white py-3 rounded-lg font-medium hover:bg-teal-700 transition-colors disabled:opacity-60" style={{ touchAction: 'manipulation' }}>
             {status === 'loading' ? 'Inscription...' : "S'abonner"}
           </button>
           {status === 'exists' && <p className="text-sm text-amber-600">Cet email est déjà inscrit à notre newsletter.</p>}

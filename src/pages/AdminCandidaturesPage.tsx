@@ -33,6 +33,7 @@ interface Candidature {
   numeroDossier: string;
   nomVillage: string;
   commune: string;
+  departement: string;
   region: string;
   population: string;
   nomAmicale: string;
@@ -107,8 +108,9 @@ const CandidatureDrawer: React.FC<{
             </h4>
             <div className="divide-y divide-gray-200">
               <InfoRow label="Village" value={candidature.nomVillage} />
-              <InfoRow label="Commune" value={candidature.commune} />
               <InfoRow label="Région" value={candidature.region} />
+              <InfoRow label="Département" value={candidature.departement || '—'} />
+              <InfoRow label="Commune" value={candidature.commune} />
               <InfoRow label="Population" value={candidature.population || '—'} />
             </div>
           </div>
@@ -227,7 +229,9 @@ const AdminCandidaturesPage: React.FC = () => {
         (c.nomAmicale || '').toLowerCase().includes(q) ||
         (c.nomContact || '').toLowerCase().includes(q) ||
         (c.email || '').toLowerCase().includes(q) ||
-        (c.region || '').toLowerCase().includes(q);
+        (c.region || '').toLowerCase().includes(q) ||
+        (c.departement || '').toLowerCase().includes(q) ||
+        (c.commune || '').toLowerCase().includes(q);
       const matchStatus = statusFilter === 'Tous' || c.statut === statusFilter;
       return matchSearch && matchStatus;
     });
@@ -266,8 +270,8 @@ const AdminCandidaturesPage: React.FC = () => {
   };
 
   const exportCSV = () => {
-    const rows = [['N°Dossier', 'Village', 'Commune', 'Région', 'Amicale', 'Contact', 'Email', 'Tél', 'Statut', 'Date']];
-    filtered.forEach((c) => rows.push([c.numeroDossier, c.nomVillage, c.commune, c.region, c.nomAmicale, c.nomContact, c.email, c.telephone, c.statut, new Date(c.createdAt).toLocaleDateString('fr-FR')]));
+    const rows = [['N°Dossier', 'Village', 'Région', 'Département', 'Commune', 'Amicale', 'Contact', 'Email', 'Tél', 'Statut', 'Date']];
+    filtered.forEach((c) => rows.push([c.numeroDossier, c.nomVillage, c.region, c.departement || '', c.commune, c.nomAmicale, c.nomContact, c.email, c.telephone, c.statut, new Date(c.createdAt).toLocaleDateString('fr-FR')]));
     const csv = rows.map((r) => r.join(';')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');

@@ -50,6 +50,9 @@ const fmt = (d: string) =>
 const AdminArchivesPage: React.FC = () => {
   const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('Tous');
   const [selected, setSelected] = useState<Mission | null>(null);
@@ -59,6 +62,7 @@ const AdminArchivesPage: React.FC = () => {
 
   const fetchMissions = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
       const { results } = await queryObjects<Mission>(CLASS_NAME, {
         order: '-date',
@@ -67,6 +71,7 @@ const AdminArchivesPage: React.FC = () => {
       setMissions(results);
     } catch (err) {
       console.error('Fetch missions error:', err);
+      setFetchError('Impossible de charger les missions. Vérifiez votre connexion.');
     } finally {
       setLoading(false);
     }
@@ -99,37 +104,42 @@ const AdminArchivesPage: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer cette mission ?')) return;
+    setActionError('');
     try {
       await deleteObject(CLASS_NAME, id);
       setMissions((prev) => prev.filter((m) => m.objectId !== id));
       setSelected(null);
     } catch (err) {
       console.error(err);
+      setActionError('Impossible de supprimer cette mission. Réessayez.');
     }
   };
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSaving(true);
+    setFormError('');
     const fd = new FormData(e.currentTarget);
     const data: Record<string, unknown> = {
-      title: fd.get('title') as string,
+      title: (fd.get('title') as string).trim(),
       date: fd.get('date') as string,
-      villages: fd.get('villages') as string,
-      description: fd.get('description') as string,
+      villages: (fd.get('villages') as string).trim(),
+      description: (fd.get('description') as string).trim(),
       patientsCount: Number(fd.get('patientsCount')) || 0,
       doctorsCount: Number(fd.get('doctorsCount')) || 0,
-      specialities: fd.get('specialities') as string,
+      specialities: (fd.get('specialities') as string).trim(),
       status: fd.get('status') as string,
     };
 
-    const photoFiles = (fd.getAll('photos') as File[]).filter((f) => f.size > 0);
-    if (photoFiles.length > 0) {
-      const uploaded = await Promise.all(photoFiles.map((f) => uploadFile(f.name, f)));
-      data.photos = uploaded;
-    }
-
     try {
+      const photoFiles = (fd.getAll('photos') as File[]).filter((f) => f.size > 0);
+      if (photoFiles.length > 0) {
+        const uploaded = await Promise.all(photoFiles.map((f) => uploadFile(f.name, f)));
+        data.photos = uploaded;
+      } else if (editingMission?.photos) {
+        data.photos = editingMission.photos;
+      }
+
       if (editingMission) {
         await updateObject(CLASS_NAME, editingMission.objectId, data);
       } else {
@@ -140,12 +150,14 @@ const AdminArchivesPage: React.FC = () => {
       fetchMissions();
     } catch (err) {
       console.error(err);
+      setFormError('Impossible de sauvegarder la mission. Vérifiez les données et réessayez.');
     } finally {
       setSaving(false);
     }
   };
 
   const openEdit = (m: Mission) => {
+    setFormError('');
     setEditingMission(m);
     setShowForm(true);
   };
@@ -173,7 +185,7 @@ const AdminArchivesPage: React.FC = () => {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
-            onClick={() => { setEditingMission(null); setShowForm(true); }}
+            onClick={() => { setEditingMission(null); setFormError(''); setShowForm(true); }}
             className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700"
           >
             <Plus className="h-4 w-4" />
@@ -234,6 +246,20 @@ const AdminArchivesPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Fetch Error */}
+      {fetchError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {fetchError}
+        </div>
+      )}
+
+      {/* Action Error */}
+      {actionError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
 
       {/* Loading */}
       {loading && (
@@ -388,6 +414,11 @@ const AdminArchivesPage: React.FC = () => {
                 <button onClick={() => { setShowForm(false); setEditingMission(null); }} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
               </div>
               <form onSubmit={handleSave} className="space-y-4 p-6">
+                {formError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {formError}
+                  </div>
+                )}
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-700">Titre mission *</label>
                   <input name="title" defaultValue={editingMission?.title ?? ''} required className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-teal-300 focus:ring-2 focus:ring-teal-100" />
@@ -431,8 +462,11 @@ const AdminArchivesPage: React.FC = () => {
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-700">Photos</label>
                   <input name="photos" type="file" accept="image/*" multiple className="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-teal-700 hover:file:bg-teal-100" />
+                  {editingMission?.photos && editingMission.photos.length > 0 && (
+                    <p className="mt-1 text-xs text-gray-500">{editingMission.photos.length} photo(s) existante(s) — laissez vide pour les conserver</p>
+                  )}
                 </div>
-                <button type="submit" disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 py-3 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-60">
+                <button type="submit" disabled={saving} style={{ touchAction: 'manipulation' }} className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 py-3 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-60">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {editingMission ? 'Enregistrer les modifications' : 'Créer la mission'}
                 </button>

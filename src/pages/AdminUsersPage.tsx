@@ -60,12 +60,17 @@ const inputCls = 'w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.
 const AdminUsersPage: React.FC = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Tous' | 'Actif' | 'Inactif'>('Tous');
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [page, setPage] = useState(1);
+  const perPage = 15;
 
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
@@ -74,13 +79,26 @@ const AdminUsersPage: React.FC = () => {
   const [formPassword, setFormPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!openMenu) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-user-menu]')) setOpenMenu(null);
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [openMenu]);
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
       const { results } = await queryObjects<AdminUser>(CLASS_NAME, { order: '-createdAt', limit: 200, keys: 'name,email,phone,role,status,createdAt' });
       setUsers(results);
     } catch (err) {
       console.error(err);
+      setFetchError('Impossible de charger les utilisateurs. Vérifiez votre connexion.');
     } finally {
       setLoading(false);
     }
@@ -97,6 +115,9 @@ const AdminUsersPage: React.FC = () => {
     });
   }, [users, search, statusFilter]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+
   const stats = useMemo(() => ({
     total: users.length,
     actifs: users.filter((u) => u.status === 'Actif').length,
@@ -104,9 +125,10 @@ const AdminUsersPage: React.FC = () => {
   }), [users]);
 
   const handleDelete = async (id: string) => {
+    setActionError('');
     const target = users.find((u) => u.objectId === id);
     if (target?.role === 'Super Admin') {
-      alert('Impossible de supprimer un Super Admin.');
+      setActionError('Impossible de supprimer un Super Admin.');
       setOpenMenu(null);
       return;
     }
@@ -118,14 +140,16 @@ const AdminUsersPage: React.FC = () => {
       if (selectedUser?.objectId === id) setSelectedUser(null);
     } catch (err) {
       console.error(err);
+      setActionError('Échec de la suppression. Réessayez.');
     }
   };
 
   const handleToggleStatus = async (id: string) => {
+    setActionError('');
     const user = users.find((u) => u.objectId === id);
     if (!user) return;
     if (user.role === 'Super Admin' && user.status === 'Actif') {
-      alert('Impossible de désactiver un Super Admin.');
+      setActionError('Impossible de désactiver un Super Admin.');
       setOpenMenu(null);
       return;
     }
@@ -139,25 +163,27 @@ const AdminUsersPage: React.FC = () => {
       setOpenMenu(null);
     } catch (err) {
       console.error(err);
+      setActionError('Échec de la mise à jour du statut. Réessayez.');
     }
   };
 
   const handleAddUser = async () => {
-    if (!formName || !formEmail) return;
+    setFormError('');
+    if (!formName || !formEmail) { setFormError('Nom et email sont obligatoires.'); return; }
+    if (!formPassword || formPassword.length < 8) {
+      setFormError('Le mot de passe doit contenir au moins 8 caractères.');
+      return;
+    }
     setSaving(true);
     try {
-      if (!formPassword || formPassword.length < 8) {
-        alert('Le mot de passe doit contenir au moins 8 caractères.');
-        setSaving(false);
-        return;
-      }
       const safeRole = formRole === 'Super Admin' ? 'Admin' : formRole;
-      await createObject(CLASS_NAME, { name: formName, email: formEmail, phone: formPhone, role: safeRole, status: 'Actif', password: formPassword });
+      await createObject(CLASS_NAME, { name: formName.trim(), email: formEmail.trim().toLowerCase(), phone: formPhone.trim(), role: safeRole, status: 'Actif', password: formPassword });
       setShowAddForm(false);
-      setFormName(''); setFormEmail(''); setFormPhone(''); setFormRole('Admin'); setFormPassword('');
+      setFormName(''); setFormEmail(''); setFormPhone(''); setFormRole('Admin'); setFormPassword(''); setFormError('');
       fetchUsers();
     } catch (err) {
       console.error(err);
+      setFormError('Échec de la création. Vérifiez les informations et réessayez.');
     } finally {
       setSaving(false);
     }
@@ -190,7 +216,7 @@ const AdminUsersPage: React.FC = () => {
           <button onClick={fetchUsers} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
             <RefreshCw className="h-4 w-4" /> Actualiser
           </button>
-          <button onClick={() => setShowAddForm(true)} className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700">
+          <button onClick={() => { setShowAddForm(true); setFormError(''); }} className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700">
             <Plus className="h-4 w-4" /> Ajouter un utilisateur
           </button>
         </div>
@@ -215,15 +241,26 @@ const AdminUsersPage: React.FC = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Rechercher par nom, email, rôle..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-teal-300 focus:ring-2 focus:ring-teal-100" />
+            <input type="text" placeholder="Rechercher par nom, email, rôle..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-teal-300 focus:ring-2 focus:ring-teal-100" />
           </div>
           <div className="flex items-center gap-1.5 rounded-lg bg-gray-100 p-1">
             {(['Tous', 'Actif', 'Inactif'] as const).map((s) => (
-              <button key={s} onClick={() => setStatusFilter(s)} className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${statusFilter === s ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{s}</button>
+              <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }} className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${statusFilter === s ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{s}</button>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Error banners */}
+      {fetchError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{fetchError}</div>
+      )}
+      {actionError && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+          {actionError}
+          <button onClick={() => setActionError('')} className="ml-3 font-medium underline">Fermer</button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -241,7 +278,7 @@ const AdminUsersPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               <AnimatePresence>
-                {filtered.map((u) => (
+                {paginated.map((u) => (
                   <motion.tr key={u.objectId} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="group transition-colors hover:bg-teal-50/30">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -263,7 +300,7 @@ const AdminUsersPage: React.FC = () => {
                     <td className="hidden px-5 py-4 sm:table-cell"><span className="text-sm text-gray-500">{fmt(u.createdAt)}</span></td>
                     <td className="px-5 py-4"><StatusBadge status={u.status} /></td>
                     <td className="px-5 py-4 text-right">
-                      <div className="relative inline-block">
+                      <div className="relative inline-block" data-user-menu>
                         <button onClick={() => setOpenMenu(openMenu === u.objectId ? null : u.objectId)} className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
                           <MoreHorizontal className="h-4 w-4" />
                         </button>
@@ -296,6 +333,20 @@ const AdminUsersPage: React.FC = () => {
             <Users className="mx-auto mb-4 h-10 w-10 text-gray-300" />
             <p className="font-medium text-gray-500">Aucun utilisateur trouvé</p>
             <p className="mt-1 text-sm text-gray-400">Essayez de modifier vos filtres</p>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-gray-200 px-5 py-3">
+            <p className="text-sm text-gray-500">{filtered.length} résultat{filtered.length > 1 ? 's' : ''}</p>
+            <div className="flex items-center gap-1">
+              <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:opacity-40">Précédent</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button key={p} onClick={() => setPage(p)} className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${p === page ? 'bg-teal-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>{p}</button>
+              ))}
+              <button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:opacity-40">Suivant</button>
+            </div>
           </div>
         )}
       </div>
@@ -351,6 +402,9 @@ const AdminUsersPage: React.FC = () => {
                 <button onClick={() => setShowAddForm(false)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
               </div>
               <div className="space-y-5 p-6">
+                {formError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{formError}</div>
+                )}
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-gray-700">Nom complet *</label>
                   <input value={formName} onChange={(e) => setFormName(e.target.value)} className={inputCls} placeholder="Ex: Mamadou Diallo" />
@@ -380,7 +434,7 @@ const AdminUsersPage: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                <button onClick={handleAddUser} disabled={saving || !formName || !formEmail} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-60">
+                <button onClick={handleAddUser} disabled={saving || !formName || !formEmail} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-60" style={{ touchAction: 'manipulation' }}>
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {saving ? 'Création...' : 'Créer le compte'}
                 </button>

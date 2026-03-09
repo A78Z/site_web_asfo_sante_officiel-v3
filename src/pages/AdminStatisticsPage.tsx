@@ -42,6 +42,7 @@ const COLORS = ['#0d9488', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 const AdminStatisticsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const [counts, setCounts] = useState<ClassCount[]>([]);
   const [barData, setBarData] = useState<{ name: string; total: number }[]>([]);
   const [pieData, setPieData] = useState<{ name: string; value: number }[]>([]);
@@ -49,9 +50,22 @@ const AdminStatisticsPage: React.FC = () => {
     { month: string; candidatures: number; benevoles: number; membres: number }[]
   >([]);
 
+  /** Group an array of { createdAt } by month index (0–11) for the current year */
+  const groupByMonth = (items: { createdAt: string }[]): number[] => {
+    const year = new Date().getFullYear();
+    const buckets = new Array(12).fill(0);
+    for (const item of items) {
+      const d = new Date(item.createdAt);
+      if (d.getFullYear() === year) buckets[d.getMonth()]++;
+    }
+    return buckets;
+  };
+
   const fetchStats = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
+      // Counts for all 6 classes
       const [candidatures, volunteers, members, messages, newsletter, missions] =
         await Promise.all([
           queryObjects('Candidatures', { limit: 0, count: true }),
@@ -75,28 +89,33 @@ const AdminStatisticsPage: React.FC = () => {
       setBarData(raw.map((r) => ({ name: r.label, total: r.value })));
       setPieData(raw.filter((r) => r.value > 0).map((r) => ({ name: r.label, value: r.value })));
 
-      const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+      // Real monthly data — fetch createdAt for the 3 main classes this year
+      const year = new Date().getFullYear();
+      const startOfYear = new Date(year, 0, 1).toISOString();
+      const yearFilter = { where: { createdAt: { $gte: { __type: 'Date', iso: startOfYear } } }, keys: 'createdAt', limit: 1000 };
+
+      const [candRows, volRows, memRows] = await Promise.all([
+        queryObjects<{ createdAt: string }>('Candidatures', yearFilter),
+        queryObjects<{ createdAt: string }>('VolunteerRequests', yearFilter),
+        queryObjects<{ createdAt: string }>('MemberRequests', yearFilter),
+      ]);
+
+      const candByMonth = groupByMonth(candRows.results);
+      const volByMonth = groupByMonth(volRows.results);
+      const memByMonth = groupByMonth(memRows.results);
+
+      const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
       const currentMonth = new Date().getMonth();
-      const monthly = months.slice(0, currentMonth + 1).map((m, i) => {
-        const factor = Math.max(0.3, Math.random());
-        return {
-          month: m,
-          candidatures: Math.round((candidatures.count ?? 0) * factor / (currentMonth + 1)),
-          benevoles: Math.round((volunteers.count ?? 0) * factor / (currentMonth + 1)),
-          membres: Math.round((members.count ?? 0) * factor / (currentMonth + 1)),
-        };
-      });
+      const monthly = monthNames.slice(0, currentMonth + 1).map((m, i) => ({
+        month: m,
+        candidatures: candByMonth[i],
+        benevoles: volByMonth[i],
+        membres: memByMonth[i],
+      }));
       setMonthlyData(monthly);
     } catch (err) {
       console.error('Stats fetch error:', err);
-      setCounts([
-        { label: 'Candidatures', value: 0, icon: Heart, color: '#0d9488', light: 'bg-teal-50 text-teal-700' },
-        { label: 'Bénévoles', value: 0, icon: Users, color: '#3b82f6', light: 'bg-blue-50 text-blue-700' },
-        { label: 'Cartes membres', value: 0, icon: CreditCard, color: '#f59e0b', light: 'bg-amber-50 text-amber-700' },
-        { label: 'Messages', value: 0, icon: Mail, color: '#ef4444', light: 'bg-red-50 text-red-700' },
-        { label: 'Newsletter', value: 0, icon: Newspaper, color: '#8b5cf6', light: 'bg-purple-50 text-purple-700' },
-        { label: 'Missions', value: 0, icon: Archive, color: '#ec4899', light: 'bg-pink-50 text-pink-700' },
-      ]);
+      setFetchError('Impossible de charger les statistiques. Vérifiez votre connexion.');
     } finally {
       setLoading(false);
     }
@@ -106,14 +125,7 @@ const AdminStatisticsPage: React.FC = () => {
     fetchStats();
   }, [fetchStats]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
-        <span className="ml-3 text-sm text-gray-500">Chargement des statistiques...</span>
-      </div>
-    );
-  }
+  const totalCount = counts.reduce((s, c) => s + c.value, 0);
 
   return (
     <div>
@@ -127,12 +139,37 @@ const AdminStatisticsPage: React.FC = () => {
           onClick={fetchStats}
           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Actualiser
         </button>
       </div>
 
-      {/* Stat cards */}
+      {/* Fetch Error */}
+      {fetchError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {fetchError}
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+          <span className="ml-3 text-sm text-gray-500">Chargement des statistiques...</span>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && !fetchError && totalCount === 0 && counts.length > 0 && (
+        <div className="py-16 text-center">
+          <BarChart3 className="mx-auto mb-4 h-10 w-10 text-gray-300" />
+          <p className="font-medium text-gray-500">Aucune donnée disponible</p>
+          <p className="mt-1 text-sm text-gray-400">Les statistiques apparaîtront lorsque des données seront enregistrées.</p>
+        </div>
+      )}
+
+      {/* Stat cards + Charts */}
+      {!loading && counts.length > 0 && (<>
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         {counts.map((c, i) => {
           const Icon = c.icon;
@@ -189,6 +226,7 @@ const AdminStatisticsPage: React.FC = () => {
           className="rounded-xl border border-gray-200 bg-white p-5"
         >
           <h3 className="mb-4 text-sm font-bold text-gray-800">Distribution</h3>
+          {pieData.length > 0 ? (
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
@@ -212,10 +250,14 @@ const AdminStatisticsPage: React.FC = () => {
               />
             </PieChart>
           </ResponsiveContainer>
+          ) : (
+            <div className="flex h-[280px] items-center justify-center text-sm text-gray-400">Aucune donnée</div>
+          )}
         </motion.div>
       </div>
 
       {/* Area chart */}
+      {monthlyData.length > 0 && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -227,7 +269,7 @@ const AdminStatisticsPage: React.FC = () => {
           <AreaChart data={monthlyData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
             <Tooltip
               contentStyle={{ borderRadius: '0.75rem', border: '1px solid #e5e7eb', fontSize: 12 }}
             />
@@ -259,6 +301,8 @@ const AdminStatisticsPage: React.FC = () => {
           </AreaChart>
         </ResponsiveContainer>
       </motion.div>
+      )}
+      </>)}
     </div>
   );
 };

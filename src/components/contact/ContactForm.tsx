@@ -7,6 +7,7 @@ const ContactForm: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     subject: '',
     message: '',
   });
@@ -81,18 +82,17 @@ const ContactForm: React.FC = () => {
 
     try {
       await createObject('ContactMessages', {
-        name: formData.name,
-        email: formData.email,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
         subject: formData.subject,
-        message: formData.message,
+        message: formData.message.trim(),
         status: 'Nouveau',
       });
 
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
       setSubmitSuccess(true);
-      setTimeout(() => {
-        setSubmitSuccess(false);
-        setFormData({ name: '', email: '', subject: '', message: '' });
-      }, 5000);
+      setTimeout(() => setSubmitSuccess(false), 6000);
     } catch (err) {
       console.error('Contact form error:', err);
       setSubmitError('Impossible d\'envoyer le message. Veuillez réessayer.');
@@ -166,6 +166,21 @@ const ContactForm: React.FC = () => {
       </div>
 
       <div className="mb-6">
+        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+          Téléphone
+        </label>
+        <input
+          type="tel"
+          id="phone"
+          name="phone"
+          value={formData.phone}
+          onChange={handleChange}
+          className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+          placeholder="+221 7X XXX XX XX"
+        />
+      </div>
+
+      <div className="mb-6">
         <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">
           Sujet
         </label>
@@ -205,16 +220,23 @@ const ContactForm: React.FC = () => {
         )}
       </div>
 
-      <div>
+      <div style={{ touchAction: 'manipulation' }}>
         <Button
           type="submit"
           variant="primary"
           size="large"
           disabled={isSubmitting}
-          icon={<Send size={18} />}
+          icon={isSubmitting ? undefined : <Send size={18} />}
           fullWidth
         >
-          {isSubmitting ? 'Envoi en cours...' : 'Envoyer le message'}
+          {isSubmitting ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Envoi en cours...
+            </span>
+          ) : (
+            'Envoyer le message'
+          )}
         </Button>
       </div>
     </form>

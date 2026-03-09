@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
-import { queryObjects } from '../lib/parse';
+import { queryObjects, type ParseObject } from '../lib/parse';
 import DashboardHeader from '../components/admin/DashboardHeader';
 import DashboardStats, { type StatData } from '../components/admin/DashboardStats';
 import DashboardCharts, {
@@ -18,6 +18,7 @@ import {
   Mail,
   Newspaper,
   Megaphone,
+  RefreshCw,
 } from 'lucide-react';
 
 function timeAgo(d: string) {
@@ -39,6 +40,7 @@ function oneWeekAgo() {
 
 const AdminDashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const [stats, setStats] = useState<StatData[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [pieData, setPieData] = useState<PieData[]>([]);
@@ -46,8 +48,34 @@ const AdminDashboardPage: React.FC = () => {
   const [appRows, setAppRows] = useState<AppRow[]>([]);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
 
+  /** Group an array of { createdAt } by month index (0–11) for the current year */
+  const groupByMonth = (items: { createdAt: string }[]): number[] => {
+    const year = new Date().getFullYear();
+    const buckets = new Array(12).fill(0);
+    for (const item of items) {
+      const d = new Date(item.createdAt);
+      if (d.getFullYear() === year) buckets[d.getMonth()]++;
+    }
+    return buckets;
+  };
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
+
+    /** Safe query wrapper — returns fallback on failure instead of throwing */
+    const safeQuery = async <T = ParseObject>(
+      className: string,
+      params?: Parameters<typeof queryObjects>[1],
+    ): Promise<{ results: T[]; count?: number }> => {
+      try {
+        return await queryObjects<T>(className, params);
+      } catch (err) {
+        console.warn(`Dashboard: query ${className} failed`, err);
+        return { results: [] as T[], count: 0 };
+      }
+    };
+
     try {
       const weekAgo = oneWeekAgo();
 
@@ -65,38 +93,38 @@ const AdminDashboardPage: React.FC = () => {
         newsAll,
         newsWeek,
       ] = await Promise.all([
-        queryObjects('Candidatures', { limit: 0, count: true }),
-        queryObjects('Candidatures', {
+        safeQuery('Candidatures', { limit: 0, count: true }),
+        safeQuery('Candidatures', {
           where: { createdAt: { $gte: { __type: 'Date', iso: weekAgo } } },
           limit: 0,
           count: true,
         }),
-        queryObjects('VolunteerRequests', { limit: 0, count: true }),
-        queryObjects('VolunteerRequests', {
+        safeQuery('VolunteerRequests', { limit: 0, count: true }),
+        safeQuery('VolunteerRequests', {
           where: { createdAt: { $gte: { __type: 'Date', iso: weekAgo } } },
           limit: 0,
           count: true,
         }),
-        queryObjects('MemberRequests', { limit: 0, count: true }),
-        queryObjects('MemberRequests', {
+        safeQuery('MemberRequests', { limit: 0, count: true }),
+        safeQuery('MemberRequests', {
           where: { createdAt: { $gte: { __type: 'Date', iso: weekAgo } } },
           limit: 0,
           count: true,
         }),
-        queryObjects('ContactMessages', { limit: 0, count: true }),
-        queryObjects('ContactMessages', {
+        safeQuery('ContactMessages', { limit: 0, count: true }),
+        safeQuery('ContactMessages', {
           where: { createdAt: { $gte: { __type: 'Date', iso: weekAgo } } },
           limit: 0,
           count: true,
         }),
-        queryObjects('NewsletterSubscribers', { limit: 0, count: true }),
-        queryObjects('NewsletterSubscribers', {
+        safeQuery('NewsletterSubscribers', { limit: 0, count: true }),
+        safeQuery('NewsletterSubscribers', {
           where: { createdAt: { $gte: { __type: 'Date', iso: weekAgo } } },
           limit: 0,
           count: true,
         }),
-        queryObjects('News', { where: { status: 'Publié' }, limit: 0, count: true }),
-        queryObjects('News', {
+        safeQuery('News', { where: { status: 'Publié' }, limit: 0, count: true }),
+        safeQuery('News', {
           where: {
             status: 'Publié',
             createdAt: { $gte: { __type: 'Date', iso: weekAgo } },
@@ -161,27 +189,40 @@ const AdminDashboardPage: React.FC = () => {
       /* ── Pie data ── */
       setPieData(rawStats.filter((s) => s.value > 0).map((s) => ({ name: s.label, value: s.value })));
 
-      /* ── Monthly data (simulated distribution from totals) ── */
-      const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+      /* ── Real monthly data — fetch createdAt for 4 classes this year ── */
+      const year = new Date().getFullYear();
+      const startOfYear = new Date(year, 0, 1).toISOString();
+      const yearFilter = { where: { createdAt: { $gte: { __type: 'Date', iso: startOfYear } } }, keys: 'createdAt', limit: 1000 };
+
+      const [candRows2, volRows2, msgRows2, nlRows2] = await Promise.all([
+        safeQuery<{ createdAt: string }>('Candidatures', yearFilter),
+        safeQuery<{ createdAt: string }>('VolunteerRequests', yearFilter),
+        safeQuery<{ createdAt: string }>('ContactMessages', yearFilter),
+        safeQuery<{ createdAt: string }>('NewsletterSubscribers', yearFilter),
+      ]);
+
+      const candByMonth = groupByMonth(candRows2.results);
+      const volByMonth = groupByMonth(volRows2.results);
+      const msgByMonth = groupByMonth(msgRows2.results);
+      const nlByMonth = groupByMonth(nlRows2.results);
+
+      const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
       const cm = new Date().getMonth();
-      const monthly: MonthlyData[] = months.slice(0, cm + 1).map((m) => {
-        const f = 0.3 + Math.random() * 0.7;
-        return {
-          month: m,
-          candidatures: Math.round(((candAll.count ?? 0) * f) / (cm + 1)),
-          benevoles: Math.round(((volAll.count ?? 0) * f) / (cm + 1)),
-          messages: Math.round(((msgAll.count ?? 0) * f) / (cm + 1)),
-          newsletter: Math.round(((nlAll.count ?? 0) * f) / (cm + 1)),
-        };
-      });
+      const monthly: MonthlyData[] = monthNames.slice(0, cm + 1).map((m, i) => ({
+        month: m,
+        candidatures: candByMonth[i],
+        benevoles: volByMonth[i],
+        messages: msgByMonth[i],
+        newsletter: nlByMonth[i],
+      }));
       setMonthlyData(monthly);
 
       /* ── Recent activity (merge latest from each class) ── */
       const [recentCand, recentVol, recentNl, recentMsg] = await Promise.all([
-        queryObjects<Record<string, unknown>>('Candidatures', { order: '-createdAt', limit: 3 }),
-        queryObjects<Record<string, unknown>>('VolunteerRequests', { order: '-createdAt', limit: 3 }),
-        queryObjects<Record<string, unknown>>('NewsletterSubscribers', { order: '-createdAt', limit: 3 }),
-        queryObjects<Record<string, unknown>>('ContactMessages', { order: '-createdAt', limit: 3 }),
+        safeQuery<Record<string, unknown>>('Candidatures', { order: '-createdAt', limit: 3 }),
+        safeQuery<Record<string, unknown>>('VolunteerRequests', { order: '-createdAt', limit: 3 }),
+        safeQuery<Record<string, unknown>>('NewsletterSubscribers', { order: '-createdAt', limit: 3 }),
+        safeQuery<Record<string, unknown>>('ContactMessages', { order: '-createdAt', limit: 3 }),
       ]);
 
       const acts: Activity[] = [
@@ -190,33 +231,31 @@ const AdminDashboardPage: React.FC = () => {
           type: 'candidature' as const,
           text: `Nouvelle candidature village — ${(r as Record<string, unknown>).village || (r as Record<string, unknown>).villageName || 'village'}`,
           time: timeAgo(r.createdAt as string),
+          _ts: new Date(r.createdAt as string).getTime(),
         })),
         ...recentVol.results.map((r) => ({
           id: `v-${r.objectId}`,
           type: 'benevole' as const,
           text: `Demande bénévole — ${(r as Record<string, unknown>).firstName || ''} ${(r as Record<string, unknown>).lastName || ''}`.trim(),
           time: timeAgo(r.createdAt as string),
+          _ts: new Date(r.createdAt as string).getTime(),
         })),
         ...recentNl.results.map((r) => ({
           id: `n-${r.objectId}`,
           type: 'newsletter' as const,
           text: `Inscription newsletter — ${(r as Record<string, unknown>).email || ''}`,
           time: timeAgo(r.createdAt as string),
+          _ts: new Date(r.createdAt as string).getTime(),
         })),
         ...recentMsg.results.map((r) => ({
           id: `m-${r.objectId}`,
           type: 'message' as const,
           text: `Message contact — ${(r as Record<string, unknown>).name || (r as Record<string, unknown>).email || ''}`,
           time: timeAgo(r.createdAt as string),
+          _ts: new Date(r.createdAt as string).getTime(),
         })),
       ]
-        .sort((a, b) => {
-          const ta = a.time;
-          const tb = b.time;
-          if (ta.includes('instant')) return -1;
-          if (tb.includes('instant')) return 1;
-          return 0;
-        })
+        .sort((a, b) => b._ts - a._ts)
         .slice(0, 8);
       setActivities(acts);
 
@@ -232,7 +271,7 @@ const AdminDashboardPage: React.FC = () => {
       setAppRows(candRows);
 
       /* ── Latest news ── */
-      const latestNews = await queryObjects<Record<string, unknown>>('News', {
+      const latestNews = await safeQuery<Record<string, unknown>>('News', {
         where: { status: 'Publié' },
         order: '-createdAt',
         limit: 4,
@@ -250,6 +289,8 @@ const AdminDashboardPage: React.FC = () => {
       );
     } catch (err) {
       console.error('Dashboard fetch error:', err);
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue';
+      setFetchError(`Erreur de chargement : ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -259,34 +300,59 @@ const AdminDashboardPage: React.FC = () => {
     fetchAll();
   }, [fetchAll]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
-        <span className="ml-3 text-sm text-gray-500">Chargement du dashboard...</span>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <DashboardHeader />
-      <DashboardStats stats={stats} />
-
-      {/* Charts */}
-      <DashboardCharts monthlyData={monthlyData} pieData={pieData} />
-
-      {/* Two-column layout: Activity + Quick Actions | Candidatures + News */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-1">
-          <QuickActions />
-          <RecentActivity activities={activities} />
-        </div>
-        <div className="space-y-6 lg:col-span-2">
-          <RecentApplications rows={appRows} />
-          <LatestNews items={newsItems} />
-        </div>
+      {/* Header + refresh */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1"><DashboardHeader /></div>
+        <button
+          type="button"
+          onClick={fetchAll}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+          style={{ touchAction: 'manipulation' }}
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Actualiser</span>
+        </button>
       </div>
+
+      {/* Error banner */}
+      {fetchError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {fetchError}
+        </div>
+      )}
+
+      {/* Inline loader */}
+      {loading && (
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+          <span className="ml-3 text-sm text-gray-500">Chargement du dashboard…</span>
+        </div>
+      )}
+
+      {/* Dashboard content */}
+      {!loading && !fetchError && (
+        <>
+          <DashboardStats stats={stats} />
+
+          {/* Charts */}
+          <DashboardCharts monthlyData={monthlyData} pieData={pieData} />
+
+          {/* Two-column layout: Activity + Quick Actions | Candidatures + News */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="space-y-6 lg:col-span-1">
+              <QuickActions />
+              <RecentActivity activities={activities} />
+            </div>
+            <div className="space-y-6 lg:col-span-2">
+              <RecentApplications rows={appRows} />
+              <LatestNews items={newsItems} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

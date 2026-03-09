@@ -40,7 +40,6 @@ import AdminStatisticsPage from './pages/AdminStatisticsPage';
 import AdminNewsPage from './pages/AdminNewsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
-import AdminAnnouncementsPage from './pages/AdminAnnouncementsPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import ScrollToTop from './utils/ScrollToTop';
 
@@ -100,7 +99,6 @@ function App() {
           <Route path="/admin/archives-missions" element={<AdminArchivesPage />} />
           <Route path="/admin/gallery" element={<AdminGalleryPage />} />
           <Route path="/admin/statistics" element={<AdminStatisticsPage />} />
-          <Route path="/admin/annonces" element={<AdminAnnouncementsPage />} />
           <Route path="/admin/news" element={<AdminNewsPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
         </Route>

@@ -18,7 +18,6 @@ import {
   HeartHandshake,
   Mail,
   Newspaper,
-  Megaphone,
 } from 'lucide-react';
 
 const navSections = [
@@ -31,7 +30,6 @@ const navSections = [
       { name: 'Demandes bénévoles', path: '/admin/benevoles', icon: HeartHandshake },
       { name: 'Messages reçus', path: '/admin/messages', icon: Mail },
       { name: 'Newsletter', path: '/admin/newsletter', icon: Newspaper },
-      { name: 'Annonces officielles', path: '/admin/annonces', icon: Megaphone },
     ],
   },
   {

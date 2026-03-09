@@ -16,7 +16,6 @@ import {
   Calendar,
   Tag,
   Star,
-  FileText,
   Archive,
   CheckCircle,
   Clock,
@@ -75,6 +74,42 @@ const slugify = (text: string) =>
 const fmt = (d: string) =>
   new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 
+/**
+ * Clean HTML content before saving to Parse.
+ * Fixes: &nbsp; / \u00A0 / useless spans / inline styles / multiple spaces
+ */
+function cleanHtmlContent(html: string): string {
+  if (!html) return '';
+
+  let clean = html;
+
+  // 1. Replace &nbsp; entities with normal spaces
+  clean = clean.replace(/&nbsp;/gi, ' ');
+
+  // 2. Replace unicode non-breaking spaces (\u00A0) with normal spaces
+  clean = clean.replace(/\u00A0/g, ' ');
+
+  // 3. Unwrap empty or style-only <span> tags — keep inner content
+  clean = clean.replace(/<span\s*[^>]*>([\s\S]*?)<\/span>/gi, '$1');
+
+  // 4. Strip all inline style attributes
+  clean = clean.replace(/\s*style="[^"]*"/gi, '');
+
+  // 5. Strip all class attributes (Quill adds ql-indent-*, ql-align-*, etc.)
+  clean = clean.replace(/\s*class="[^"]*"/gi, '');
+
+  // 6. Collapse multiple consecutive spaces into one (inside text, not tags)
+  clean = clean.replace(/(<[^>]*>)|(\s{2,})/g, (_m, tag) => tag || ' ');
+
+  // 7. Remove empty paragraphs (only whitespace/br inside)
+  clean = clean.replace(/<p>\s*(<br\s*\/?>)?\s*<\/p>/gi, '');
+
+  // 8. Clean up whitespace around tags
+  clean = clean.replace(/>\s+</g, '> <');
+
+  return clean.trim();
+}
+
 const getImageUrl = (a: NewsArticle) =>
   a.coverImage?.url || a.imageUrl || '';
 
@@ -99,6 +134,9 @@ const AdminNewsPage: React.FC = () => {
   const [editing, setEditing] = useState<NewsArticle | null>(null);
   const [preview, setPreview] = useState<NewsArticle | null>(null);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [fetchError, setFetchError] = useState('');
 
   /* form state */
   const [fTitle, setFTitle] = useState('');
@@ -116,6 +154,7 @@ const AdminNewsPage: React.FC = () => {
 
   const fetchArticles = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
       const { results } = await queryObjects<NewsArticle>(CLASS_NAME, {
         order: '-createdAt',
@@ -124,6 +163,7 @@ const AdminNewsPage: React.FC = () => {
       setArticles(results);
     } catch (err) {
       console.error(err);
+      setFetchError('Impossible de charger les articles. Vérifiez votre connexion.');
     } finally {
       setLoading(false);
     }
@@ -169,6 +209,7 @@ const AdminNewsPage: React.FC = () => {
     setFDate('');
     setFImageFile(null);
     setFImagePreview('');
+    setFormError('');
   };
 
   const openNewForm = () => {
@@ -201,14 +242,18 @@ const AdminNewsPage: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!fTitle) return;
+    if (!fTitle) {
+      setFormError('Le titre est obligatoire.');
+      return;
+    }
     setSaving(true);
+    setFormError('');
 
     const data: Record<string, unknown> = {
       title: fTitle,
       slug: fSlug || slugify(fTitle),
-      excerpt: fExcerpt,
-      content: fContent,
+      excerpt: cleanHtmlContent(fExcerpt),
+      content: cleanHtmlContent(fContent),
       category: fCategory,
       tags: fTags
         .split(',')
@@ -232,9 +277,18 @@ const AdminNewsPage: React.FC = () => {
         data.imageUrl = uploaded.url;
       } catch (err) {
         console.error('Image upload failed', err);
-        alert('Erreur lors de l\'upload de l\'image. Vérifiez votre connexion et réessayez.');
+        const msg = err instanceof Error ? err.message : 'Erreur inconnue';
+        setFormError(`Erreur image : ${msg}`);
         setSaving(false);
         return;
+      }
+    } else if (editing) {
+      // Preserve existing image when not uploading a new one
+      if (editing.coverImage) {
+        data.coverImage = editing.coverImage;
+        data.imageUrl = editing.coverImage.url;
+      } else if (editing.imageUrl) {
+        data.imageUrl = editing.imageUrl;
       }
     }
 
@@ -247,9 +301,13 @@ const AdminNewsPage: React.FC = () => {
       setShowForm(false);
       resetForm();
       setEditing(null);
+      setSuccessMsg(editing ? 'Article modifié avec succès !' : 'Article créé avec succès !');
+      setTimeout(() => setSuccessMsg(''), 4000);
       fetchArticles();
     } catch (err) {
       console.error(err);
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue';
+      setFormError(`Échec de l'enregistrement : ${msg}`);
     } finally {
       setSaving(false);
     }
@@ -265,8 +323,12 @@ const AdminNewsPage: React.FC = () => {
       setArticles((prev) =>
         prev.map((a) => (a.objectId === id ? { ...a, status: newStatus } : a)),
       );
+      setSuccessMsg(`Article ${newStatus === 'Publié' ? 'publié' : newStatus === 'Archivé' ? 'archivé' : 'mis à jour'} !`);
+      setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       console.error(err);
+      setFetchError('Échec du changement de statut. Réessayez.');
+      setTimeout(() => setFetchError(''), 4000);
     }
   };
 
@@ -276,8 +338,12 @@ const AdminNewsPage: React.FC = () => {
       await deleteObject(CLASS_NAME, id);
       setArticles((prev) => prev.filter((a) => a.objectId !== id));
       setPreview(null);
+      setSuccessMsg('Article supprimé.');
+      setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       console.error(err);
+      setFetchError('Échec de la suppression. Réessayez.');
+      setTimeout(() => setFetchError(''), 4000);
     }
   };
 
@@ -308,7 +374,7 @@ const AdminNewsPage: React.FC = () => {
           <button onClick={fetchArticles} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button onClick={openNewForm} className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700">
+          <button onClick={openNewForm} className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700 touch-manipulation">
             <Plus className="h-4 w-4" />
             Nouvelle actualité
           </button>
@@ -330,6 +396,22 @@ const AdminNewsPage: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Success / Error banners */}
+      <AnimatePresence>
+        {successMsg && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+            <CheckCircle className="h-4 w-4 shrink-0" />
+            {successMsg}
+          </motion.div>
+        )}
+        {fetchError && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <XCircle className="h-4 w-4 shrink-0" />
+            {fetchError}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Filters */}
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
@@ -607,13 +689,23 @@ const AdminNewsPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Form error */}
+              {formError && (
+                <div className="shrink-0 border-t border-red-100 bg-red-50 px-6 py-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-red-700">
+                    <XCircle className="h-4 w-4 shrink-0" />
+                    {formError}
+                  </div>
+                </div>
+              )}
+
               {/* Footer */}
               <div className="shrink-0 border-t border-gray-200 px-6 py-4">
                 <div className="flex gap-3">
-                  <button onClick={() => { setShowForm(false); setEditing(null); }} className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                  <button onClick={() => { setShowForm(false); setEditing(null); }} className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 touch-manipulation">
                     Annuler
                   </button>
-                  <button onClick={handleSave} disabled={saving || !fTitle} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-teal-600 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-60">
+                  <button onClick={handleSave} disabled={saving || !fTitle} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-teal-600 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-60 touch-manipulation">
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     {editing ? 'Enregistrer' : 'Publier'}
                   </button>

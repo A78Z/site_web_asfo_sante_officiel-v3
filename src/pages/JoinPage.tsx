@@ -7,6 +7,7 @@ import { createObject } from '../lib/parse';
 const JoinPage: React.FC = () => {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   React.useEffect(() => {
     document.title = 'Nous rejoindre | ASFO | Action Sanitaire pour le Fouta';
@@ -15,18 +16,24 @@ const JoinPage: React.FC = () => {
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSubmitError('');
     try {
       const fd = new FormData(e.currentTarget);
+      const profile = fd.get('profile') as string;
+      const otherProfile = (fd.get('other-profile') as string || '').trim();
+      const availability = fd.get('availability') as string;
+      const otherAvailability = (fd.get('other-availability') as string || '').trim();
+
       await createObject('VolunteerRequests', {
         firstName: fd.get('first-name') as string,
         lastName: fd.get('last-name') as string,
         email: fd.get('email') as string,
         phone: fd.get('phone') as string,
-        profile: fd.get('profile') as string,
+        profile: profile === 'other' && otherProfile ? otherProfile : profile,
         speciality: fd.get('specialty') as string || '',
         experience: fd.get('experience') as string || '',
         motivation: fd.get('motivation') as string,
-        availability: fd.get('availability') as string,
+        availability: availability === 'other' && otherAvailability ? otherAvailability : availability,
         workplace: fd.get('workplace') as string || '',
         status: 'En attente',
       });
@@ -35,7 +42,7 @@ const JoinPage: React.FC = () => {
       setTimeout(() => setSubmitSuccess(false), 6000);
     } catch (err) {
       console.error('Volunteer submit error:', err);
-      alert('Une erreur est survenue. Veuillez réessayer.');
+      setSubmitError('Une erreur est survenue. Veuillez réessayer.');
     } finally {
       setIsSubmitting(false);
     }
@@ -543,10 +550,17 @@ const JoinPage: React.FC = () => {
                 </div>
               </div>
               
+              {submitError && (
+                <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={isSubmitting}
                 className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                style={{ touchAction: 'manipulation' }}
               >
                 {isSubmitting ? (
                   <>

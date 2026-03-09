@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,17 +7,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin, Users, UploadCloud, CheckCircle, Download, Home,
   FileText, X, Loader2, AlertCircle, Phone, Mail,
-  AlertTriangle, HeartPulse, Shield, BookOpen, MousePointerClick, FileEdit, Send
+  AlertTriangle, HeartPulse, Shield, BookOpen, MousePointerClick, FileEdit, Send,
+  ChevronDown, Building2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createObject, uploadFile } from '../lib/parse';
+import { getRegions, getDepartements, getCommunes } from '../data/senegal-geo';
 
 // ─── Zod Schema ──────────────────────────────────────────────
 const candidatureSchema = z.object({
   // Section 1 - Village
   nomVillage: z.string().min(2, 'Le nom du village est requis (min 2 caractères)'),
-  commune: z.string().min(2, 'La commune est requise'),
   region: z.string().min(1, 'Veuillez sélectionner une région'),
+  departement: z.string().min(1, 'Veuillez sélectionner un département'),
+  commune: z.string().min(1, 'Veuillez sélectionner une commune'),
   population: z.string().optional(),
   distanceCentreSante: z.string().optional(),
   posteSante: z.string().optional(),
@@ -40,11 +43,7 @@ const candidatureSchema = z.object({
 type CandidatureFormData = z.infer<typeof candidatureSchema>;
 
 // ─── Constants ───────────────────────────────────────────────
-const senegalRegions = [
-  'Dakar', 'Thiès', 'Saint-Louis', 'Diourbel', 'Louga',
-  'Tambacounda', 'Kaolack', 'Kolda', 'Ziguinchor', 'Fatick',
-  'Kaffrine', 'Kédougou', 'Matam', 'Sédhiou', 'Mauritanie'
-];
+const allRegions = getRegions();
 
 interface UploadedFile {
   file: File;
@@ -149,16 +148,50 @@ const CandidaturePage: React.FC = () => {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [numeroDossier, setNumeroDossier] = useState('');
   const [fileError, setFileError] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<CandidatureFormData>({
     resolver: zodResolver(candidatureSchema),
-    mode: 'onBlur',
+    mode: 'onTouched',
+    defaultValues: {
+      region: '',
+      departement: '',
+      commune: '',
+    },
   });
+
+  // ─── Cascading selects ──────────────────────────────────────
+  const selectedRegion = watch('region');
+  const selectedDepartement = watch('departement');
+
+  const departementsList = useMemo(
+    () => (selectedRegion ? getDepartements(selectedRegion) : []),
+    [selectedRegion],
+  );
+  const communesList = useMemo(
+    () => (selectedDepartement ? getCommunes(selectedDepartement) : []),
+    [selectedDepartement],
+  );
+
+  const handleRegionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setValue('region', val, { shouldValidate: true });
+    setValue('departement', '', { shouldValidate: false });
+    setValue('commune', '', { shouldValidate: false });
+  };
+
+  const handleDepartementChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setValue('departement', val, { shouldValidate: true });
+    setValue('commune', '', { shouldValidate: false });
+  };
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFileError('');
@@ -203,6 +236,7 @@ const CandidaturePage: React.FC = () => {
       return;
     }
     setFileError('');
+    setSubmitError('');
     setIsSubmitting(true);
 
     try {
@@ -218,8 +252,9 @@ const CandidaturePage: React.FC = () => {
       await createObject('Candidatures', {
         numeroDossier: numero,
         nomVillage: data.nomVillage,
-        commune: data.commune,
         region: data.region,
+        departement: data.departement,
+        commune: data.commune,
         population: data.population || '',
         distanceCentreSante: data.distanceCentreSante || '',
         posteSante: data.posteSante || '',
@@ -240,6 +275,11 @@ const CandidaturePage: React.FC = () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       console.error('Error submitting candidature:', error);
+      const message = error instanceof Error ? error.message : 'Une erreur est survenue';
+      setSubmitError(
+        `Erreur lors de l'envoi de votre candidature : ${message}. Veuillez réessayer.`
+      );
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     } finally {
       setIsSubmitting(false);
     }
@@ -358,7 +398,14 @@ const CandidaturePage: React.FC = () => {
         </div>
 
         {/* 4 — Formulaire Premium */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        <form
+          onSubmit={handleSubmit(onSubmit, () => {
+            setSubmitError('Veuillez corriger les erreurs dans le formulaire avant de soumettre.');
+            const firstError = document.querySelector('[class*="border-red"]');
+            firstError?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          })}
+          className="space-y-8"
+        >
 
           {/* Section 1 — Informations du village */}
           <div className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden">
@@ -367,7 +414,9 @@ const CandidaturePage: React.FC = () => {
               <h3 className="text-lg font-bold text-gray-900">Informations du village</h3>
             </div>
             <div className="p-6 md:p-8 grid md:grid-cols-2 gap-6">
-              <div className="md:col-span-1">
+
+              {/* Nom du village */}
+              <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Nom du village <span className="text-red-500">*</span>
                 </label>
@@ -387,19 +436,103 @@ const CandidaturePage: React.FC = () => {
                 )}
               </div>
 
+              {/* Région */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <span className="flex items-center gap-1.5">
+                    <Building2 size={15} className="text-teal-600" />
+                    Région <span className="text-red-500">*</span>
+                  </span>
+                </label>
+                <div className="relative">
+                  <select
+                    {...register('region')}
+                    onChange={handleRegionChange}
+                    className={`w-full px-4 py-3 rounded-lg border transition-all bg-white focus:outline-none appearance-none pr-10 ${errors.region
+                      ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-50'
+                      : 'border-gray-200 focus:border-[#0F766E] focus:ring-4 focus:ring-teal-50'
+                      }`}
+                  >
+                    <option value="">Sélectionnez une région</option>
+                    {allRegions.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+                {errors.region && (
+                  <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
+                    <AlertCircle size={14} /> {errors.region.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Département */}
               <div className="md:col-span-1">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Commune / Département <span className="text-red-500">*</span>
+                  <span className="flex items-center gap-1.5">
+                    <MapPin size={15} className="text-teal-600" />
+                    Département <span className="text-red-500">*</span>
+                  </span>
                 </label>
-                <input
-                  type="text"
-                  {...register('commune')}
-                  className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none ${errors.commune
-                    ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-50'
-                    : 'border-gray-200 focus:border-[#0F766E] focus:ring-4 focus:ring-teal-50'
-                    }`}
-                  placeholder="Ex: Thilogne / Podor"
-                />
+                <div className="relative">
+                  <select
+                    {...register('departement')}
+                    onChange={handleDepartementChange}
+                    disabled={!selectedRegion}
+                    className={`w-full px-4 py-3 rounded-lg border transition-all bg-white focus:outline-none appearance-none pr-10 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed ${errors.departement
+                      ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-50'
+                      : 'border-gray-200 focus:border-[#0F766E] focus:ring-4 focus:ring-teal-50'
+                      }`}
+                  >
+                    <option value="">
+                      {selectedRegion ? 'Sélectionnez un département' : 'Choisissez d\'abord une région'}
+                    </option>
+                    {departementsList.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+                {!selectedRegion && !errors.departement && (
+                  <p className="mt-1.5 text-xs text-gray-400">Sélectionnez une région pour voir les départements</p>
+                )}
+                {errors.departement && (
+                  <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
+                    <AlertCircle size={14} /> {errors.departement.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Commune */}
+              <div className="md:col-span-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <span className="flex items-center gap-1.5">
+                    <MapPin size={15} className="text-teal-600" />
+                    Commune <span className="text-red-500">*</span>
+                  </span>
+                </label>
+                <div className="relative">
+                  <select
+                    {...register('commune')}
+                    disabled={!selectedDepartement}
+                    className={`w-full px-4 py-3 rounded-lg border transition-all bg-white focus:outline-none appearance-none pr-10 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed ${errors.commune
+                      ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-50'
+                      : 'border-gray-200 focus:border-[#0F766E] focus:ring-4 focus:ring-teal-50'
+                      }`}
+                  >
+                    <option value="">
+                      {selectedDepartement ? 'Sélectionnez une commune' : 'Choisissez d\'abord un département'}
+                    </option>
+                    {communesList.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+                {!selectedDepartement && !errors.commune && (
+                  <p className="mt-1.5 text-xs text-gray-400">Sélectionnez un département pour voir les communes</p>
+                )}
                 {errors.commune && (
                   <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
                     <AlertCircle size={14} /> {errors.commune.message}
@@ -407,28 +540,6 @@ const CandidaturePage: React.FC = () => {
                 )}
               </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Région <span className="text-red-500">*</span>
-                </label>
-                <select
-                  {...register('region')}
-                  className={`w-full px-4 py-3 rounded-lg border transition-all bg-white focus:outline-none appearance-none ${errors.region
-                    ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-50'
-                    : 'border-gray-200 focus:border-[#0F766E] focus:ring-4 focus:ring-teal-50'
-                    }`}
-                >
-                  <option value="">Sélectionnez une région</option>
-                  {senegalRegions.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-                {errors.region && (
-                  <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                    <AlertCircle size={14} /> {errors.region.message}
-                  </p>
-                )}
-              </div>
             </div>
           </div>
 
@@ -637,8 +748,19 @@ const CandidaturePage: React.FC = () => {
             </div>
           </div>
 
+          {/* Error message */}
+          {submitError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-5 flex items-start gap-4">
+              <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={24} />
+              <div>
+                <p className="text-red-800 text-sm font-semibold mb-1">Échec de l’envoi</p>
+                <p className="text-red-700 text-sm">{submitError}</p>
+              </div>
+            </div>
+          )}
+
           {/* 5 — Boutons d’action premium */}
-          <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-4 pt-6">
+          <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-4 pt-6 pb-20 sm:pb-0 relative z-10">
             <Link
               to="/"
               className="w-full sm:w-auto px-6 py-3.5 text-gray-600 font-semibold rounded-lg hover:bg-gray-100 transition-colors text-center"
@@ -648,7 +770,7 @@ const CandidaturePage: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 bg-[#0F766E] text-white rounded-lg font-semibold hover:bg-[#0d6e66] transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-[#0F766E] text-white rounded-xl font-semibold hover:bg-[#0d6e66] active:bg-[#0b5f58] transition-colors shadow-md disabled:opacity-70 disabled:cursor-not-allowed text-base touch-manipulation"
             >
               {isSubmitting ? (
                 <>
@@ -656,7 +778,10 @@ const CandidaturePage: React.FC = () => {
                   Envoi en cours...
                 </>
               ) : (
-                'Envoyer ma candidature'
+                <>
+                  <Send size={18} />
+                  Envoyer ma candidature
+                </>
               )}
             </button>
           </div>

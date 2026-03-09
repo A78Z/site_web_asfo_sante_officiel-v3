@@ -36,14 +36,22 @@ const fmt = (d: string) =>
 const AdminGalleryPage: React.FC = () => {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
   const [search, setSearch] = useState('');
   const [albumFilter, setAlbumFilter] = useState('Tous');
   const [showUpload, setShowUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [lightbox, setLightbox] = useState<GalleryImage | null>(null);
 
+  const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
+  const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+
   const fetchImages = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
       const { results } = await queryObjects<GalleryImage>(CLASS_NAME, {
         order: '-createdAt',
@@ -52,6 +60,7 @@ const AdminGalleryPage: React.FC = () => {
       setImages(results);
     } catch (err) {
       console.error(err);
+      setFetchError('Impossible de charger les images. Vérifiez votre connexion.');
     } finally {
       setLoading(false);
     }
@@ -87,25 +96,46 @@ const AdminGalleryPage: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer cette image ?')) return;
+    setActionError('');
     try {
       await deleteObject(CLASS_NAME, id);
       setImages((prev) => prev.filter((i) => i.objectId !== id));
     } catch (err) {
       console.error(err);
+      setActionError('Impossible de supprimer cette image. Réessayez.');
     }
   };
 
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setUploading(true);
+    setFormError('');
+    setUploadSuccess('');
     const fd = new FormData(e.currentTarget);
-    const files = fd.getAll('files') as File[];
-    const album = (fd.get('album') as string) || 'Sans album';
-    const mission = (fd.get('mission') as string) || '';
+    const files = (fd.getAll('files') as File[]).filter((f) => f.size > 0);
+    const album = (fd.get('album') as string || 'Sans album').trim();
+    const mission = (fd.get('mission') as string || '').trim();
 
+    if (files.length === 0) {
+      setFormError('Veuillez sélectionner au moins une image.');
+      return;
+    }
+
+    // Validate all files before uploading
+    for (const file of files) {
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      if (!ALLOWED_EXTENSIONS.includes(ext)) {
+        setFormError(`Format non autorisé : "${file.name}". Formats acceptés : JPG, PNG, WEBP.`);
+        return;
+      }
+      if (file.size > MAX_SIZE) {
+        setFormError(`"${file.name}" dépasse 5 Mo (${(file.size / 1024 / 1024).toFixed(1)} Mo).`);
+        return;
+      }
+    }
+
+    setUploading(true);
     try {
       for (const file of files) {
-        if (file.size === 0) continue;
         const uploaded = await uploadFile(file.name, file);
         await createObject(CLASS_NAME, {
           image: uploaded,
@@ -115,9 +145,11 @@ const AdminGalleryPage: React.FC = () => {
         });
       }
       setShowUpload(false);
+      setUploadSuccess(`${files.length} image(s) uploadée(s) avec succès.`);
       fetchImages();
     } catch (err) {
       console.error(err);
+      setFormError(err instanceof Error ? err.message : 'Erreur lors de l\'upload. Réessayez.');
     } finally {
       setUploading(false);
     }
@@ -136,7 +168,7 @@ const AdminGalleryPage: React.FC = () => {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
-            onClick={() => setShowUpload(true)}
+            onClick={() => { setFormError(''); setUploadSuccess(''); setShowUpload(true); }}
             className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700"
           >
             <Upload className="h-4 w-4" />
@@ -191,6 +223,27 @@ const AdminGalleryPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Fetch Error */}
+      {fetchError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {fetchError}
+        </div>
+      )}
+
+      {/* Action Error */}
+      {actionError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
+
+      {/* Upload Success */}
+      {uploadSuccess && (
+        <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {uploadSuccess}
+        </div>
+      )}
 
       {/* Loading */}
       {loading && (
@@ -255,9 +308,15 @@ const AdminGalleryPage: React.FC = () => {
                 <button onClick={() => setShowUpload(false)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
               </div>
               <form onSubmit={handleUpload} className="space-y-5 p-6">
+                {formError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {formError}
+                  </div>
+                )}
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-700">Images *</label>
-                  <input name="files" type="file" accept="image/*" multiple required className="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-2.5 file:text-sm file:font-medium file:text-teal-700 hover:file:bg-teal-100" />
+                  <input name="files" type="file" accept=".jpg,.jpeg,.png,.webp" multiple required className="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-2.5 file:text-sm file:font-medium file:text-teal-700 hover:file:bg-teal-100" />
+                  <p className="mt-1 text-xs text-gray-500">Formats : JPG, PNG, WEBP — Max 5 Mo par image</p>
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-700">Album</label>
@@ -267,7 +326,7 @@ const AdminGalleryPage: React.FC = () => {
                   <label className="mb-1 block text-xs font-semibold text-gray-700">Mission associée</label>
                   <input name="mission" placeholder="ex: 26e Caravane Médicale" className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-teal-300 focus:ring-2 focus:ring-teal-100" />
                 </div>
-                <button type="submit" disabled={uploading} className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 py-3 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-60">
+                <button type="submit" disabled={uploading} style={{ touchAction: 'manipulation' }} className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 py-3 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-60">
                   {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                   {uploading ? 'Upload en cours...' : 'Uploader'}
                 </button>

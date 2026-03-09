@@ -117,6 +117,8 @@ const inputCls =
 /* ════════════════════════════════════════ Page ════════════════════════════════════════ */
 const AdminSettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('general');
@@ -148,6 +150,7 @@ const AdminSettingsPage: React.FC = () => {
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
       const { results } = await queryObjects<SiteSettings>(CLASS_NAME, { limit: 1 });
       if (results.length > 0) {
@@ -173,6 +176,7 @@ const AdminSettingsPage: React.FC = () => {
       }
     } catch (err) {
       console.error(err);
+      setFetchError('Impossible de charger les paramètres. Vérifiez votre connexion.');
     } finally {
       setLoading(false);
     }
@@ -182,19 +186,38 @@ const AdminSettingsPage: React.FC = () => {
     fetchSettings();
   }, [fetchSettings]);
 
+  const isValidEmail = (v: string) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
+    setSaveError('');
+
+    // Validate email fields
+    const emailFields = [
+      { value: email, label: 'Email principal' },
+      { value: contactEmail, label: 'Email contact' },
+      { value: notifEmail, label: 'Email notifications' },
+      { value: newsletterEmail, label: 'Email newsletter' },
+    ];
+    for (const f of emailFields) {
+      if (f.value.trim() && !isValidEmail(f.value.trim())) {
+        setSaveError(`Adresse email invalide : ${f.label}`);
+        setSaving(false);
+        return;
+      }
+    }
+
     try {
       const data: Record<string, unknown> = {
-        siteName,
-        description,
-        email,
-        phone,
-        address,
-        contactEmail,
-        notifEmail,
-        newsletterEmail,
+        siteName: siteName.trim(),
+        description: description.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        contactEmail: contactEmail.trim(),
+        notifEmail: notifEmail.trim(),
+        newsletterEmail: newsletterEmail.trim(),
         newsletterEnabled,
         doubleOptIn,
         emailNotificationsEnabled,
@@ -219,15 +242,22 @@ const AdminSettingsPage: React.FC = () => {
         await createObject(CLASS_NAME, data);
       }
 
+      setLogoFile(null);
+      setFaviconFile(null);
+      setDefaultImageFile(null);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
       fetchSettings();
     } catch (err) {
       console.error(err);
+      setSaveError(err instanceof Error ? err.message : 'Impossible de sauvegarder. Réessayez.');
     } finally {
       setSaving(false);
     }
   };
+
+  const ALLOWED_IMG_EXT = ['jpg', 'jpeg', 'png', 'webp'];
+  const MAX_IMG_SIZE = 5 * 1024 * 1024; // 5 MB
 
   const handleFileChange = (
     setter: (f: File | null) => void,
@@ -235,6 +265,18 @@ const AdminSettingsPage: React.FC = () => {
   ) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!ALLOWED_IMG_EXT.includes(ext)) {
+      setSaveError(`Format non autorisé : "${file.name}". Utilisez JPG, PNG ou WEBP.`);
+      e.target.value = '';
+      return;
+    }
+    if (file.size > MAX_IMG_SIZE) {
+      setSaveError(`"${file.name}" dépasse 5 Mo (${(file.size / 1024 / 1024).toFixed(1)} Mo).`);
+      e.target.value = '';
+      return;
+    }
+    setSaveError('');
     setter(file);
     previewSetter(URL.createObjectURL(file));
   };
@@ -251,15 +293,6 @@ const AdminSettingsPage: React.FC = () => {
     });
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
-        <span className="ml-3 text-sm text-gray-500">Chargement des paramètres...</span>
-      </div>
-    );
-  }
-
   return (
     <div>
       {/* Header */}
@@ -270,7 +303,8 @@ const AdminSettingsPage: React.FC = () => {
         </div>
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || loading}
+          style={{ touchAction: 'manipulation' }}
           className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-60"
         >
           {saving ? (
@@ -284,6 +318,20 @@ const AdminSettingsPage: React.FC = () => {
         </button>
       </div>
 
+      {/* Fetch Error */}
+      {fetchError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {fetchError}
+        </div>
+      )}
+
+      {/* Save Error */}
+      {saveError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {saveError}
+        </div>
+      )}
+
       {/* Success banner */}
       {saved && (
         <motion.div
@@ -296,6 +344,15 @@ const AdminSettingsPage: React.FC = () => {
         </motion.div>
       )}
 
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+          <span className="ml-3 text-sm text-gray-500">Chargement des paramètres...</span>
+        </div>
+      )}
+
+      {!loading && (
       <div className="flex flex-col gap-6 lg:flex-row">
         {/* Tabs sidebar */}
         <nav className="shrink-0 lg:w-56">
@@ -381,7 +438,7 @@ const AdminSettingsPage: React.FC = () => {
                           <ImageIcon className="h-5 w-5 text-gray-300" />
                         </div>
                       )}
-                      <input type="file" accept="image/*" onChange={handleFileChange(setLogoFile, setLogoPreview)} className="w-full text-xs file:mr-2 file:rounded-md file:border-0 file:bg-teal-50 file:px-2 file:py-1 file:text-xs file:font-medium file:text-teal-700" />
+                      <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={handleFileChange(setLogoFile, setLogoPreview)} className="w-full text-xs file:mr-2 file:rounded-md file:border-0 file:bg-teal-50 file:px-2 file:py-1 file:text-xs file:font-medium file:text-teal-700" />
                     </div>
                     {/* Favicon */}
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -393,7 +450,7 @@ const AdminSettingsPage: React.FC = () => {
                           <Globe className="h-5 w-5 text-gray-300" />
                         </div>
                       )}
-                      <input type="file" accept="image/*" onChange={handleFileChange(setFaviconFile, setFaviconPreview)} className="w-full text-xs file:mr-2 file:rounded-md file:border-0 file:bg-teal-50 file:px-2 file:py-1 file:text-xs file:font-medium file:text-teal-700" />
+                      <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={handleFileChange(setFaviconFile, setFaviconPreview)} className="w-full text-xs file:mr-2 file:rounded-md file:border-0 file:bg-teal-50 file:px-2 file:py-1 file:text-xs file:font-medium file:text-teal-700" />
                     </div>
                     {/* Default image */}
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -405,7 +462,7 @@ const AdminSettingsPage: React.FC = () => {
                           <ImageIcon className="h-5 w-5 text-gray-300" />
                         </div>
                       )}
-                      <input type="file" accept="image/*" onChange={handleFileChange(setDefaultImageFile, setDefaultImagePreview)} className="w-full text-xs file:mr-2 file:rounded-md file:border-0 file:bg-teal-50 file:px-2 file:py-1 file:text-xs file:font-medium file:text-teal-700" />
+                      <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={handleFileChange(setDefaultImageFile, setDefaultImagePreview)} className="w-full text-xs file:mr-2 file:rounded-md file:border-0 file:bg-teal-50 file:px-2 file:py-1 file:text-xs file:font-medium file:text-teal-700" />
                     </div>
                   </div>
                 </div>
@@ -564,6 +621,7 @@ const AdminSettingsPage: React.FC = () => {
             <button
               onClick={handleSave}
               disabled={saving}
+              style={{ touchAction: 'manipulation' }}
               className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-60"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -572,6 +630,7 @@ const AdminSettingsPage: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };

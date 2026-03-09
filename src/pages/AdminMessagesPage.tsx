@@ -29,6 +29,7 @@ interface ContactMessage {
   objectId: string;
   name: string;
   email: string;
+  phone?: string;
   subject: string;
   message: string;
   status: Statut;
@@ -52,11 +53,12 @@ function subjectLabel(v: string) {
 
 /* ─── Export CSV ─── */
 function exportCSV(data: ContactMessage[]) {
-  const rows = [['Nom', 'Email', 'Sujet', 'Message', 'Statut', 'Date']];
+  const rows = [['Nom', 'Email', 'Téléphone', 'Sujet', 'Message', 'Statut', 'Date']];
   data.forEach((m) => {
     rows.push([
       m.name,
       m.email,
+      m.phone || '',
       subjectLabel(m.subject),
       m.message.replace(/[\r\n]+/g, ' '),
       m.status,
@@ -220,6 +222,7 @@ const MessageDrawer: React.FC<{
                 <Mail className="h-3.5 w-3.5 text-gray-400" />
                 <span className="text-sm font-medium text-teal-700">{msg.email}</span>
               </div>
+              {msg.phone && <InfoRow label="Téléphone" value={msg.phone} />}
               <InfoRow label="Sujet" value={subjectLabel(msg.subject)} />
               <InfoRow
                 label="Date"
@@ -323,6 +326,7 @@ const AdminMessagesPage: React.FC = () => {
         !q ||
         m.name.toLowerCase().includes(q) ||
         m.email.toLowerCase().includes(q) ||
+        (m.phone ?? '').toLowerCase().includes(q) ||
         (m.subject ?? '').toLowerCase().includes(q) ||
         subjectLabel(m.subject).toLowerCase().includes(q);
       const matchStatus = statusFilter === 'Tous' || m.status === statusFilter;
