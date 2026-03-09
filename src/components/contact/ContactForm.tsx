@@ -81,21 +81,24 @@ const ContactForm: React.FC = () => {
     setSubmitError('');
 
     try {
-      await createObject('ContactMessages', {
+      const payload = {
         name: formData.name.trim(),
-        email: formData.email.trim(),
+        email: formData.email.trim().toLowerCase(),
         phone: formData.phone.trim(),
-        subject: formData.subject,
+        subject: formData.subject || 'Non précisé',
         message: formData.message.trim(),
         status: 'Nouveau',
-      });
+      };
+      console.log('ContactForm: sending payload', payload);
+      await createObject('ContactMessages', payload);
 
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
       setSubmitSuccess(true);
       setTimeout(() => setSubmitSuccess(false), 6000);
     } catch (err) {
       console.error('Contact form error:', err);
-      setSubmitError('Impossible d\'envoyer le message. Veuillez réessayer.');
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue';
+      setSubmitError(`Impossible d'envoyer le message : ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
