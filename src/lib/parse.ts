@@ -7,6 +7,10 @@ const REST_KEY = import.meta.env.VITE_PARSE_REST_KEY as string;
 const MASTER_KEY = import.meta.env.VITE_PARSE_MASTER_KEY as string;
 const SERVER_URL = import.meta.env.VITE_PARSE_SERVER_URL as string;
 
+/* Warn once at startup if critical keys are missing */
+if (!APP_ID || !SERVER_URL) console.error('[Parse] VITE_PARSE_APP_ID or VITE_PARSE_SERVER_URL is missing!');
+if (!MASTER_KEY) console.warn('[Parse] VITE_PARSE_MASTER_KEY is missing — file uploads will fail on Back4App.');
+
 const headers = (): HeadersInit => ({
   'X-Parse-Application-Id': APP_ID,
   'X-Parse-REST-API-Key': REST_KEY,
@@ -100,9 +104,15 @@ export async function uploadFile(
     );
   }
 
+  if (!MASTER_KEY) {
+    throw new Error(
+      'Configuration serveur incomplète (clé Master manquante). Contactez l\'administrateur.',
+    );
+  }
+
   const safeName = safeFileName(fileName);
 
-  /* ── Strategy 1: JSON + base64 via REST API (most compatible) ── */
+  /* ── Strategy 1: Blob via REST API (most compatible) ── */
   try {
     const base64Data = await fileToBase64(file);
     const res = await fetch(apiUrl(`/files/${encodeURIComponent(safeName)}`), {
