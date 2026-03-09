@@ -40,11 +40,12 @@ export interface ParseObject {
 
 /** Max file size: 10 MB */
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = [
+const ALLOWED_FILE_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif',
+  'application/pdf',
 ];
 
 function safeFileName(raw: string): string {
@@ -56,7 +57,7 @@ function safeFileName(raw: string): string {
     .replace(/[^a-zA-Z0-9_-]/g, '_')
     .replace(/_+/g, '_')
     .slice(0, 60);
-  return `${base || 'image'}${ext.toLowerCase()}`;
+  return `${base || 'file'}${ext.toLowerCase()}`;
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -91,11 +92,11 @@ export async function uploadFile(
   }
   const mimeType = file.type || 'application/octet-stream';
   if (
-    !ALLOWED_IMAGE_TYPES.includes(mimeType) &&
+    !ALLOWED_FILE_TYPES.includes(mimeType) &&
     mimeType !== 'application/octet-stream'
   ) {
     throw new Error(
-      `Type non supporté (${mimeType}). Utilisez JPG, PNG, WEBP ou GIF.`,
+      `Type non supporté (${mimeType}). Utilisez JPG, PNG, WEBP, GIF ou PDF.`,
     );
   }
 
