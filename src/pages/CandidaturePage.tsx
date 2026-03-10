@@ -62,8 +62,29 @@ const SuccessCard: React.FC<{
   numeroDossier: string;
   onReset: () => void;
 }> = ({ numeroDossier, onReset }) => {
+  const [copied, setCopied] = useState(false);
+
+  const copyNumeroDossier = async () => {
+    try {
+      await navigator.clipboard.writeText(numeroDossier);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Fallback for older browsers
+      const ta = document.createElement('textarea');
+      ta.value = numeroDossier;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
   const downloadReceipt = () => {
-    // Generate a simple text receipt
     const receipt = `
 ═══════════════════════════════════════════
         REÇU DE CANDIDATURE - ASFO
@@ -73,6 +94,12 @@ const SuccessCard: React.FC<{
 Numéro de dossier : ${numeroDossier}
 Date : ${new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}
 Statut : En attente
+
+───────────────────────────────────────────
+PAIEMENT DES FRAIS DE DOSSIER
+Montant : 20 000 F CFA
+Téléphone 1 : +221 77 879 20 62
+Téléphone 2 : +221 77 090 88 49
 
 ───────────────────────────────────────────
 Votre candidature a bien été enregistrée.
@@ -99,38 +126,96 @@ UCAD Dakar
       initial={{ opacity: 0, scale: 0.95, y: 20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 20 }}
-      className="max-w-2xl mx-auto w-full pt-12 md:pt-20 px-4"
+      className="max-w-2xl mx-auto w-full pt-12 md:pt-20 px-4 pb-12"
     >
       <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden text-center p-8 md:p-12">
+        {/* Success icon */}
         <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6">
           <CheckCircle size={40} className="text-emerald-500" />
         </div>
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Candidature envoyée avec succès</h2>
         <p className="text-gray-500 mb-8 max-w-md mx-auto">
-          Votre dossier a été soumis et sera examiné par notre équipe. Un email de confirmation a été envoyé.
+          Votre dossier a été soumis et sera examiné par notre équipe.
         </p>
 
-        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-6 md:p-8 text-center mb-8 max-w-sm mx-auto">
+        {/* Dossier number + copy button */}
+        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-6 md:p-8 text-center mb-6 max-w-sm mx-auto">
           <p className="text-sm text-gray-500 mb-2 font-medium uppercase tracking-wider">Numéro de dossier</p>
           <p className="text-3xl md:text-4xl font-extrabold text-[#0F766E] font-mono tracking-tight">
             {numeroDossier}
           </p>
-          <p className="text-xs text-gray-400 mt-4">
-            Conservez ce numéro pour suivre votre dossier.
+          <button
+            onClick={copyNumeroDossier}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-all active:scale-95 touch-manipulation"
+          >
+            {copied ? (
+              <>
+                <CheckCircle size={16} className="text-emerald-500" />
+                <span className="text-emerald-600">Copié !</span>
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                Copier le numéro
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Payment instructions */}
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 md:p-8 text-left mb-8 max-w-md mx-auto">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
+              <AlertTriangle size={20} className="text-amber-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">Frais de dossier</h3>
+          </div>
+          <p className="text-gray-700 mb-4">
+            Pour finaliser votre candidature, veuillez régler les frais de dossier :
+          </p>
+          <div className="bg-white border border-amber-100 rounded-xl p-4 mb-4 text-center">
+            <p className="text-3xl font-extrabold text-amber-700">20 000 F CFA</p>
+          </div>
+          <p className="text-sm text-gray-600 mb-3 font-medium">
+            Envoyez le paiement par Wave ou Orange Money aux numéros suivants :
+          </p>
+          <div className="space-y-3">
+            <a
+              href="tel:+221778792062"
+              className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-teal-300 hover:bg-teal-50 transition-colors group"
+            >
+              <div className="w-9 h-9 bg-teal-50 rounded-full flex items-center justify-center shrink-0 group-hover:bg-teal-100 transition-colors">
+                <Phone size={16} className="text-teal-600" />
+              </div>
+              <span className="font-semibold text-gray-800 text-base">+221 77 879 20 62</span>
+            </a>
+            <a
+              href="tel:+221770908849"
+              className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-teal-300 hover:bg-teal-50 transition-colors group"
+            >
+              <div className="w-9 h-9 bg-teal-50 rounded-full flex items-center justify-center shrink-0 group-hover:bg-teal-100 transition-colors">
+                <Phone size={16} className="text-teal-600" />
+              </div>
+              <span className="font-semibold text-gray-800 text-base">+221 77 090 88 49</span>
+            </a>
+          </div>
+          <p className="text-xs text-gray-500 mt-4">
+            Mentionnez votre numéro de dossier <strong className="text-gray-700">{numeroDossier}</strong> lors du paiement.
           </p>
         </div>
 
+        {/* Action buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
             onClick={downloadReceipt}
-            className="flex items-center justify-center gap-2 px-6 py-3.5 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors"
+            className="flex items-center justify-center gap-2 px-6 py-3.5 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors touch-manipulation"
           >
             <Download size={18} />
             Télécharger le reçu
           </button>
           <button
             onClick={onReset}
-            className="flex items-center justify-center gap-2 px-6 py-3.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+            className="flex items-center justify-center gap-2 px-6 py-3.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors touch-manipulation"
           >
             <Home size={18} />
             Retour à l'accueil
