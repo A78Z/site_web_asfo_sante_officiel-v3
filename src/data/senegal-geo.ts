@@ -406,6 +406,7 @@ export const SENEGAL_GEO: CommuneEntry[] = [
   { region: "Saint-Louis", departement: "Podor", commune: "Bokke Dialloube" },
   { region: "Saint-Louis", departement: "Podor", commune: "Guede Chantier" },
   { region: "Saint-Louis", departement: "Podor", commune: "Doumga Lao" },
+  { region: "Saint-Louis", departement: "Podor", commune: "Ndiayene Pendao" },
 
   // --- Departement Saint-Louis ---
   { region: "Saint-Louis", departement: "Saint-Louis", commune: "Saint-Louis" },
