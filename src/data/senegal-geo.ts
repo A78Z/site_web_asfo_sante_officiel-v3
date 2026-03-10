@@ -399,7 +399,6 @@ export const SENEGAL_GEO: CommuneEntry[] = [
   { region: "Saint-Louis", departement: "Podor", commune: "Ndioum" },
   { region: "Saint-Louis", departement: "Podor", commune: "Ndiandane" },
   { region: "Saint-Louis", departement: "Podor", commune: "Pete" },
-  { region: "Saint-Louis", departement: "Podor", commune: "Niandane" },
   { region: "Saint-Louis", departement: "Podor", commune: "Salde" },
   { region: "Saint-Louis", departement: "Podor", commune: "Walalde" },
   { region: "Saint-Louis", departement: "Podor", commune: "Demette" },
