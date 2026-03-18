@@ -19,6 +19,8 @@ import {
   Loader2,
   RefreshCw,
   FileText,
+  Wallet,
+  ImageDown,
 } from 'lucide-react';
 import {
   queryObjects,
@@ -27,6 +29,7 @@ import {
   type ParseFile,
 } from '../lib/parse';
 import jsPDF from 'jspdf';
+import MemberCard from '../components/admin/MemberCard';
 
 const CLASS_NAME = 'MemberRequests';
 
@@ -75,69 +78,69 @@ function profLabel(val: string) {
   return professionLabels[val] ?? val;
 }
 
-/* ─── Image to base64 helper ─── */
-async function imgToBase64(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
+/* ─── Generate member card PDF — html2canvas screenshot ─── */
+async function generateMemberCardPDF(member: MemberRequest) {
+  // Dynamic import to avoid loading html2canvas until needed
+  const html2canvas = (await import('html2canvas')).default;
+
+  const element = document.getElementById('member-card');
+  if (!element) {
+    alert('Erreur : carte non trouvée. Ouvrez l\'onglet "Aperçu carte" d\'abord.');
+    return;
   }
+
+  // Wait for all fonts to be loaded
+  await document.fonts.ready;
+
+  // Small delay to let the browser render fully
+  await new Promise((r) => setTimeout(r, 300));
+
+  // Capture the card as a high-resolution image
+  const canvas = await html2canvas(element, {
+    scale: 3,
+    useCORS: true,
+    allowTaint: true,
+    backgroundColor: null,
+    logging: false,
+  });
+
+  const imgData = canvas.toDataURL('image/png');
+
+  // Credit card dimensions: 85.6mm × 54mm
+  const W = 85.6;
+  const H = 54;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [W, H] });
+
+  doc.addImage(imgData, 'PNG', 0, 0, W, H);
+  doc.save(`carte-membre-${member.firstName}-${member.lastName}.pdf`);
 }
 
-/* ─── Generate member card PDF ─── */
-async function generateMemberCardPDF(member: MemberRequest) {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [90, 55] });
+/* ─── Generate member card PNG image — high resolution for PVC printing ─── */
+async function generateMemberCardImage(member: MemberRequest) {
+  const html2canvas = (await import('html2canvas')).default;
 
-  doc.setFillColor(15, 118, 110);
-  doc.rect(0, 0, 90, 18, 'F');
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(255, 255, 255);
-  doc.text('ASFO — Carte Membre', 45, 8, { align: 'center' });
-  doc.setFontSize(6);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Action Sanitaire pour le Fouta', 45, 13, { align: 'center' });
-
-  if (member.photo?.url) {
-    const b64 = await imgToBase64(member.photo.url);
-    if (b64) {
-      try { doc.addImage(b64, 'JPEG', 4, 21, 18, 22); } catch { /* fallback */ }
-    }
+  const element = document.getElementById('member-card');
+  if (!element) {
+    alert('Erreur : carte non trouvée. Ouvrez l\'onglet "Aperçu carte" d\'abord.');
+    return;
   }
 
-  const textX = member.photo?.url ? 26 : 6;
-  doc.setTextColor(30, 30, 30);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text(`${member.firstName} ${member.lastName}`, textX, 25);
+  await document.fonts.ready;
+  await new Promise((r) => setTimeout(r, 300));
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(80, 80, 80);
-  doc.text(profLabel(member.profession), textX, 30);
-  doc.text(member.phone || '', textX, 35);
-  doc.text(member.village || '', textX, 40);
+  // Scale 3x = 428*3=1284 x 270*3=810 — well above 1012×638 minimum for 300 DPI PVC
+  const canvas = await html2canvas(element, {
+    scale: 3,
+    useCORS: true,
+    allowTaint: true,
+    backgroundColor: null,
+    logging: false,
+  });
 
-  const memberId = `ASFO-M-${member.objectId.slice(0, 6).toUpperCase()}`;
-  doc.setFontSize(6);
-  doc.setTextColor(120, 120, 120);
-  doc.text(`N° ${memberId}`, textX, 46);
-
-  doc.setFillColor(15, 118, 110);
-  doc.rect(0, 51, 90, 4, 'F');
-  doc.setFontSize(5);
-  doc.setTextColor(255, 255, 255);
-  doc.text('www.asfosante.org — Validité : 1 an', 45, 53.5, { align: 'center' });
-
-  doc.save(`carte-membre-${member.firstName}-${member.lastName}.pdf`);
+  const link = document.createElement('a');
+  link.download = `carte-membre-ASFO-${member.firstName}-${member.lastName}-${member.objectId.slice(0, 6).toUpperCase()}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
 }
 
 /* ─── Export CSV ─── */
@@ -219,8 +222,18 @@ const MemberDrawer: React.FC<{
 }> = ({ member, onClose, onStatusChange }) => {
   if (!member) return null;
   const [generating, setGenerating] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [activeTab, setActiveTab] = useState<'info' | 'card'>('info');
+
+  const ensureCardTab = async () => {
+    if (activeTab !== 'card') {
+      setActiveTab('card');
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  };
 
   const handleGenerateCard = async () => {
+    await ensureCardTab();
     setGenerating(true);
     try {
       await generateMemberCardPDF(member);
@@ -228,6 +241,18 @@ const MemberDrawer: React.FC<{
       setGenerating(false);
     }
   };
+
+  const handleDownloadImage = async () => {
+    await ensureCardTab();
+    setGeneratingImage(true);
+    try {
+      await generateMemberCardImage(member);
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
+  const memberId = `ASFO-M-${member.objectId.slice(0, 6).toUpperCase()}`;
 
   const InfoRow = ({ label, value }: { label: string; value: string }) => (
     <div className="flex items-start justify-between gap-4 py-2.5">
@@ -268,53 +293,104 @@ const MemberDrawer: React.FC<{
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('info')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition border-b-2 ${
+              activeTab === 'info'
+                ? 'border-teal-600 text-teal-700 bg-teal-50/50'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <User className="h-4 w-4" /> Informations
+          </button>
+          <button
+            onClick={() => setActiveTab('card')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition border-b-2 ${
+              activeTab === 'card'
+                ? 'border-teal-600 text-teal-700 bg-teal-50/50'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Wallet className="h-4 w-4" /> Aperçu carte
+          </button>
+        </div>
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-6">
-          {member.photo?.url ? (
-            <div className="mb-6 flex justify-center">
-              <div className="overflow-hidden rounded-2xl border border-gray-200 shadow-lg transition duration-300 hover:shadow-xl">
-                <img src={member.photo.url} alt={`${member.firstName} ${member.lastName}`} className="h-64 w-52 object-cover transition duration-300 hover:scale-105" />
-              </div>
-            </div>
-          ) : (
-            <div className="mb-6 flex justify-center">
-              <div className="flex h-64 w-52 items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gradient-to-br from-gray-50 to-gray-100">
-                <div className="text-center">
-                  <User className="mx-auto h-12 w-12 text-gray-300" />
-                  <p className="mt-2 text-xs text-gray-400">Aucune photo</p>
+          {activeTab === 'info' ? (
+            <>
+              {member.photo?.url ? (
+                <div className="mb-6 flex justify-center">
+                  <div className="overflow-hidden rounded-2xl border border-gray-200 shadow-lg transition duration-300 hover:shadow-xl">
+                    <img src={member.photo.url} alt={`${member.firstName} ${member.lastName}`} className="h-64 w-52 object-cover transition duration-300 hover:scale-105" />
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-6 flex justify-center">
+                  <div className="flex h-64 w-52 items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gradient-to-br from-gray-50 to-gray-100">
+                    <div className="text-center">
+                      <User className="mx-auto h-12 w-12 text-gray-300" />
+                      <p className="mt-2 text-xs text-gray-400">Aucune photo</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800"><User className="h-4 w-4 text-teal-600" /> Informations personnelles</h4>
+                <div className="divide-y divide-gray-200">
+                  <InfoRow label="Prénom" value={member.firstName} />
+                  <InfoRow label="Nom" value={member.lastName} />
+                  <InfoRow label="Profession" value={profLabel(member.profession)} />
+                  <div className="flex items-center gap-1.5 py-2.5"><Phone className="h-3.5 w-3.5 text-gray-400" /><span className="text-sm font-medium text-gray-900">{member.phone}</span></div>
+                  {member.email && (
+                    <div className="flex items-center gap-1.5 py-2.5"><span className="text-sm text-gray-500">Email</span><span className="ml-auto text-sm font-medium text-teal-700">{member.email}</span></div>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
 
-          <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800"><User className="h-4 w-4 text-teal-600" /> Informations personnelles</h4>
-            <div className="divide-y divide-gray-200">
-              <InfoRow label="Prénom" value={member.firstName} />
-              <InfoRow label="Nom" value={member.lastName} />
-              <InfoRow label="Profession" value={profLabel(member.profession)} />
-              <div className="flex items-center gap-1.5 py-2.5"><Phone className="h-3.5 w-3.5 text-gray-400" /><span className="text-sm font-medium text-gray-900">{member.phone}</span></div>
-              {member.email && (
-                <div className="flex items-center gap-1.5 py-2.5"><span className="text-sm text-gray-500">Email</span><span className="ml-auto text-sm font-medium text-teal-700">{member.email}</span></div>
+              {member.village && (
+                <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800"><MapPin className="h-4 w-4 text-teal-600" /> Localisation</h4>
+                  <div className="divide-y divide-gray-200"><InfoRow label="Village / Adresse" value={member.village} /></div>
+                </div>
               )}
-            </div>
-          </div>
 
-          {member.village && (
-            <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800"><MapPin className="h-4 w-4 text-teal-600" /> Localisation</h4>
-              <div className="divide-y divide-gray-200"><InfoRow label="Village / Adresse" value={member.village} /></div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800"><CreditCard className="h-4 w-4 text-teal-600" /> Informations demande</h4>
+                <div className="divide-y divide-gray-200">
+                  <InfoRow label="N° Membre" value={memberId} />
+                  <InfoRow label="Date demande" value={new Date(member.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} />
+                  <InfoRow label="Coût carte" value="2 500 F CFA" />
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-6">
+              <p className="text-sm text-gray-500 text-center">
+                Aperçu de la carte membre qui sera générée en PDF
+              </p>
+              {/* Card preview with QR code container for PDF export */}
+              <div id="member-card-qr" className="transform scale-100">
+                <MemberCard
+                  name={`${member.firstName} ${member.lastName}`}
+                  role={profLabel(member.profession)}
+                  phone={member.phone}
+                  city={member.village || 'Non renseigné'}
+                  memberId={memberId}
+                  photo={member.photo?.url}
+                  validity="2026"
+                />
+              </div>
+              <div className="w-full rounded-xl border border-blue-100 bg-blue-50 p-4">
+                <p className="text-xs text-blue-700 text-center">
+                  💡 La carte exportée en PDF aura la même apparence que cet aperçu, au format carte bancaire (85.6mm × 54mm).
+                </p>
+              </div>
             </div>
           )}
-
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800"><CreditCard className="h-4 w-4 text-teal-600" /> Informations demande</h4>
-            <div className="divide-y divide-gray-200">
-              <InfoRow label="N° Membre" value={`ASFO-M-${member.objectId.slice(0, 6).toUpperCase()}`} />
-              <InfoRow label="Date demande" value={new Date(member.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} />
-              <InfoRow label="Coût carte" value="2 500 F CFA" />
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
@@ -328,14 +404,27 @@ const MemberDrawer: React.FC<{
             </button>
           </div>
           {member.status === 'Validé' && (
-            <button
-              onClick={handleGenerateCard}
-              disabled={generating}
-              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-teal-600 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-60"
-            >
-              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-              {generating ? 'Génération...' : 'Générer carte membre PDF'}
-            </button>
+            <>
+              <button
+                onClick={handleGenerateCard}
+                disabled={generating}
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-teal-600 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-60"
+              >
+                {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                {generating ? 'Génération...' : 'Générer carte membre PDF'}
+              </button>
+              <button
+                onClick={handleDownloadImage}
+                disabled={generatingImage}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-semibold text-white transition disabled:opacity-60"
+                style={{ background: '#1E3A5F' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#163050')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = '#1E3A5F')}
+              >
+                {generatingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageDown className="h-4 w-4" />}
+                {generatingImage ? 'Téléchargement...' : 'Télécharger en Image'}
+              </button>
+            </>
           )}
           <button onClick={onClose} className="mt-3 w-full rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50">Fermer</button>
         </div>
