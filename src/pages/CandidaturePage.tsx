@@ -11,7 +11,7 @@ import {
   ChevronDown, Building2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { createObject, uploadFile } from '../lib/parse';
+import { createObject, uploadFile, queryObjects } from '../lib/parse';
 import { getRegions, getDepartements, getCommunes } from '../data/senegal-geo';
 
 // ─── Zod Schema ──────────────────────────────────────────────
@@ -304,14 +304,27 @@ const CandidaturePage: React.FC = () => {
     return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
   };
 
-  // Generate unique dossier number
-  const generateNumeroDossier = (): string => {
+  // Generate unique dossier number by querying the database for the highest existing number
+  const generateNumeroDossier = async (): Promise<string> => {
     const year = new Date().getFullYear();
-    const stored = localStorage.getItem('asfo_dossier_counter');
-    let counter = stored ? parseInt(stored, 10) : 0;
-    counter += 1;
-    localStorage.setItem('asfo_dossier_counter', counter.toString());
-    return `ASFO-${year}-${counter.toString().padStart(4, '0')}`;
+    const prefix = `ASFO-${year}-`;
+
+    // Query all candidatures for this year, sorted descending by numeroDossier
+    const { results } = await queryObjects<{ numeroDossier?: string }>('Candidatures', {
+      where: { numeroDossier: { $regex: `^${prefix}` } },
+      order: '-numeroDossier',
+      limit: 1,
+      keys: 'numeroDossier',
+    });
+
+    let nextNum = 1;
+    if (results.length > 0 && results[0].numeroDossier) {
+      const lastPart = results[0].numeroDossier.split('-').pop();
+      const parsed = lastPart ? parseInt(lastPart, 10) : 0;
+      if (!isNaN(parsed)) nextNum = parsed + 1;
+    }
+
+    return `${prefix}${nextNum.toString().padStart(4, '0')}`;
   };
 
   const onSubmit = async (data: CandidatureFormData) => {
@@ -325,7 +338,7 @@ const CandidaturePage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const numero = generateNumeroDossier();
+      const numero = await generateNumeroDossier();
 
       const uploadedDocs = await Promise.all(
         uploadedFiles.map(async (uf) => {
