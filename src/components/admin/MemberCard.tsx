@@ -44,37 +44,42 @@ const MemberCard: React.FC<MemberCardProps> = ({
         boxShadow: '0 8px 32px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1)',
       }}
     >
-      {/* ── Background: premium ASFO gradient ── */}
+      {/* ── Background: ASFO blue gradient (inspired by old card) ── */}
       <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(135deg, #0F766E 0%, #134E5E 40%, #1E3A5F 100%)',
+          background: 'linear-gradient(135deg, #1F6F8B 0%, #2A8BA8 35%, #5DA9C6 70%, #1F6F8B 100%)',
         }}
       />
 
-      {/* ── Diagonal lines pattern overlay ── */}
+      {/* ── Checkered pattern overlay (like old card) ── */}
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="absolute pointer-events-none"
         style={{
-          opacity: 0.06,
+          top: '0',
+          left: '0',
+          width: '55%',
+          height: '100%',
+          opacity: 0.08,
           backgroundImage:
-            'repeating-linear-gradient(45deg, transparent, transparent 12px, rgba(255,255,255,1) 12px, rgba(255,255,255,1) 13px)',
+            'repeating-conic-gradient(rgba(255,255,255,0.6) 0% 25%, transparent 0% 50%) 0 0 / 20px 20px',
         }}
       />
 
-      {/* ── Decorative wave curve ── */}
+      {/* ── Decorative diagonal red stripe (like old card) ── */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
         viewBox="0 0 428 270"
         preserveAspectRatio="none"
       >
         <path
-          d="M0,180 C100,220 200,140 428,190 L428,270 L0,270 Z"
-          fill="rgba(255,255,255,0.04)"
+          d="M0,215 Q100,200 200,210 Q300,220 428,205 L428,212 Q300,227 200,217 Q100,207 0,222 Z"
+          fill="#D62828"
+          opacity="0.25"
         />
         <path
-          d="M0,200 C150,240 280,170 428,210 L428,270 L0,270 Z"
-          fill="rgba(255,255,255,0.03)"
+          d="M0,230 C100,250 250,210 428,240 L428,270 L0,270 Z"
+          fill="rgba(255,255,255,0.06)"
         />
       </svg>
 
@@ -87,18 +92,18 @@ const MemberCard: React.FC<MemberCardProps> = ({
           width: '180px',
           height: '180px',
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(13,148,136,0.2) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(93,169,198,0.3) 0%, transparent 70%)',
         }}
       />
 
       {/* ── Top tricolore bar ── */}
       <div className="absolute top-0 left-0 right-0 z-20 flex" style={{ height: '3px' }}>
-        <div className="flex-[2] bg-[#0F766E]" />
+        <div className="flex-[2]" style={{ background: '#1F6F8B' }} />
         <div className="w-12 bg-white/90" />
-        <div className="flex-[3] bg-[#DC2626]" />
+        <div className="flex-[3]" style={{ background: '#D62828' }} />
       </div>
 
-      {/* ── Drapeau du Sénégal 🇸🇳 ── */}
+      {/* ── Drapeau du Senegal ── */}
       <div
         className="absolute z-20"
         style={{
@@ -125,12 +130,13 @@ const MemberCard: React.FC<MemberCardProps> = ({
         <div
           className="flex items-center justify-center"
           style={{
-            width: '36px',
-            height: '36px',
+            width: '38px',
+            height: '38px',
             borderRadius: '50%',
             background: 'white',
             padding: '3px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            border: '2px solid rgba(255,255,255,0.8)',
           }}
         >
           <img
@@ -144,15 +150,15 @@ const MemberCard: React.FC<MemberCardProps> = ({
         <div className="flex-1">
           <h2
             className="font-extrabold text-white"
-            style={{ fontSize: '13px', letterSpacing: '1.5px' }}
+            style={{ fontSize: '14px', letterSpacing: '1.5px', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
           >
-            ASFO
+            ACTION SANITAIRE POUR LE FOUTA
           </h2>
           <p
-            className="font-medium"
-            style={{ fontSize: '7px', letterSpacing: '0.5px', color: 'rgba(167,243,208,0.85)' }}
+            className="font-bold"
+            style={{ fontSize: '8px', letterSpacing: '0.8px', color: 'rgba(255,255,255,0.75)' }}
           >
-            Action Sanitaire pour le Fouta
+            (ASFO)
           </p>
         </div>
       </div>
@@ -162,7 +168,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
         <div
           className="h-px"
           style={{
-            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%)',
+            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)',
           }}
         />
         <p
@@ -181,17 +187,17 @@ const MemberCard: React.FC<MemberCardProps> = ({
 
       {/* ── BODY ── */}
       <div className="relative z-10 flex gap-3 px-5 pt-1">
-        {/* Photo */}
+        {/* Photo — bigger (+20%) */}
         <div className="shrink-0">
           <div className="relative">
             <div
               className="overflow-hidden"
               style={{
-                width: '68px',
-                height: '82px',
+                width: '80px',
+                height: '96px',
                 borderRadius: '10px',
-                border: '3px solid rgba(255,255,255,0.8)',
-                boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
+                border: '3px solid rgba(255,255,255,0.85)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
               }}
             >
               {photo ? (
@@ -205,9 +211,9 @@ const MemberCard: React.FC<MemberCardProps> = ({
                     const parent = (e.target as HTMLImageElement).parentElement;
                     if (parent) {
                       parent.classList.add('flex', 'items-center', 'justify-center');
-                      parent.style.background = 'linear-gradient(135deg, #0F766E, #1E3A5F)';
+                      parent.style.background = 'linear-gradient(135deg, #1F6F8B, #5DA9C6)';
                       const span = document.createElement('span');
-                      span.className = 'text-xl font-bold';
+                      span.className = 'text-2xl font-bold';
                       span.style.color = 'rgba(255,255,255,0.6)';
                       span.textContent = name.split(' ').map((n) => n[0]).join('').slice(0, 2);
                       parent.appendChild(span);
@@ -217,9 +223,9 @@ const MemberCard: React.FC<MemberCardProps> = ({
               ) : (
                 <div
                   className="flex h-full w-full items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, #0F766E, #1E3A5F)' }}
+                  style={{ background: 'linear-gradient(135deg, #1F6F8B, #5DA9C6)' }}
                 >
-                  <span className="text-xl font-bold" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                  <span className="text-2xl font-bold" style={{ color: 'rgba(255,255,255,0.6)' }}>
                     {name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
                   </span>
                 </div>
@@ -231,10 +237,10 @@ const MemberCard: React.FC<MemberCardProps> = ({
               style={{
                 bottom: '-3px',
                 right: '-3px',
-                width: '12px',
-                height: '12px',
+                width: '13px',
+                height: '13px',
                 borderRadius: '50%',
-                border: '2px solid #134E5E',
+                border: '2px solid #1F6F8B',
                 backgroundColor: '#34d399',
                 boxShadow: '0 0 4px rgba(52,211,153,0.5)',
               }}
@@ -248,8 +254,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
           style={{
             minWidth: '0',
             borderRadius: '8px',
-            background: 'rgba(255,255,255,0.08)',
-            border: '1px solid rgba(255,255,255,0.12)',
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.15)',
           }}
         >
           <h2
@@ -268,8 +274,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
             style={{
               fontSize: '10px',
               marginTop: '2px',
-              color: 'rgba(167,243,208,0.9)',
-              textShadow: '0 1px 1px rgba(0,0,0,0.15)',
+              color: '#FDEF42',
+              textShadow: '0 1px 1px rgba(0,0,0,0.2)',
             }}
           >
             {role}
@@ -280,7 +286,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
               marginTop: '2px',
               fontFamily: "'Courier New', Courier, monospace",
               letterSpacing: '1px',
-              color: 'rgba(255,255,255,0.45)',
+              color: 'rgba(255,255,255,0.5)',
             }}
           >
             {memberId}
@@ -289,11 +295,11 @@ const MemberCard: React.FC<MemberCardProps> = ({
           {/* Contact info */}
           <div className="mt-2 space-y-1">
             <div className="flex items-center gap-1.5">
-              <Phone className="h-2.5 w-2.5" style={{ color: 'rgba(167,243,208,0.5)' }} />
+              <Phone className="h-2.5 w-2.5" style={{ color: 'rgba(255,255,255,0.5)' }} />
               <span
                 style={{
                   fontSize: '9px',
-                  color: 'rgba(229,231,235,0.9)',
+                  color: 'rgba(255,255,255,0.85)',
                   textShadow: '0 1px 1px rgba(0,0,0,0.1)',
                 }}
               >
@@ -301,11 +307,11 @@ const MemberCard: React.FC<MemberCardProps> = ({
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <MapPin className="h-2.5 w-2.5" style={{ color: 'rgba(167,243,208,0.5)' }} />
+              <MapPin className="h-2.5 w-2.5" style={{ color: 'rgba(255,255,255,0.5)' }} />
               <span
                 style={{
                   fontSize: '9px',
-                  color: 'rgba(229,231,235,0.9)',
+                  color: 'rgba(255,255,255,0.85)',
                   textShadow: '0 1px 1px rgba(0,0,0,0.1)',
                 }}
               >
@@ -313,45 +319,45 @@ const MemberCard: React.FC<MemberCardProps> = ({
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Globe className="h-2.5 w-2.5" style={{ color: 'rgba(167,243,208,0.5)' }} />
-              <span style={{ fontSize: '9px', color: 'rgba(110,231,183,0.7)' }}>
+              <Globe className="h-2.5 w-2.5" style={{ color: 'rgba(255,255,255,0.5)' }} />
+              <span style={{ fontSize: '9px', color: 'rgba(93,169,198,0.9)' }}>
                 www.asfosante.org
               </span>
             </div>
           </div>
         </div>
 
-        {/* QR Code — glass panel */}
+        {/* QR Code — glass panel (kept on recto, also on verso) */}
         <div
           className="shrink-0 flex flex-col items-center justify-center"
           style={{
             borderRadius: '8px',
-            background: 'rgba(255,255,255,0.08)',
-            border: '1px solid rgba(255,255,255,0.12)',
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.15)',
             padding: '8px',
           }}
         >
           <div
             style={{
               background: 'white',
-              padding: '6px',
+              padding: '5px',
               borderRadius: '8px',
               boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             }}
           >
             <QRCodeSVG
               value={qrUrl}
-              size={70}
+              size={68}
               level="H"
               bgColor="#ffffff"
-              fgColor="#0D9488"
+              fgColor="#1F6F8B"
             />
           </div>
           <span
             style={{
               fontSize: '6px',
               marginTop: '3px',
-              color: 'rgba(110,231,183,0.45)',
+              color: 'rgba(255,255,255,0.4)',
               letterSpacing: '0.5px',
             }}
           >
@@ -363,10 +369,10 @@ const MemberCard: React.FC<MemberCardProps> = ({
       {/* ── FOOTER ── */}
       <div className="absolute bottom-0 left-0 right-0 z-10">
         <div
-          className="flex items-center justify-between px-5"
+          className="flex items-center justify-between"
           style={{
             padding: '7px 20px',
-            background: 'linear-gradient(90deg, #DC2626 0%, #b91c1c 50%, #991b1b 100%)',
+            background: 'linear-gradient(90deg, #D62828 0%, #b91c1c 50%, #991b1b 100%)',
             borderBottomLeftRadius: '12px',
             borderBottomRightRadius: '12px',
           }}
@@ -381,7 +387,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
             className="font-semibold"
             style={{ fontSize: '8px', color: 'rgba(255,255,255,0.8)' }}
           >
-            Validité : {validity}
+            Validite : {validity}
           </span>
         </div>
       </div>

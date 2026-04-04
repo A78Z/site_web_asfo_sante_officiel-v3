@@ -30,6 +30,7 @@ import {
 } from '../lib/parse';
 import jsPDF from 'jspdf';
 import MemberCard from '../components/admin/MemberCard';
+import MemberCardVerso from '../components/admin/MemberCardVerso';
 
 const CLASS_NAME = 'MemberRequests';
 
@@ -78,65 +79,53 @@ function profLabel(val: string) {
   return professionLabels[val] ?? val;
 }
 
-/* ─── Generate member card PDF — html2canvas screenshot ─── */
-async function generateMemberCardPDF(member: MemberRequest) {
-  // Dynamic import to avoid loading html2canvas until needed
+/* ─── Capture a card element as high-res canvas ─── */
+async function captureCard(elementId: string) {
   const html2canvas = (await import('html2canvas')).default;
-
-  const element = document.getElementById('member-card');
-  if (!element) {
-    alert('Erreur : carte non trouvée. Ouvrez l\'onglet "Aperçu carte" d\'abord.');
-    return;
-  }
-
-  // Wait for all fonts to be loaded
+  const element = document.getElementById(elementId);
+  if (!element) return null;
   await document.fonts.ready;
-
-  // Small delay to let the browser render fully
   await new Promise((r) => setTimeout(r, 300));
-
-  // Capture the card as a high-resolution image
-  const canvas = await html2canvas(element, {
+  return html2canvas(element, {
     scale: 3,
     useCORS: true,
     allowTaint: true,
     backgroundColor: null,
     logging: false,
   });
+}
 
-  const imgData = canvas.toDataURL('image/png');
+/* ─── Generate member card PDF recto/verso ─── */
+async function generateMemberCardPDF(member: MemberRequest, includeVerso: boolean) {
+  const rectoCanvas = await captureCard('member-card');
+  if (!rectoCanvas) {
+    alert('Erreur : carte non trouvée. Ouvrez l\'onglet "Aperçu carte" d\'abord.');
+    return;
+  }
 
-  // Credit card dimensions: 85.6mm × 54mm
   const W = 85.6;
   const H = 54;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [W, H] });
+  doc.addImage(rectoCanvas.toDataURL('image/png'), 'PNG', 0, 0, W, H);
 
-  doc.addImage(imgData, 'PNG', 0, 0, W, H);
+  if (includeVerso) {
+    const versoCanvas = await captureCard('member-card-verso');
+    if (versoCanvas) {
+      doc.addPage([W, H], 'landscape');
+      doc.addImage(versoCanvas.toDataURL('image/png'), 'PNG', 0, 0, W, H);
+    }
+  }
+
   doc.save(`carte-membre-${member.firstName}-${member.lastName}.pdf`);
 }
 
-/* ─── Generate member card PNG image — high resolution for PVC printing ─── */
+/* ─── Generate member card PNG image ─── */
 async function generateMemberCardImage(member: MemberRequest) {
-  const html2canvas = (await import('html2canvas')).default;
-
-  const element = document.getElementById('member-card');
-  if (!element) {
+  const canvas = await captureCard('member-card');
+  if (!canvas) {
     alert('Erreur : carte non trouvée. Ouvrez l\'onglet "Aperçu carte" d\'abord.');
     return;
   }
-
-  await document.fonts.ready;
-  await new Promise((r) => setTimeout(r, 300));
-
-  // Scale 3x = 428*3=1284 x 270*3=810 — well above 1012×638 minimum for 300 DPI PVC
-  const canvas = await html2canvas(element, {
-    scale: 3,
-    useCORS: true,
-    allowTaint: true,
-    backgroundColor: null,
-    logging: false,
-  });
-
   const link = document.createElement('a');
   link.download = `carte-membre-ASFO-${member.firstName}-${member.lastName}-${member.objectId.slice(0, 6).toUpperCase()}.png`;
   link.href = canvas.toDataURL('image/png');
@@ -224,6 +213,7 @@ const MemberDrawer: React.FC<{
   const [generating, setGenerating] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'card'>('info');
+  const [cardFace, setCardFace] = useState<'recto' | 'verso'>('recto');
 
   const ensureCardTab = async () => {
     if (activeTab !== 'card') {
@@ -234,9 +224,12 @@ const MemberDrawer: React.FC<{
 
   const handleGenerateCard = async () => {
     await ensureCardTab();
+    // Make sure both faces are visible for capture
+    setCardFace('recto');
+    await new Promise((r) => setTimeout(r, 400));
     setGenerating(true);
     try {
-      await generateMemberCardPDF(member);
+      await generateMemberCardPDF(member, true);
     } finally {
       setGenerating(false);
     }
@@ -368,25 +361,87 @@ const MemberDrawer: React.FC<{
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-4">
               <p className="text-sm text-gray-500 text-center">
-                Aperçu de la carte membre qui sera générée en PDF
+                Aperçu de la carte membre (cliquez pour retourner)
               </p>
-              {/* Card preview with QR code container for PDF export */}
-              <div id="member-card-qr" className="transform scale-100">
-                <MemberCard
+
+              {/* Recto / Verso toggle buttons */}
+              <div className="flex items-center gap-1.5 rounded-lg bg-gray-100 p-1">
+                <button
+                  onClick={() => setCardFace('recto')}
+                  className={`rounded-md px-4 py-1.5 text-xs font-semibold transition ${
+                    cardFace === 'recto' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Recto
+                </button>
+                <button
+                  onClick={() => setCardFace('verso')}
+                  className={`rounded-md px-4 py-1.5 text-xs font-semibold transition ${
+                    cardFace === 'verso' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Verso
+                </button>
+              </div>
+
+              {/* Card flip container */}
+              <div
+                style={{ perspective: '1000px', width: '428px', height: '270px', cursor: 'pointer' }}
+                onClick={() => setCardFace(cardFace === 'recto' ? 'verso' : 'recto')}
+              >
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    position: 'relative',
+                    transformStyle: 'preserve-3d',
+                    transition: 'transform 0.6s ease',
+                    transform: cardFace === 'verso' ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                  }}
+                >
+                  {/* Recto */}
+                  <div style={{ position: 'absolute', width: '100%', height: '100%', backfaceVisibility: 'hidden' }}>
+                    <MemberCard
+                      name={`${member.firstName} ${member.lastName}`}
+                      role={profLabel(member.profession)}
+                      phone={member.phone}
+                      city={member.village || 'Non renseigné'}
+                      memberId={memberId}
+                      photo={member.photo?.url}
+                      validity="2026"
+                    />
+                  </div>
+                  {/* Verso */}
+                  <div style={{ position: 'absolute', width: '100%', height: '100%', backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+                    <MemberCardVerso
+                      name={`${member.firstName} ${member.lastName}`}
+                      memberId={memberId}
+                      phone={member.phone}
+                      email={member.email}
+                      city={member.village || 'Non renseigné'}
+                      validity="2026"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Hidden verso for PDF export (always in DOM but off-screen) */}
+              <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+                <MemberCardVerso
                   name={`${member.firstName} ${member.lastName}`}
-                  role={profLabel(member.profession)}
-                  phone={member.phone}
-                  city={member.village || 'Non renseigné'}
                   memberId={memberId}
-                  photo={member.photo?.url}
+                  phone={member.phone}
+                  email={member.email}
+                  city={member.village || 'Non renseigné'}
                   validity="2026"
                 />
               </div>
+
               <div className="w-full rounded-xl border border-blue-100 bg-blue-50 p-4">
                 <p className="text-xs text-blue-700 text-center">
-                  💡 La carte exportée en PDF aura la même apparence que cet aperçu, au format carte bancaire (85.6mm × 54mm).
+                  Le PDF contiendra le recto ET le verso (2 pages, format carte bancaire 85.6mm x 54mm).
                 </p>
               </div>
             </div>
