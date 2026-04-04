@@ -70,28 +70,55 @@ const MemberCard: React.FC<MemberCardProps> = ({
         }}
       />
 
-      {/* ── Decorative waves + red stripe (like old card) ── */}
+      {/* ── Wave + slogan zone (like original PVC card) ── */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
         viewBox="0 0 428 270"
         preserveAspectRatio="none"
+        style={{ zIndex: 5 }}
       >
-        {/* Red diagonal stripe */}
+        {/* Red thin diagonal stripe accent */}
         <path
-          d="M0,208 Q80,195 160,205 Q260,218 340,200 Q400,192 428,198 L428,206 Q400,200 340,208 Q260,226 160,213 Q80,203 0,216 Z"
+          d="M0,200 Q100,188 214,198 Q320,208 428,192 L428,197 Q320,213 214,203 Q100,193 0,205 Z"
           fill="#C62828"
-          opacity="0.35"
+          opacity="0.4"
         />
-        {/* White wave bottom */}
+        {/* White/cream wave — creates the light zone for slogan */}
         <path
-          d="M0,225 C60,240 140,218 220,230 C300,242 380,222 428,235 L428,270 L0,270 Z"
-          fill="rgba(255,255,255,0.08)"
+          d="M0,210 C60,200 140,218 214,208 C290,198 370,215 428,205 L428,240 L0,240 Z"
+          fill="rgba(255,255,255,0.92)"
         />
+        {/* Softer secondary wave for depth */}
         <path
-          d="M0,240 C80,252 200,228 300,245 C370,255 420,240 428,248 L428,270 L0,270 Z"
-          fill="rgba(255,255,255,0.05)"
+          d="M0,215 C80,205 160,222 240,212 C320,202 400,218 428,210 L428,240 L0,240 Z"
+          fill="rgba(240,248,255,0.6)"
         />
       </svg>
+
+      {/* ── Slogan "Au service du Fouta" inside the white wave zone ── */}
+      <div
+        className="absolute"
+        style={{
+          bottom: '30px',
+          left: 0,
+          right: 0,
+          zIndex: 6,
+          textAlign: 'center',
+        }}
+      >
+        <p
+          style={{
+            fontSize: '14px',
+            fontStyle: 'italic',
+            fontWeight: 600,
+            fontFamily: "'Georgia', 'Times New Roman', serif",
+            color: '#1A3A4F',
+            letterSpacing: '0.5px',
+          }}
+        >
+          Au service du Fouta
+        </p>
+      </div>
 
       {/* ── Top bar: bleu / blanc / rouge ── */}
       <div className="absolute top-0 left-0 right-0 z-20 flex" style={{ height: '3px' }}>
@@ -308,29 +335,6 @@ const MemberCard: React.FC<MemberCardProps> = ({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* ── Slogan "Au service du Fouta" ── */}
-      <div
-        className="relative z-10"
-        style={{
-          textAlign: 'center',
-          marginTop: '3px',
-          paddingBottom: '0',
-        }}
-      >
-        <p
-          style={{
-            fontSize: '13px',
-            fontStyle: 'italic',
-            fontWeight: 600,
-            color: '#1A3A4F',
-            textShadow: '0 1px 2px rgba(255,255,255,0.15)',
-            letterSpacing: '0.3px',
-          }}
-        >
-          Au service du Fouta
-        </p>
       </div>
 
       {/* ── FOOTER rouge ── */}
