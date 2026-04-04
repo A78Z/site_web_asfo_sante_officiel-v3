@@ -339,10 +339,11 @@ const MemberCard: React.FC<MemberCardProps> = ({
           {/* ID membre */}
           <p
             style={{
-              fontSize: '7.5px',
+              fontSize: '8.5px',
               fontFamily: "'Courier New', Courier, monospace",
+              fontWeight: 500,
               letterSpacing: '1px',
-              color: 'rgba(255,255,255,0.45)',
+              color: 'rgba(255,255,255,0.8)',
               marginTop: '2px',
             }}
           >
@@ -350,18 +351,18 @@ const MemberCard: React.FC<MemberCardProps> = ({
           </p>
 
           {/* Contact */}
-          <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+          <div style={{ marginTop: '5px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <Phone style={{ width: '10px', height: '10px', color: 'rgba(255,255,255,0.5)', flexShrink: 0 }} />
-              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.85)' }}>{phone}</span>
+              <Phone style={{ width: '11px', height: '11px', color: '#FFFFFF', flexShrink: 0 }} />
+              <span style={{ fontSize: '10px', fontWeight: 500, color: '#FFFFFF' }}>{phone}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <MapPin style={{ width: '10px', height: '10px', color: 'rgba(255,255,255,0.5)', flexShrink: 0 }} />
-              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.85)' }}>{formatCity(city)}</span>
+              <MapPin style={{ width: '11px', height: '11px', color: '#FFFFFF', flexShrink: 0 }} />
+              <span style={{ fontSize: '10px', fontWeight: 500, color: '#FFFFFF' }}>{formatCity(city)}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <Globe style={{ width: '10px', height: '10px', color: 'rgba(255,255,255,0.5)', flexShrink: 0 }} />
-              <span style={{ fontSize: '9px', color: 'rgba(93,169,198,1)' }}>www.asfosante.org</span>
+              <Globe style={{ width: '11px', height: '11px', color: '#FFFFFF', flexShrink: 0 }} />
+              <span style={{ fontSize: '10px', fontWeight: 500, color: '#FFFFFF' }}>www.asfosante.org</span>
             </div>
           </div>
         </div>
