@@ -199,7 +199,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
             src="/logo-asfo.png"
             alt="Logo ASFO"
             style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'contain' }}
-            crossOrigin="anonymous"
+            referrerPolicy="no-referrer"
           />
         </div>
         <div style={{ flex: 1 }}>
@@ -269,7 +269,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
                   src={photo}
                   alt={name}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  crossOrigin="anonymous"
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none';
                     const parent = (e.target as HTMLImageElement).parentElement;

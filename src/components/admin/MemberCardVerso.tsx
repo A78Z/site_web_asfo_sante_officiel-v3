@@ -116,7 +116,7 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
                 alt="Logo ASFO"
                 className="rounded-full object-contain"
                 style={{ width: '32px', height: '32px' }}
-                crossOrigin="anonymous"
+                referrerPolicy="no-referrer"
               />
             </div>
             <div>
