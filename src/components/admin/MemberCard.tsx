@@ -70,50 +70,80 @@ const MemberCard: React.FC<MemberCardProps> = ({
         }}
       />
 
-      {/* ── Wave + slogan zone (like original PVC card) ── */}
+      {/* ── Multi-layer wave zone (exact match to PVC card) ── */}
       <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        viewBox="0 0 428 270"
+        className="absolute pointer-events-none"
+        style={{ left: 0, right: 0, bottom: 0, width: '100%', height: '120px', zIndex: 4 }}
+        viewBox="0 0 428 120"
         preserveAspectRatio="none"
-        style={{ zIndex: 5 }}
       >
-        {/* Red thin diagonal stripe accent */}
+        {/* Layer 1: dark blue subtle wave (background depth) */}
         <path
-          d="M0,200 Q100,188 214,198 Q320,208 428,192 L428,197 Q320,213 214,203 Q100,193 0,205 Z"
+          d="M0,30 C60,15 120,45 200,25 C280,5 360,35 428,18 L428,120 L0,120 Z"
+          fill="#1A5F7A"
+          opacity="0.15"
+        />
+        {/* Layer 2: medium blue wave */}
+        <path
+          d="M0,42 C70,28 150,55 230,35 C310,15 380,42 428,30 L428,120 L0,120 Z"
+          fill="#2A8BA8"
+          opacity="0.2"
+        />
+        {/* Layer 3: light blue wave */}
+        <path
+          d="M0,52 C80,38 170,62 260,42 C340,25 400,50 428,40 L428,120 L0,120 Z"
+          fill="#5DA9C6"
+          opacity="0.25"
+        />
+        {/* Layer 4: red accent stripe (thin, like original) */}
+        <path
+          d="M0,56 C90,42 180,65 270,48 C350,34 410,52 428,44 L428,49 C410,57 350,39 270,53 C180,70 90,47 0,61 Z"
           fill="#C62828"
-          opacity="0.4"
+          opacity="0.5"
         />
-        {/* White/cream wave — creates the light zone for slogan */}
+        {/* Layer 5: white/cream wave — the slogan zone */}
         <path
-          d="M0,210 C60,200 140,218 214,208 C290,198 370,215 428,205 L428,240 L0,240 Z"
-          fill="rgba(255,255,255,0.92)"
+          d="M0,62 C90,48 180,70 270,54 C350,40 410,58 428,50 L428,90 L0,90 Z"
+          fill="#F0F6FA"
         />
-        {/* Softer secondary wave for depth */}
+        {/* Layer 6: pure white overlay for brightness */}
         <path
-          d="M0,215 C80,205 160,222 240,212 C320,202 400,218 428,210 L428,240 L0,240 Z"
-          fill="rgba(240,248,255,0.6)"
+          d="M0,68 C100,55 200,72 300,58 C370,48 420,60 428,55 L428,90 L0,90 Z"
+          fill="#FFFFFF"
+          opacity="0.7"
         />
       </svg>
 
-      {/* ── Slogan "Au service du Fouta" inside the white wave zone ── */}
+      {/* ── Slogan "Au service du Fouta" with location pin ── */}
       <div
         className="absolute"
         style={{
-          bottom: '30px',
+          bottom: '28px',
           left: 0,
           right: 0,
           zIndex: 6,
           textAlign: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '4px',
         }}
       >
+        {/* Location pin icon */}
+        <svg
+          width="14" height="14" viewBox="0 0 24 24" fill="#2A8BA8"
+          style={{ flexShrink: 0 }}
+        >
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+        </svg>
         <p
           style={{
-            fontSize: '14px',
+            fontSize: '15px',
             fontStyle: 'italic',
-            fontWeight: 600,
+            fontWeight: 700,
             fontFamily: "'Georgia', 'Times New Roman', serif",
             color: '#1A3A4F',
-            letterSpacing: '0.5px',
+            letterSpacing: '0.3px',
           }}
         >
           Au service du Fouta
