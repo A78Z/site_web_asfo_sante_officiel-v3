@@ -410,7 +410,7 @@ const MemberDrawer: React.FC<{
                       city={member.village || 'Non renseigné'}
                       memberId={memberId}
                       photo={member.photo?.url}
-                      validity="2026"
+                      createdAt={member.createdAt}
                     />
                   </div>
                   {/* Verso */}
@@ -420,8 +420,7 @@ const MemberDrawer: React.FC<{
                       memberId={memberId}
                       phone={member.phone}
                       email={member.email}
-                      city={member.village || 'Non renseigné'}
-                      validity="2026"
+                      createdAt={member.createdAt}
                     />
                   </div>
                 </div>
@@ -434,8 +433,7 @@ const MemberDrawer: React.FC<{
                   memberId={memberId}
                   phone={member.phone}
                   email={member.email}
-                  city={member.village || 'Non renseigné'}
-                  validity="2026"
+                  createdAt={member.createdAt}
                 />
               </div>
 

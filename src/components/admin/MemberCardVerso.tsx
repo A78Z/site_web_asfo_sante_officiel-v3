@@ -6,8 +6,7 @@ export interface MemberCardVersoProps {
   memberId: string;
   phone: string;
   email?: string;
-  city: string;
-  validity?: string;
+  createdAt?: string;
 }
 
 const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
@@ -15,10 +14,17 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
   memberId,
   phone,
   email,
-  city,
-  validity = '2026',
+  createdAt,
 }) => {
   const qrUrl = `https://asfosante.org/verify/${memberId}`;
+
+  // Validite dynamique : 1 an apres la date de creation
+  const creationDate = createdAt ? new Date(createdAt) : new Date();
+  const expiryDate = new Date(creationDate);
+  expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+  const expiryMonth = expiryDate.toLocaleDateString('fr-FR', { month: 'long' });
+  const expiryYear = expiryDate.getFullYear();
+  const expiryLabel = `${expiryMonth.charAt(0).toUpperCase() + expiryMonth.slice(1)} ${expiryYear}`;
 
   return (
     <div
@@ -185,7 +191,10 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
               </svg>
               <div>
                 <p style={{ fontSize: '9px', color: '#333', fontWeight: 600, lineHeight: 1.4 }}>
-                  {city}
+                  FMPO/UCAD Amicale Moussa
+                </p>
+                <p style={{ fontSize: '8px', color: '#555', fontWeight: 500, lineHeight: 1.3 }}>
+                  BP 25255 - Dakar Fann
                 </p>
               </div>
             </div>
@@ -273,7 +282,7 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
               Expire
             </p>
             <p style={{ fontSize: '9px', color: '#D62828', fontWeight: 700, marginTop: '1px' }}>
-              Decembre {validity}
+              {expiryLabel}
             </p>
           </div>
         </div>

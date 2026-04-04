@@ -9,6 +9,7 @@ export interface MemberCardProps {
   memberId: string;
   photo?: string;
   validity?: string;
+  createdAt?: string;
 }
 
 const MemberCard: React.FC<MemberCardProps> = ({
@@ -18,8 +19,14 @@ const MemberCard: React.FC<MemberCardProps> = ({
   city,
   memberId,
   photo,
-  validity = '2026',
+  validity,
+  createdAt,
 }) => {
+  // Validite dynamique : 1 an apres la date de creation
+  const creationDate = createdAt ? new Date(createdAt) : new Date();
+  const expiryDate = new Date(creationDate);
+  expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+  const expiryYear = validity || String(expiryDate.getFullYear());
   const formatCity = (address: string) => {
     if (!address) return '';
     const lower = address.toLowerCase();
@@ -360,7 +367,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
             color: 'rgba(255,255,255,0.85)',
           }}
         >
-          Validite : {validity}
+          Validite : {expiryYear}
         </span>
       </div>
     </div>
