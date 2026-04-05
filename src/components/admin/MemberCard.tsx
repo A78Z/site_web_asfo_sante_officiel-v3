@@ -242,7 +242,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
               fontWeight: 600, letterSpacing: '0.5px', color: 'rgba(255,255,255,0.85)', marginTop: '2px',
             }}
           >
-            Numero : {memberId}
+            N° membre : {memberId}
           </p>
 
           {/* Contact */}
@@ -288,7 +288,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
           Carte Membre
         </span>
         <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>
-          Validite : {expiryLabel}
+          Expire : {expiryLabel}
         </span>
       </div>
     </div>

@@ -14,6 +14,8 @@ import ContactPage from './pages/ContactPage';
 import NewsPage from './pages/NewsPage';
 import SingleNewsPage from './pages/SingleNewsPage';
 import DonatePage from './pages/DonatePage';
+import DonateSuccessPage from './pages/DonateSuccessPage';
+import DonateErrorPage from './pages/DonateErrorPage';
 import JoinPage from './pages/JoinPage';
 import ReportsPage from './pages/ReportsPage';
 import PrivacyPage from './pages/PrivacyPage';
@@ -71,6 +73,8 @@ function App() {
           <Route path="/news" element={<NewsPage />} />
           <Route path="/news/:id" element={<SingleNewsPage />} />
           <Route path="/donate" element={<DonatePage />} />
+          <Route path="/donate/success" element={<DonateSuccessPage />} />
+          <Route path="/donate/error" element={<DonateErrorPage />} />
           <Route path="/join" element={<JoinPage />} />
           <Route path="/rapport" element={<ReportsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
