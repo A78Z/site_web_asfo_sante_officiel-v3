@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { queryObjects, type ParseFile } from '../lib/parse';
+import { findMemberById } from '../utils/memberId';
 import { ShieldCheck, ShieldAlert, ArrowLeft, Loader2, Phone, MapPin, Mail, Calendar, BadgeCheck, Globe } from 'lucide-react';
 
 export interface MemberRequest {
@@ -55,9 +56,9 @@ const VerifyMemberPage: React.FC = () => {
     const fetchMember = async () => {
       try {
         setLoading(true);
-        // id looks like ASFO-M-XXXXXX
+        // id looks like ASFO-MED-2026-001
         const response = await queryObjects<MemberRequest>('MemberRequests', { where: { status: 'Validé' } });
-        const found = response.results.find((m) => `ASFO-M-${m.objectId.slice(0, 6).toUpperCase()}` === id);
+        const found = findMemberById(id!, response.results) as MemberRequest | undefined;
 
         if (found) {
           setMember(found);
@@ -77,10 +78,14 @@ const VerifyMemberPage: React.FC = () => {
     }
   }, [id]);
 
-  // Check if membership is still valid (valid through end of 2026)
+  // Check if membership is still valid (2 years from creation)
   const isActive = member?.status === 'Validé';
-  const validityYear = '2026';
-  const isExpired = new Date().getFullYear() > parseInt(validityYear);
+  const expiryDate = member ? (() => {
+    const d = new Date(member.createdAt);
+    d.setFullYear(d.getFullYear() + 2);
+    return d;
+  })() : new Date();
+  const isExpired = new Date() > expiryDate;
 
   if (loading) {
     return (

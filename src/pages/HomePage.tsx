@@ -5,6 +5,7 @@ import PresidentMessage from '../components/home/PresidentMessage';
 import AboutPreview from '../components/home/AboutPreview';
 import ImpactStats from '../components/home/ImpactStats';
 import MedicalTeamPreview from '../components/home/MedicalTeamPreview';
+import MemberCardSection from '../components/home/MemberCardSection';
 import LatestMission from '../components/home/LatestMission';
 import ArchivesPreview from '../components/home/ArchivesPreview';
 import GalleryPreview from '../components/home/GalleryPreview';
@@ -50,6 +51,7 @@ const HomePage: React.FC = () => {
       <AboutPreview />
       <ImpactStats />
       <MedicalTeamPreview />
+      <MemberCardSection />
       <LatestMission />
       <ArchivesPreview />
       <GalleryPreview />

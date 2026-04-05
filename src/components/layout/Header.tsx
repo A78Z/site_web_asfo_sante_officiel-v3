@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, ChevronRight, Heart, FileText, Users, Building2, Handshake, Info } from 'lucide-react';
+import { Menu, ChevronRight, Heart, FileText, Users, Building2, Handshake, Info, CreditCard } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -177,11 +177,12 @@ const Header: React.FC = () => {
           </Button>
           <Button
             asChild
-            className="h-9 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium text-[13px] shadow-sm transition-all duration-200"
+            className="h-9 rounded-lg font-medium text-[13px] text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+            style={{ background: 'linear-gradient(135deg, #0d9488, #1a6b8a)', boxShadow: '0 2px 8px rgba(13,148,136,0.3)' }}
           >
             <Link to="/member-card">
-              <Users className="mr-1 h-3.5 w-3.5" />
-              Soutenir
+              <CreditCard className="mr-1 h-3.5 w-3.5" />
+              Ma Carte
             </Link>
           </Button>
         </div>
@@ -290,11 +291,12 @@ const Header: React.FC = () => {
                   </Button>
                   <Button
                     asChild
-                    className="w-full justify-center h-11 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-medium"
+                    className="w-full justify-center h-11 rounded-lg text-white text-[13px] font-medium"
+                    style={{ background: 'linear-gradient(135deg, #0d9488, #1a6b8a)' }}
                   >
                     <Link to="/member-card" onClick={() => setMobileOpen(false)}>
-                      <Users className="mr-1.5 h-4 w-4" />
-                      Soutenir l'ASFO
+                      <CreditCard className="mr-1.5 h-4 w-4" />
+                      Ma Carte Membre
                     </Link>
                   </Button>
                 </div>

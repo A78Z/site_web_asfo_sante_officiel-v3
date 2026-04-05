@@ -39,7 +39,7 @@ export const presidents: PresidentProps[] = [
   {
     name: "Pr. Samba NIANG",
     role: "4e Président de l'ASFO",
-    specialty: "Pharmacien, Chef de service CHR St-Louis, Maître de conférences UFR2S/UGB",
+    specialty: "Pr Agrégé en pneumologie\nChef de service au CHR Saint Louis\nMaître de conférence UFR2S/UGB",
     imageUrl: "/photo-avatar-profil.png",
     years: "2003 - 2004",
     order: 4
@@ -288,9 +288,13 @@ const PresidentCard: React.FC<PresidentProps> = ({
             <Award size={14} className="mr-2" />
             {role}
           </div>
-          <p className="text-gray-600 text-sm leading-relaxed">
-            {specialty}
-          </p>
+          <div className="text-gray-600 text-sm leading-relaxed flex flex-col gap-1.5 mt-2 w-full px-2">
+            {specialty.split('\n').map((line, index) => (
+              <span key={index} className="block w-full break-words">
+                {line}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Special Status */}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { queryObjects, type ParseFile } from '../lib/parse';
+import { findMemberById } from '../utils/memberId';
 import { CheckCircle2, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 
 export interface MemberRequest {
@@ -55,9 +56,9 @@ const MemberProfilePage: React.FC = () => {
     const fetchMember = async () => {
       try {
         setLoading(true);
-        // Since id is shortened (e.g., ASFO-M-LFPZ3I), we fetch all validated members and find the match
+        // id looks like ASFO-MED-2026-001
         const response = await queryObjects<MemberRequest>('MemberRequests', { where: { status: 'Validé' } });
-        const found = response.results.find((m) => `ASFO-M-${m.objectId.slice(0, 6).toUpperCase()}` === id);
+        const found = findMemberById(id!, response.results) as MemberRequest | undefined;
         
         if (found) {
           setMember(found);

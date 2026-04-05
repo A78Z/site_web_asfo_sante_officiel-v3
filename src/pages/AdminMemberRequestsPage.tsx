@@ -20,7 +20,6 @@ import {
   RefreshCw,
   FileText,
   Wallet,
-  ImageDown,
 } from 'lucide-react';
 import {
   queryObjects,
@@ -31,6 +30,7 @@ import {
 import jsPDF from 'jspdf';
 import MemberCard from '../components/admin/MemberCard';
 import MemberCardVerso from '../components/admin/MemberCardVerso';
+import { generateMemberId } from '../utils/memberId';
 
 const CLASS_NAME = 'MemberRequests';
 
@@ -79,57 +79,93 @@ function profLabel(val: string) {
   return professionLabels[val] ?? val;
 }
 
-/* ─── Capture a card element as high-res canvas ─── */
-async function captureCard(elementId: string) {
-  const html2canvas = (await import('html2canvas')).default;
-  const element = document.getElementById(elementId);
-  if (!element) return null;
-  await document.fonts.ready;
-  await new Promise((r) => setTimeout(r, 300));
-  return html2canvas(element, {
-    scale: 3,
-    useCORS: true,
-    allowTaint: true,
-    backgroundColor: null,
-    logging: false,
-  });
-}
-
-/* ─── Generate member card PDF recto/verso ─── */
-async function generateMemberCardPDF(member: MemberRequest, includeVerso: boolean) {
-  const rectoCanvas = await captureCard('member-card');
-  if (!rectoCanvas) {
-    alert('Erreur : carte non trouvée. Ouvrez l\'onglet "Aperçu carte" d\'abord.');
+/* ─── Generate member card PDF via browser print (pixel-perfect) ─── */
+function openPrintableCard(rectoEl: HTMLElement, versoEl: HTMLElement, memberName: string) {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Veuillez autoriser les popups pour générer le PDF.');
     return;
   }
 
-  const W = 85.6;
-  const H = 54;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [W, H] });
-  doc.addImage(rectoCanvas.toDataURL('image/png'), 'PNG', 0, 0, W, H);
+  // Measure the card at screen size
+  const srcW = rectoEl.offsetWidth;   // 428
+  const srcH = rectoEl.offsetHeight;  // 270
 
-  if (includeVerso) {
-    const versoCanvas = await captureCard('member-card-verso');
-    if (versoCanvas) {
-      doc.addPage([W, H], 'landscape');
-      doc.addImage(versoCanvas.toDataURL('image/png'), 'PNG', 0, 0, W, H);
+  // Target: 85.6mm × 54mm in px at 96dpi → 323.7 × 204.1
+  const targetW = 323.7;
+  const targetH = 204.1;
+  const scale = Math.min(targetW / srcW, targetH / srcH);
+
+  // Collect all stylesheets from the current page
+  const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+    .map((el) => el.outerHTML)
+    .join('\n');
+
+  printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Carte Membre ASFO — ${memberName}</title>
+${styles}
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { margin: 0; padding: 20px; background: #f0f0f0; font-family: 'Inter', sans-serif; }
+
+  .print-label { text-align: center; font-size: 13px; color: #666; margin: 10px 0 5px; font-family: Arial, sans-serif; }
+  .print-btn { display: block; margin: 30px auto; padding: 12px 48px; background: #0d9488; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .print-btn:hover { background: #0f766e; }
+
+  .print-carte {
+    width: 85.6mm;
+    height: 54mm;
+    margin: 10px auto;
+    overflow: hidden;
+    position: relative;
+    border-radius: 3mm;
+    border: 1px solid #ddd;
+  }
+  .print-carte-inner {
+    transform: scale(${scale});
+    transform-origin: top left;
+    width: ${srcW}px;
+    height: ${srcH}px;
+  }
+
+  @media print {
+    @page { size: A4 portrait; margin: 15mm; }
+    body { margin: 0; padding: 0; background: white; }
+    .print-btn { display: none !important; }
+    .print-label { font-size: 10px; color: #999; margin: 3mm 0 1mm; }
+    .print-carte {
+      border: 0.3mm solid #ddd;
+      margin: 5mm auto !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
+    .print-carte:first-of-type { margin-top: 10mm !important; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
   }
+</style>
+</head>
+<body>
+  <p class="print-label">— Recto —</p>
+  <div class="print-carte"><div class="print-carte-inner">${rectoEl.outerHTML}</div></div>
+  <p class="print-label">— Verso —</p>
+  <div class="print-carte"><div class="print-carte-inner">${versoEl.outerHTML}</div></div>
+  <button class="print-btn" onclick="window.print()">Imprimer / Enregistrer en PDF</button>
+</body>
+</html>`);
+  printWindow.document.close();
 
-  doc.save(`carte-membre-${member.firstName}-${member.lastName}.pdf`);
-}
-
-/* ─── Generate member card PNG image ─── */
-async function generateMemberCardImage(member: MemberRequest) {
-  const canvas = await captureCard('member-card');
-  if (!canvas) {
-    alert('Erreur : carte non trouvée. Ouvrez l\'onglet "Aperçu carte" d\'abord.');
-    return;
-  }
-  const link = document.createElement('a');
-  link.download = `carte-membre-ASFO-${member.firstName}-${member.lastName}-${member.objectId.slice(0, 6).toUpperCase()}.png`;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
+  // Wait for images to load, then auto-trigger print
+  printWindow.onload = () => {
+    const imgs = printWindow.document.querySelectorAll('img');
+    Promise.all(Array.from(imgs).map((img) =>
+      img.complete ? Promise.resolve() : new Promise<void>((r) => { img.onload = () => r(); img.onerror = () => r(); })
+    )).then(() => {
+      setTimeout(() => printWindow.print(), 800);
+    });
+  };
 }
 
 /* ─── Export CSV ─── */
@@ -206,12 +242,12 @@ function exportPDFList(data: MemberRequest[]) {
 /* ─── Drawer ─── */
 const MemberDrawer: React.FC<{
   member: MemberRequest | null;
+  allMembers: MemberRequest[];
   onClose: () => void;
   onStatusChange: (id: string, status: Statut) => void;
-}> = ({ member, onClose, onStatusChange }) => {
+}> = ({ member, allMembers, onClose, onStatusChange }) => {
   if (!member) return null;
   const [generating, setGenerating] = useState(false);
-  const [generatingImage, setGeneratingImage] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'card'>('info');
   const [cardFace, setCardFace] = useState<'recto' | 'verso'>('recto');
 
@@ -224,28 +260,23 @@ const MemberDrawer: React.FC<{
 
   const handleGenerateCard = async () => {
     await ensureCardTab();
-    // Make sure both faces are visible for capture
     setCardFace('recto');
     await new Promise((r) => setTimeout(r, 400));
     setGenerating(true);
     try {
-      await generateMemberCardPDF(member, true);
+      const rectoEl = document.getElementById('member-card');
+      const versoEl = document.getElementById('member-card-verso');
+      if (!rectoEl || !versoEl) {
+        alert('Impossible de trouver la carte. Vérifiez que l\'onglet "Aperçu carte" est ouvert.');
+        return;
+      }
+      openPrintableCard(rectoEl, versoEl, `${member.firstName} ${member.lastName}`);
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleDownloadImage = async () => {
-    await ensureCardTab();
-    setGeneratingImage(true);
-    try {
-      await generateMemberCardImage(member);
-    } finally {
-      setGeneratingImage(false);
-    }
-  };
-
-  const memberId = `ASFO-M-${member.objectId.slice(0, 6).toUpperCase()}`;
+  const memberId = generateMemberId(member, allMembers);
 
   const InfoRow = ({ label, value }: { label: string; value: string }) => (
     <div className="flex items-start justify-between gap-4 py-2.5">
@@ -410,6 +441,7 @@ const MemberDrawer: React.FC<{
                       city={member.village || 'Non renseigné'}
                       memberId={memberId}
                       photo={member.photo?.url}
+                      email={member.email}
                       createdAt={member.createdAt}
                     />
                   </div>
@@ -418,23 +450,10 @@ const MemberDrawer: React.FC<{
                     <MemberCardVerso
                       name={`${member.firstName} ${member.lastName}`}
                       memberId={memberId}
-                      phone={member.phone}
-                      email={member.email}
                       createdAt={member.createdAt}
                     />
                   </div>
                 </div>
-              </div>
-
-              {/* Hidden verso for PDF export (always in DOM but off-screen) */}
-              <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-                <MemberCardVerso
-                  name={`${member.firstName} ${member.lastName}`}
-                  memberId={memberId}
-                  phone={member.phone}
-                  email={member.email}
-                  createdAt={member.createdAt}
-                />
               </div>
 
               <div className="w-full rounded-xl border border-blue-100 bg-blue-50 p-4">
@@ -465,17 +484,6 @@ const MemberDrawer: React.FC<{
               >
                 {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                 {generating ? 'Génération...' : 'Générer carte membre PDF'}
-              </button>
-              <button
-                onClick={handleDownloadImage}
-                disabled={generatingImage}
-                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-semibold text-white transition disabled:opacity-60"
-                style={{ background: '#1E3A5F' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#163050')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = '#1E3A5F')}
-              >
-                {generatingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageDown className="h-4 w-4" />}
-                {generatingImage ? 'Téléchargement...' : 'Télécharger en Image'}
               </button>
             </>
           )}
@@ -707,7 +715,7 @@ const AdminMemberRequestsPage: React.FC = () => {
 
       {/* Drawer */}
       <AnimatePresence>
-        {selected && <MemberDrawer member={selected} onClose={() => setSelected(null)} onStatusChange={handleStatusChange} />}
+        {selected && <MemberDrawer member={selected} allMembers={members} onClose={() => setSelected(null)} onStatusChange={handleStatusChange} />}
       </AnimatePresence>
     </div>
   );

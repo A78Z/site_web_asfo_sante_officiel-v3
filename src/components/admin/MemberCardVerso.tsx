@@ -4,31 +4,29 @@ import { QRCodeSVG } from 'qrcode.react';
 export interface MemberCardVersoProps {
   name: string;
   memberId: string;
-  phone: string;
-  email?: string;
   createdAt?: string;
+  cardId?: string;
 }
 
 const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
   name,
   memberId,
-  phone,
-  email,
   createdAt,
+  cardId,
 }) => {
   const qrUrl = `https://asfosante.org/verify/${memberId}`;
 
-  // Validite dynamique : 1 an apres la date de creation
+  // Validite dynamique : 2 ans apres la date de creation
   const creationDate = createdAt ? new Date(createdAt) : new Date();
   const expiryDate = new Date(creationDate);
-  expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+  expiryDate.setFullYear(expiryDate.getFullYear() + 2);
   const expiryMonth = expiryDate.toLocaleDateString('fr-FR', { month: 'long' });
   const expiryYear = expiryDate.getFullYear();
   const expiryLabel = `${expiryMonth.charAt(0).toUpperCase() + expiryMonth.slice(1)} ${expiryYear}`;
 
   return (
     <div
-      id="member-card-verso"
+      id={cardId || 'member-card-verso'}
       className="relative mx-auto overflow-hidden"
       style={{
         width: '428px',
@@ -65,7 +63,7 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
         />
       </svg>
 
-      {/* ── Checkered pattern (inspired by old card) ── */}
+      {/* ── Checkered pattern ── */}
       <div
         className="absolute pointer-events-none"
         style={{
@@ -79,7 +77,7 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
         }}
       />
 
-      {/* ── Red diagonal stripe (inspired by old card) ── */}
+      {/* ── Red diagonal stripe ── */}
       <svg
         className="absolute pointer-events-none"
         style={{ top: '0', left: '0', width: '100%', height: '100%' }}
@@ -94,7 +92,7 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
       </svg>
 
       {/* ── CONTENT ── */}
-      <div className="relative z-10 flex h-full flex-col px-6 pt-5 pb-4">
+      <div className="relative z-10 flex h-full flex-col" style={{ padding: '8px 20px 6px 20px' }}>
         {/* Top row: Logo + QR Code */}
         <div className="flex items-start justify-between">
           {/* Left: Logo + org info */}
@@ -102,8 +100,8 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
             <div
               className="flex items-center justify-center"
               style={{
-                width: '40px',
-                height: '40px',
+                width: '38px',
+                height: '38px',
                 borderRadius: '50%',
                 background: 'white',
                 border: '2px solid #1F6F8B',
@@ -115,7 +113,7 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
                 src="/logo-asfo.png"
                 alt="Logo ASFO"
                 className="rounded-full object-contain"
-                style={{ width: '32px', height: '32px' }}
+                style={{ width: '30px', height: '30px' }}
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -137,7 +135,7 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
             <div
               style={{
                 background: 'white',
-                padding: '5px',
+                padding: '4px',
                 borderRadius: '8px',
                 border: '2px solid #1F6F8B',
                 boxShadow: '0 2px 8px rgba(31,111,139,0.15)',
@@ -145,7 +143,7 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
             >
               <QRCodeSVG
                 value={qrUrl}
-                size={80}
+                size={72}
                 level="H"
                 bgColor="#ffffff"
                 fgColor="#1F6F8B"
@@ -155,7 +153,7 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
               style={{
                 fontSize: '6.5px',
                 color: '#1F6F8B',
-                marginTop: '3px',
+                marginTop: '2px',
                 letterSpacing: '0.3px',
                 fontWeight: 600,
               }}
@@ -167,18 +165,18 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
 
         {/* Separator */}
         <div
-          className="my-3"
           style={{
             height: '1px',
+            margin: '5px 0',
             background: 'linear-gradient(90deg, #1F6F8B 0%, #5DA9C6 50%, transparent 100%)',
             opacity: 0.3,
           }}
         />
 
         {/* Contact info grid */}
-        <div className="flex-1 flex gap-6">
-          {/* Left column: address + contact */}
-          <div className="flex-1 space-y-2">
+        <div className="flex gap-6" style={{ flex: 1 }}>
+          {/* Left column: ASFO contact info */}
+          <div className="flex-1" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
             {/* Address */}
             <div className="flex items-start gap-2">
               <svg
@@ -199,7 +197,7 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
               </div>
             </div>
 
-            {/* Phone */}
+            {/* Phone ASFO */}
             <div className="flex items-center gap-2">
               <svg
                 width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -209,26 +207,24 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
               </svg>
               <p style={{ fontSize: '10px', color: '#333', fontWeight: 600 }}>
-                {phone}
+                +221710401760
               </p>
             </div>
 
-            {/* Email */}
-            {email && (
-              <div className="flex items-center gap-2">
-                <svg
-                  width="12" height="12" viewBox="0 0 24 24" fill="none"
-                  stroke="#1F6F8B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                  style={{ flexShrink: 0 }}
-                >
-                  <rect x="2" y="4" width="20" height="16" rx="2" />
-                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                </svg>
-                <p style={{ fontSize: '9px', color: '#555', fontWeight: 500 }}>
-                  {email}
-                </p>
-              </div>
-            )}
+            {/* Email ASFO */}
+            <div className="flex items-center gap-2">
+              <svg
+                width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="#1F6F8B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ flexShrink: 0 }}
+              >
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+              <p style={{ fontSize: '9px', color: '#555', fontWeight: 500 }}>
+                contact@asfosante.org
+              </p>
+            </div>
 
             {/* Website */}
             <div className="flex items-center gap-2">
@@ -287,8 +283,8 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
           </div>
         </div>
 
-        {/* Bottom: slogan */}
-        <div className="mt-auto pt-2 flex items-center justify-between">
+        {/* Bottom: slogan + flag */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '3px' }}>
           <p
             style={{
               fontSize: '11px',
