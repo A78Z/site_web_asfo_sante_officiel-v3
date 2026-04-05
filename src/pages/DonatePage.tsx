@@ -40,38 +40,43 @@ const DonatePage: React.FC = () => {
     setError('');
   };
 
-  const handleDonate = async () => {
-    if (currentAmount < 100) {
-      setError('Le montant minimum est de 100 FCFA');
-      return;
-    }
+  // TODO: Réactiver quand l'intégration Wave sera prête
+  // const handleDonate = async () => {
+  //   if (currentAmount < 100) {
+  //     setError('Le montant minimum est de 100 FCFA');
+  //     return;
+  //   }
+  //
+  //   setLoading(true);
+  //   setError('');
+  //
+  //   try {
+  //     const response = await fetch('/api/wave/create-checkout', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({
+  //         amount: currentAmount,
+  //         donorName: donorName || 'Anonyme',
+  //         donorPhone: donorPhone || null,
+  //       }),
+  //     });
+  //
+  //     const data = await response.json();
+  //
+  //     if (data.wave_launch_url) {
+  //       window.location.href = data.wave_launch_url;
+  //     } else {
+  //       setError(data.error || 'Erreur lors de la création du paiement');
+  //       setLoading(false);
+  //     }
+  //   } catch {
+  //     setError('Erreur de connexion. Vérifiez votre internet.');
+  //     setLoading(false);
+  //   }
+  // };
 
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch('/api/wave/create-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: currentAmount,
-          donorName: donorName || 'Anonyme',
-          donorPhone: donorPhone || null,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.wave_launch_url) {
-        window.location.href = data.wave_launch_url;
-      } else {
-        setError(data.error || 'Erreur lors de la création du paiement');
-        setLoading(false);
-      }
-    } catch {
-      setError('Erreur de connexion. Vérifiez votre internet.');
-      setLoading(false);
-    }
+  const handleDonate = () => {
+    setError('\u{1F6A7} Le paiement par Wave sera bient\u00f4t disponible. Merci de votre patience !');
   };
 
   return (
@@ -191,8 +196,20 @@ const DonatePage: React.FC = () => {
                   </strong>
                 </div>
 
-                {/* Wave button */}
+                {/* Wave button — temporairement désactivé */}
                 <button
+                  onClick={handleDonate}
+                  className="w-full flex items-center justify-center gap-3 py-4 rounded-xl text-white text-lg font-bold transition-all duration-300 opacity-60 cursor-not-allowed"
+                  style={{
+                    background: '#9ca3af',
+                  }}
+                >
+                  <img src="/wave.webp" alt="Wave" className="h-6 w-6 rounded grayscale" />
+                  Bient\u00f4t disponible
+                </button>
+
+                {/* TODO: Réactiver quand Wave sera prêt */}
+                {/* <button
                   onClick={handleDonate}
                   disabled={loading}
                   className="w-full flex items-center justify-center gap-3 py-4 rounded-xl text-white text-lg font-bold transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
@@ -212,10 +229,10 @@ const DonatePage: React.FC = () => {
                       Faire un don via Wave
                     </>
                   )}
-                </button>
+                </button> */}
 
                 <p className="text-center text-xs text-gray-400 mt-4">
-                  Paiement sécurisé via Wave — Aucune donnée bancaire stockée
+                  Paiement via Wave — bient\u00f4t disponible
                 </p>
               </div>
             </motion.div>
