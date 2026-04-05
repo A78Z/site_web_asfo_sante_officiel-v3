@@ -158,18 +158,9 @@ const MemberCard: React.FC<MemberCardProps> = ({
         </div>
       </div>
 
-      {/* ── Titre "CARTE MEMBRE" ── */}
+      {/* ── Separator ── */}
       <div className="relative z-10" style={{ margin: '3px 18px 1px 18px' }}>
         <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)' }} />
-        <p
-          style={{
-            textAlign: 'center', fontSize: '9px', fontWeight: 700, color: 'white',
-            letterSpacing: '3px', textTransform: 'uppercase', marginTop: '2px',
-            textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-          }}
-        >
-          Carte Membre
-        </p>
       </div>
 
       {/* ── BODY: photo + infos ── */}
@@ -290,13 +281,13 @@ const MemberCard: React.FC<MemberCardProps> = ({
       >
         <span
           style={{
-            fontSize: '8px', fontWeight: 700, color: 'white',
-            letterSpacing: '2px', textTransform: 'uppercase',
+            fontSize: '11px', fontWeight: 700, color: 'white',
+            letterSpacing: '3px', textTransform: 'uppercase',
           }}
         >
-          Carte de Membre
+          Carte Membre
         </span>
-        <span style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>
           Validite : {expiryLabel}
         </span>
       </div>
