@@ -76,7 +76,7 @@ const DonatePage: React.FC = () => {
   // };
 
   const handleDonate = () => {
-    setError('\u{1F6A7} Le paiement par Wave sera bient\u00f4t disponible. Merci de votre patience !');
+    setError('Le paiement par Wave sera bient\u00f4t disponible. Merci de votre patience !');
   };
 
   return (
@@ -205,7 +205,7 @@ const DonatePage: React.FC = () => {
                   }}
                 >
                   <img src="/wave.webp" alt="Wave" className="h-6 w-6 rounded grayscale" />
-                  Bient\u00f4t disponible
+                  Bientôt disponible
                 </button>
 
                 {/* TODO: Réactiver quand Wave sera prêt */}
