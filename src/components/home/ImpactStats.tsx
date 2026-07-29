@@ -1,179 +1,356 @@
-import React from 'react';
-import { useInView } from 'react-intersection-observer';
-import { Users, Calendar, Heart, MapPin, TrendingUp } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { motion, useInView, useReducedMotion } from 'framer-motion';
+import {
+  Users,
+  Calendar,
+  Heart,
+  MapPin,
+  TrendingUp,
+  Stethoscope,
+  HeartPulse,
+  ShieldPlus,
+  GraduationCap,
+  Handshake,
+  Sprout,
+  Quote,
+} from 'lucide-react';
+import {
+  SENEGAL_LOCATIONS,
+  SENEGAL_OUTLINE_PATH,
+  projectSenegalCoordinate,
+} from '../../data/senegalMap';
 
-interface StatProps {
-  value: number;
-  label: string;
-  suffix?: string;
-  duration?: number;
-  icon: React.ReactNode;
-}
+const poppins = { fontFamily: "'Poppins', 'Inter', sans-serif" };
 
-const StatCounter: React.FC<StatProps> = ({ 
-  value, 
-  label, 
-  suffix = "", 
-  duration = 2000,
-  icon
+const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 30 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: '-60px' },
+  transition: { duration: 0.6, delay, ease: 'easeOut' as const },
+});
+
+/* ─── Données ─── */
+
+const stats = [
+  {
+    value: 250,
+    suffix: '+',
+    label: 'Patients consultés',
+    text: 'Des milliers de vies améliorées grâce à nos missions médicales.',
+    icon: Heart,
+  },
+  {
+    value: 25,
+    suffix: '',
+    label: "Années d'engagement",
+    text: "Deux décennies d'actions humanitaires au service du Fouta.",
+    icon: Calendar,
+  },
+  {
+    value: 600,
+    suffix: '+',
+    label: 'Professionnels mobilisés',
+    text: 'Médecins, infirmiers et bénévoles engagés sur le terrain.',
+    icon: Users,
+  },
+  {
+    value: 192,
+    suffix: '+',
+    label: 'Localités desservies',
+    text: 'Une présence dans plusieurs régions du Sénégal.',
+    icon: MapPin,
+  },
+];
+
+const terrain = [
+  { icon: Stethoscope, label: 'Missions médicales' },
+  { icon: HeartPulse, label: 'Consultations' },
+  { icon: ShieldPlus, label: 'Prévention' },
+  { icon: GraduationCap, label: 'Formation' },
+  { icon: Handshake, label: 'Partenariats' },
+];
+
+const durable = [
+  {
+    icon: Sprout,
+    title: 'Prévention',
+    text: 'Nous privilégions des actions qui améliorent durablement la santé des communautés.',
+  },
+  {
+    icon: GraduationCap,
+    title: 'Renforcement des compétences',
+    text: 'Nous formons les professionnels locaux afin d’assurer un impact pérenne.',
+  },
+  {
+    icon: Handshake,
+    title: 'Partenariats',
+    text: 'Nous travaillons avec les autorités, les collectivités et les organisations partenaires.',
+  },
+];
+
+/* Zones d'intervention projetées depuis des coordonnées géographiques. */
+const mapPoints = [
+  SENEGAL_LOCATIONS.saintLouis,
+  SENEGAL_LOCATIONS.podor,
+  SENEGAL_LOCATIONS.matam,
+  SENEGAL_LOCATIONS.kanel,
+  SENEGAL_LOCATIONS.bakel,
+  SENEGAL_LOCATIONS.dakar,
+].map(projectSenegalCoordinate);
+
+/* ─── Compteur animé (0 → valeur, easeOutCubic) ─── */
+const StatCounter: React.FC<{ value: number; suffix: string; started: boolean }> = ({
+  value,
+  suffix,
+  started,
 }) => {
-  const [ref, inView] = useInView({
-    triggerOnce: true,
-    threshold: 0.1,
-  });
+  const [n, setN] = useState(0);
 
-  const [count, setCount] = React.useState(0);
-
-  React.useEffect(() => {
-    let start = 0;
-    const end = value;
-    
-    if (!inView) return;
-    
-    // Get animation duration based on value size
-    const totalDuration = duration;
-    const incrementTime = totalDuration / end;
-
-    const timer = setInterval(() => {
-      start += Math.ceil(end / 100);
-      setCount(start);
-      if (start >= end) {
-        setCount(end);
-        clearInterval(timer);
-      }
-    }, incrementTime);
-
-    return () => {
-      clearInterval(timer);
+  useEffect(() => {
+    if (!started) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setN(value);
+      return;
+    }
+    let raf = 0;
+    const t0 = performance.now();
+    const DURATION = 1800;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - t0) / DURATION);
+      setN(Math.round(easeOutCubic(p) * value));
+      if (p < 1) raf = requestAnimationFrame(tick);
     };
-  }, [inView, value, duration]);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [started, value]);
 
   return (
-    <div 
-      ref={ref} 
-      className="bg-white rounded-xl p-8 shadow-lg border border-gray-100 transition-all duration-500 hover:shadow-2xl hover:scale-105 hover:-translate-y-2 text-center relative group"
-    >
-      {/* Background gradient overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-teal-50/50 to-blue-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl"></div>
-      
-      {/* Decorative corner element */}
-      <div className="absolute top-3 right-3 w-3 h-3 rounded-full bg-teal-100 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-      
-      {/* Icon with animation */}
-      <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-teal-50 to-teal-100 flex items-center justify-center text-teal-600 shadow-md group-hover:scale-110 transition-transform duration-500 relative">
-        <div className="absolute inset-0 rounded-full bg-teal-200/20 scale-0 group-hover:scale-150 transition-transform duration-700 opacity-0 group-hover:opacity-100"></div>
-        {icon}
-      </div>
-      
-      {/* Counter with larger text */}
-      <div className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-teal-600 to-teal-500 bg-clip-text text-transparent mb-3 flex items-center justify-center">
-        <span className="tabular-nums">{inView ? count : 0}</span>
-        <span>{suffix}</span>
-      </div>
-      
-      {/* Label with improved typography */}
-      <div className="text-gray-700 font-semibold text-lg">{label}</div>
-      
-      {/* Animated progress bar */}
-      <div className="w-full bg-gray-100 h-1 mt-4 rounded-full overflow-hidden">
-        <div 
-          className="h-full bg-gradient-to-r from-teal-400 to-teal-500 transition-all duration-1000 ease-out"
-          style={{ width: inView ? '100%' : '0%' }}
-        ></div>
-      </div>
-    </div>
+    <span className="tabular-nums">
+      {n}
+      {suffix}
+    </span>
   );
 };
 
 const ImpactStats: React.FC = () => {
-  const [titleRef, titleInView] = useInView({
-    triggerOnce: true,
-    threshold: 0.1,
-  });
+  const reduce = useReducedMotion();
+  const gridRef = useRef<HTMLDivElement>(null);
+  const gridInView = useInView(gridRef, { once: true, margin: '-80px' });
 
   return (
-    <section className="py-24 bg-gradient-to-br from-white via-teal-50/20 to-blue-50/20 relative overflow-hidden">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-teal-400/10 to-teal-600/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-400/10 to-blue-600/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-teal-400/5 to-blue-400/5 rounded-full blur-3xl"></div>
-      </div>
-      
-      <div className="container mx-auto px-4">
-        <div 
-          ref={titleRef}
-          className={`max-w-4xl mx-auto text-center mb-20 transition-all duration-1000 transform ${
-            titleInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-          }`}
-        >
-          {/* Floating Badge */}
-          <div className="inline-flex items-center px-6 py-3 bg-white/80 backdrop-blur-sm rounded-full shadow-lg border border-teal-100 mb-6 transform hover:scale-105 transition-transform duration-300">
-            <TrendingUp className="text-teal-600 mr-3 animate-pulse" size={20} />
-            <span className="text-teal-700 font-semibold">Notre Impact</span>
-          </div>
-          
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-gray-800 via-teal-700 to-gray-800 bg-clip-text text-transparent mb-6 leading-tight">
-            Notre Impact au Sénégal
-          </h2>
-          
-          <p className="text-xl md:text-2xl text-gray-600 max-w-4xl mx-auto leading-relaxed font-light">
-            Depuis notre création, ASFO a touché la vie de milliers de personnes à travers le Sénégal 
-            grâce aux efforts de nos bénévoles dévoués.
-          </p>
-          
-          {/* Decorative Line */}
-          <div className="flex items-center justify-center mt-8">
-            <div className="h-px bg-gradient-to-r from-transparent via-teal-400 to-transparent w-32"></div>
-            <div className="w-3 h-3 bg-teal-400 rounded-full mx-4 animate-pulse"></div>
-            <div className="h-px bg-gradient-to-r from-transparent via-teal-400 to-transparent w-32"></div>
+    <section className="relative overflow-hidden bg-gradient-to-b from-white via-[#f5faf8] to-teal-50/50 py-24 sm:py-32">
+      {/* ─── Fond premium ─── */}
+      <div className="pointer-events-none absolute -right-40 -top-24 h-[480px] w-[480px] rounded-full bg-teal-100/40 blur-[120px]" aria-hidden="true" />
+      <div className="pointer-events-none absolute -left-44 bottom-32 h-[420px] w-[420px] rounded-full bg-teal-50/70 blur-[110px]" aria-hidden="true" />
+      <div className="pointer-events-none absolute right-[7%] top-32 hidden h-32 w-32 rounded-full border border-teal-200/50 lg:block" aria-hidden="true" />
+      <svg className="pointer-events-none absolute left-[5%] top-24 hidden h-32 w-32 text-teal-300/20 lg:block" aria-hidden="true">
+        <defs>
+          <pattern id="asfo-dots-impact" width="16" height="16" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1.7" fill="currentColor" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#asfo-dots-impact)" />
+      </svg>
+
+      <div className="relative mx-auto max-w-7xl px-6 sm:px-8 lg:px-10">
+        {/* ─── En-tête ─── */}
+        <div className="mx-auto max-w-3xl text-center">
+          <motion.div
+            {...fadeUp(0)}
+            className="inline-block"
+          >
+            <motion.span
+              animate={reduce ? undefined : { y: [0, -5, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              className="inline-flex items-center gap-2.5 rounded-full border border-teal-200/70 bg-white/70 px-6 py-2.5 text-sm font-bold text-teal-700 shadow-[0_10px_25px_-10px_rgba(18,63,56,0.3)] backdrop-blur-md"
+            >
+              <TrendingUp className="h-4 w-4 text-teal-600" aria-hidden="true" />
+              Notre Impact
+            </motion.span>
+          </motion.div>
+
+          <motion.h2
+            {...fadeUp(0.08)}
+            style={poppins}
+            className="mt-7 text-4xl font-extrabold leading-[1.08] tracking-tight text-gray-900 sm:text-5xl lg:text-7xl"
+          >
+            Notre Impact{' '}
+            <span className="whitespace-nowrap bg-gradient-to-r from-teal-600 to-[#2fb391] bg-clip-text text-transparent">
+              au&nbsp;Sénégal
+            </span>
+          </motion.h2>
+
+          <motion.p
+            {...fadeUp(0.16)}
+            className="mx-auto mt-7 max-w-[750px] text-lg leading-loose text-gray-600 sm:text-xl sm:leading-loose"
+          >
+            Depuis notre création, ASFO a touché la vie de milliers de personnes à travers le
+            Sénégal grâce aux efforts de nos bénévoles dévoués.
+          </motion.p>
+
+          <motion.div {...fadeUp(0.22)} className="mt-8 flex items-center justify-center" aria-hidden="true">
+            <div className="h-px w-32 bg-gradient-to-r from-transparent via-teal-400 to-transparent" />
+            <div className="mx-4 h-2.5 w-2.5 rounded-full bg-teal-400" />
+            <div className="h-px w-32 bg-gradient-to-r from-transparent via-teal-400 to-transparent" />
+          </motion.div>
+        </div>
+
+        {/* ─── Statistiques sur silhouette du Sénégal ─── */}
+        <div ref={gridRef} className="relative mt-20">
+          {/* Silhouette du Sénégal, discrète et floue, avec points lumineux */}
+          <svg
+            viewBox="0 0 400 300"
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[560px] max-w-none -translate-x-1/2 -translate-y-1/2 opacity-70 blur-[1.5px] sm:h-[520px] sm:w-[700px]"
+            aria-hidden="true"
+          >
+            <path
+              d={SENEGAL_OUTLINE_PATH}
+              className="fill-teal-100/50"
+            />
+            {mapPoints.map((p, i) => (
+              <motion.g key={i}>
+                <motion.circle
+                  cx={p.x}
+                  cy={p.y}
+                  r="10"
+                  className="fill-teal-400/25"
+                  initial={{ opacity: 0, scale: 0 }}
+                  whileInView={reduce ? { opacity: 1, scale: 1 } : { opacity: [0, 1, 0.5, 1], scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 1.2, delay: 0.4 + i * 0.18 }}
+                />
+                <motion.circle
+                  cx={p.x}
+                  cy={p.y}
+                  r="4"
+                  className="fill-[#2fb391]"
+                  initial={{ opacity: 0, scale: 0 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.4 + i * 0.18 }}
+                />
+              </motion.g>
+            ))}
+          </svg>
+
+          <div className="relative grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+            {stats.map((s, i) => {
+              const Icon = s.icon;
+              return (
+                <motion.div
+                  key={s.label}
+                  {...fadeUp(i * 0.1)}
+                  className="group rounded-3xl border border-white/80 bg-white/75 p-8 text-center shadow-[0_15px_40px_-15px_rgba(18,63,56,0.22)] backdrop-blur-md transition-all duration-300 hover:-translate-y-2 hover:rotate-[0.4deg] hover:shadow-[0_28px_55px_-15px_rgba(18,63,56,0.32)]"
+                >
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-50 to-[#e8f3ef] text-teal-600 ring-1 ring-teal-100 transition-all duration-300 group-hover:scale-110 group-hover:from-[#2fb391] group-hover:to-[#178066] group-hover:text-white">
+                    <Icon className="h-8 w-8" aria-hidden="true" />
+                  </div>
+                  <p
+                    style={poppins}
+                    className="mt-5 bg-gradient-to-br from-teal-600 to-[#178066] bg-clip-text text-5xl font-extrabold text-transparent"
+                  >
+                    <StatCounter value={s.value} suffix={s.suffix} started={gridInView} />
+                  </p>
+                  <p style={poppins} className="mt-2 text-base font-bold text-gray-800">
+                    {s.label}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500">{s.text}</p>
+                  <div className="mx-auto mt-5 h-[3px] w-12 rounded-full bg-gradient-to-r from-teal-400 to-teal-200 transition-all duration-300 group-hover:w-20" />
+                </motion.div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10">
-          <StatCounter 
-            value={250}
-            label="Patients consultés" 
-            suffix="+" 
-            icon={<Heart size={32} />}
-          />
-          <StatCounter 
-            value={25} 
-            label="Années d'expérience" 
-            icon={<Calendar size={32} />}
-          />
-          <StatCounter 
-            value={600} 
-            label="Acteurs" 
-            suffix="+" 
-            icon={<Users size={32} />}
-          />
-          <StatCounter 
-            value={192} 
-            label="Localités Sillonnées"
-             suffix="+" 
-            icon={<MapPin size={32} />}
-          />
-        </div>
-        
-        {/* Bottom decorative element */}
-        <div className="mt-20 text-center">
-          <div className="inline-flex items-center px-8 py-4 bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-teal-100">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center">
-                <Heart className="text-white" size={20} />
-              </div>
-              <div className="text-left">
-                <p className="text-gray-800 font-semibold text-lg">
-                  Impact mesurable et durable
-                </p>
-                <p className="text-gray-600 text-sm">
-                  Chaque mission transforme des vies
-                </p>
-              </div>
-            </div>
+        {/* ─── Notre présence sur le terrain ─── */}
+        <motion.div {...fadeUp(0.1)} className="mx-auto mt-20 max-w-5xl">
+          <h3 style={poppins} className="text-center text-xl font-bold text-gray-900 sm:text-2xl">
+            Notre présence sur le terrain
+          </h3>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+            {terrain.map((t, i) => {
+              const Icon = t.icon;
+              return (
+                <motion.span
+                  key={t.label}
+                  {...fadeUp(0.15 + i * 0.08)}
+                  className="group inline-flex items-center gap-2.5 rounded-full border border-teal-100 bg-white/80 px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-md"
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-teal-50 to-[#e8f3ef] text-teal-600 transition-all duration-300 group-hover:from-[#2fb391] group-hover:to-[#178066] group-hover:text-white">
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  {t.label}
+                </motion.span>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* ─── Citation ─── */}
+        <motion.figure
+          {...fadeUp(0.1)}
+          className="relative mx-auto mt-20 max-w-3xl overflow-hidden rounded-3xl border border-teal-100/80 bg-gradient-to-br from-[#e8f3ef]/80 to-white px-8 py-10 text-center shadow-[0_18px_45px_-20px_rgba(18,63,56,0.25)] sm:px-14"
+        >
+          <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-teal-200/25 blur-2xl" aria-hidden="true" />
+          <Quote className="mx-auto h-12 w-12 -scale-x-100 text-teal-300/70" aria-hidden="true" />
+          <blockquote
+            style={poppins}
+            className="mt-4 text-lg font-semibold leading-relaxed text-gray-800 sm:text-xl sm:leading-relaxed"
+          >
+            «&nbsp;Chaque chiffre représente une vie touchée, une famille accompagnée et une
+            communauté renforcée grâce à l'engagement de l'ASFO.&nbsp;»
+          </blockquote>
+          <div className="mx-auto mt-6 h-1 w-16 rounded-full bg-gradient-to-r from-teal-500 to-teal-300" aria-hidden="true" />
+        </motion.figure>
+
+        {/* ─── Pourquoi notre impact est durable ─── */}
+        <div className="mx-auto mt-20 max-w-5xl">
+          <motion.h3
+            {...fadeUp(0)}
+            style={poppins}
+            className="text-center text-xl font-bold text-gray-900 sm:text-2xl"
+          >
+            Pourquoi notre impact est durable&nbsp;?
+          </motion.h3>
+          <div className="mt-10 grid gap-6 sm:grid-cols-3">
+            {durable.map((d, i) => {
+              const Icon = d.icon;
+              return (
+                <motion.div
+                  key={d.title}
+                  {...fadeUp(0.1 + i * 0.1)}
+                  className="group rounded-2xl border border-gray-200/80 bg-white p-7 transition-all duration-300 hover:-translate-y-1.5 hover:-rotate-[0.4deg] hover:border-teal-200 hover:shadow-[0_22px_45px_-15px_rgba(18,63,56,0.25)]"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-50 to-[#e8f3ef] text-teal-600 ring-1 ring-teal-100 transition-all duration-300 group-hover:scale-110 group-hover:from-[#2fb391] group-hover:to-[#178066] group-hover:text-white">
+                    <Icon className="h-6 w-6" aria-hidden="true" />
+                  </div>
+                  <h4 style={poppins} className="mt-4 text-base font-bold text-gray-900">
+                    {d.title}
+                  </h4>
+                  <div className="mt-2 h-[3px] w-9 rounded-full bg-gradient-to-r from-teal-400 to-teal-200 transition-all duration-300 group-hover:w-14" aria-hidden="true" />
+                  <p className="mt-3 text-sm leading-relaxed text-gray-500">{d.text}</p>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
+
+        {/* ─── Bandeau de conclusion ─── */}
+        <motion.div {...fadeUp(0.1)} className="mt-16 text-center">
+          <div className="inline-flex items-center gap-4 rounded-2xl border border-teal-100 bg-white/90 px-8 py-4 shadow-[0_15px_35px_-15px_rgba(18,63,56,0.3)] backdrop-blur-sm">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#2fb391] to-[#178066]">
+              <Heart className="h-5 w-5 text-white" aria-hidden="true" />
+            </div>
+            <div className="text-left">
+              <p style={poppins} className="text-base font-bold text-gray-800 sm:text-lg">
+                Impact mesurable et durable
+              </p>
+              <p className="text-sm text-gray-600">Chaque mission transforme des vies</p>
+            </div>
+          </div>
+        </motion.div>
       </div>
     </section>
   );

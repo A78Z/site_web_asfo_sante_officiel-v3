@@ -246,10 +246,11 @@ const MemberDrawer: React.FC<{
   onClose: () => void;
   onStatusChange: (id: string, status: Statut) => void;
 }> = ({ member, allMembers, onClose, onStatusChange }) => {
-  if (!member) return null;
   const [generating, setGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'card'>('info');
   const [cardFace, setCardFace] = useState<'recto' | 'verso'>('recto');
+
+  if (!member) return null;
 
   const ensureCardTab = async () => {
     if (activeTab !== 'card') {

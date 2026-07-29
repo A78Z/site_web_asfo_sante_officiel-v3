@@ -5,10 +5,7 @@ interface LogoProps {
   variant?: 'default' | 'white';
 }
 
-const Logo: React.FC<LogoProps> = ({ 
-  size = 'normal', 
-  variant = 'default' 
-}) => {
+const Logo: React.FC<LogoProps> = ({ size = 'normal' }) => {
   let sizeClass;
   switch (size) {
     case 'small':
@@ -20,9 +17,6 @@ const Logo: React.FC<LogoProps> = ({
     default:
       sizeClass = 'h-12';
   }
-
-  const textColor = variant === 'white' ? 'text-white' : 'text-gray-800';
-  const accentColor = variant === 'white' ? 'text-white' : 'text-teal-600';
 
   return (
     <div className={`flex items-center ${sizeClass} group transition-transform duration-300 hover:scale-105`}>

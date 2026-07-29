@@ -24,7 +24,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
     
     // Create download link with proper filename
     const link = document.createElement('a');
-    link.href = `/rapport${year}.pdf`;
+    link.href = downloadUrl ?? `/rapport${year}.pdf`;
     link.download = `rapport${year}.pdf`;
     document.body.appendChild(link);
     link.click();

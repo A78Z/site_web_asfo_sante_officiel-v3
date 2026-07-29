@@ -2,19 +2,14 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
-  Plus,
   Loader2,
   RefreshCw,
   Trash2,
   X,
   ImageIcon,
   FolderPlus,
-  Tag,
-  Calendar,
   ZoomIn,
   Upload,
-  Save,
-  Filter,
 } from 'lucide-react';
 import { queryObjects, createObject, deleteObject, uploadFile } from '../lib/parse';
 
@@ -28,9 +23,6 @@ interface GalleryImage {
   mission: string;
   createdAt: string;
 }
-
-const fmt = (d: string) =>
-  new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 
 /* ───────────────────────── page ───────────────────────── */
 const AdminGalleryPage: React.FC = () => {

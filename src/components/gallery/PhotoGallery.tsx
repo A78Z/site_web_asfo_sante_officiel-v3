@@ -119,7 +119,7 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({ images, categories, years }
     }
   }, [isLightboxOpen, handleKeyDown]);
 
-  const handleImageClick = useCallback((image: GalleryImage, event: React.MouseEvent) => {
+  const handleImageClick = useCallback((image: GalleryImage, event: React.MouseEvent | React.KeyboardEvent) => {
     event.preventDefault();
     event.stopPropagation();
     openLightbox(image);
@@ -284,7 +284,7 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({ images, categories, years }
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  handleImageClick(image, e as any);
+                  handleImageClick(image, e);
                 }
               }}
               aria-label={`Agrandir l'image: ${image.alt}`}

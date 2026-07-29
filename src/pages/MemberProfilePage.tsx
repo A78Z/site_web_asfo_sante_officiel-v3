@@ -65,8 +65,7 @@ const MemberProfilePage: React.FC = () => {
         } else {
           setError('Membre introuvable ou carte non valide.');
         }
-      } catch (err: any) {
-        console.error('Error fetching member:', err);
+      } catch {
         setError('Erreur lors de la vérification de la carte.');
       } finally {
         setLoading(false);

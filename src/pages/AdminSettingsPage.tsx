@@ -11,7 +11,6 @@ import {
   Save,
   Loader2,
   CheckCircle,
-  Upload,
   ImageIcon,
   Globe,
   Phone,
@@ -19,8 +18,6 @@ import {
   Key,
   Lock,
   Clock,
-  ToggleLeft,
-  X,
 } from 'lucide-react';
 import { queryObjects, updateObject, createObject, uploadFile } from '../lib/parse';
 

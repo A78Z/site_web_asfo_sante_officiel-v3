@@ -65,8 +65,7 @@ const VerifyMemberPage: React.FC = () => {
         } else {
           setError('Membre non reconnu');
         }
-      } catch (err: any) {
-        console.error('Error fetching member:', err);
+      } catch {
         setError('Erreur lors de la vérification');
       } finally {
         setLoading(false);

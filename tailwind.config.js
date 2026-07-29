@@ -72,6 +72,10 @@ export default {
 					'5': 'hsl(var(--chart-5))'
 				}
 			},
+			screens: {
+				'h-short': { raw: '(max-height: 880px)' },
+				'h-tiny': { raw: '(max-height: 720px)' }
+			},
 			fontFamily: {
 				sans: [
 					'Inter',
@@ -111,12 +115,22 @@ export default {
 					'100%': {
 						transform: 'translateX(100%)'
 					}
+				},
+				pulseDot: {
+					'0%, 100%': { boxShadow: '0 0 14px rgba(63,201,164,.7)' },
+					'50%': { boxShadow: '0 0 22px rgba(63,201,164,1)' }
+				},
+				blink: {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0' }
 				}
 			},
 			animation: {
 				wiggle: 'wiggle 1s ease-in-out infinite',
 				'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
-				shimmer: 'shimmer 2s infinite'
+				shimmer: 'shimmer 2s infinite',
+				'pulse-dot': 'pulseDot 2.4s ease-in-out infinite',
+				blink: 'blink 1s steps(1, end) infinite'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

@@ -16,7 +16,6 @@ import {
   ImageIcon,
   FileText,
   Heart,
-  ChevronDown,
   Save,
 } from 'lucide-react';
 import { queryObjects, createObject, updateObject, deleteObject, uploadFile } from '../lib/parse';

@@ -4,12 +4,10 @@
 
 const APP_ID = import.meta.env.VITE_PARSE_APP_ID as string;
 const REST_KEY = import.meta.env.VITE_PARSE_REST_KEY as string;
-const MASTER_KEY = import.meta.env.VITE_PARSE_MASTER_KEY as string;
 const SERVER_URL = import.meta.env.VITE_PARSE_SERVER_URL as string;
 
 /* Warn once at startup if critical keys are missing */
 if (!APP_ID || !SERVER_URL) console.error('[Parse] VITE_PARSE_APP_ID or VITE_PARSE_SERVER_URL is missing!');
-if (!MASTER_KEY) console.warn('[Parse] VITE_PARSE_MASTER_KEY is missing — file uploads will fail on Back4App.');
 
 const headers = (): HeadersInit => ({
   'X-Parse-Application-Id': APP_ID,
@@ -49,6 +47,7 @@ const ALLOWED_FILE_TYPES = [
   'image/png',
   'image/webp',
   'image/gif',
+  'image/svg+xml',
   'application/pdf',
 ];
 
@@ -104,15 +103,9 @@ export async function uploadFile(
     );
   }
 
-  if (!MASTER_KEY) {
-    throw new Error(
-      'Configuration serveur incomplète (clé Master manquante). Contactez l\'administrateur.',
-    );
-  }
-
   const safeName = safeFileName(fileName);
 
-  /* ── Strategy 1: Blob via REST API (most compatible) ── */
+  /* Téléversement via la clé REST publique prévue pour le client. */
   try {
     const base64Data = await fileToBase64(file);
     const res = await fetch(apiUrl(`/files/${encodeURIComponent(safeName)}`), {
@@ -120,7 +113,6 @@ export async function uploadFile(
       headers: {
         'X-Parse-Application-Id': APP_ID,
         'X-Parse-REST-API-Key': REST_KEY,
-        'X-Parse-Master-Key': MASTER_KEY,
         'Content-Type': mimeType,
       },
       body: base64toBlob(base64Data, mimeType),
@@ -131,41 +123,15 @@ export async function uploadFile(
       return { __type: 'File', name: data.name, url: data.url };
     }
 
-    // If master key failed, try JS key
     const errText = await res.text().catch(() => '');
-    console.warn(`Upload attempt 1 failed (HTTP ${res.status}):`, errText);
-  } catch (err) {
-    console.warn('Upload strategy 1 failed:', err);
-  }
-
-  /* ── Strategy 2: ArrayBuffer + Master Key ── */
-  try {
-    const buffer = await file.arrayBuffer();
-    const res = await fetch(apiUrl(`/files/${encodeURIComponent(safeName)}`), {
-      method: 'POST',
-      headers: {
-        'X-Parse-Application-Id': APP_ID,
-        'X-Parse-Master-Key': MASTER_KEY,
-        'Content-Type': mimeType,
-      },
-      body: buffer,
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      return { __type: 'File', name: data.name, url: data.url };
-    }
-
-    const errBody = await res.text().catch(() => '');
-    let detail = '';
+    let detail = errText;
     try {
-      detail = JSON.parse(errBody).error || errBody;
+      detail = JSON.parse(errText).error || errText;
     } catch {
-      detail = errBody;
+      // La réponse texte est déjà exploitable.
     }
     throw new Error(`HTTP ${res.status}: ${detail || 'Erreur serveur'}`);
   } catch (err) {
-    console.error('Upload strategy 2 failed:', err);
     const msg = err instanceof Error ? err.message : 'Erreur inconnue';
     throw new Error(`Upload impossible. ${msg}`);
   }

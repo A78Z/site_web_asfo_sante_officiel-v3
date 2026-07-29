@@ -11,6 +11,8 @@ export interface PresidentProps {
   order: number;
 }
 
+// Cette liste historique est partagée avec les pages dédiées aux présidents.
+// eslint-disable-next-line react-refresh/only-export-components
 export const presidents: PresidentProps[] = [
   {
     name: "Dr. Bouna NDIAYE",
@@ -174,7 +176,7 @@ export const presidents: PresidentProps[] = [
   },
   {
     name: "Dr Mamadou THIOYE",
-    role: "21e Président de l'ASFO",
+    role: "Ancien Président de l'ASFO",
     specialty: "Médecin Généraliste",
     imageUrl: "/thioye.webp",
     years: "2024 - 2025",
@@ -195,7 +197,9 @@ const PresidentCard: React.FC<PresidentProps> = ({
     threshold: 0.1,
   });
 
-  const isCurrentPresident = order === 21;
+  // Cette liste présente l'historique des présidences. Le Président actuel
+  // est affiché séparément avec les données institutionnelles à jour.
+  const isCurrentPresident = false;
   const isFounder = order === 1;
 
   return (

@@ -1,14 +1,47 @@
-import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useForm, type FieldErrors } from 'react-hook-form';
+import { FileRejection, useDropzone } from 'react-dropzone';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
-  Upload, Mail, Phone, Camera, CheckCircle, User, CreditCard,
-  MapPin, Heart, Loader2, AlertCircle, Home, RotateCcw, Copy, ExternalLink, Smartphone
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
+  Briefcase,
+  Camera,
+  Check,
+  CheckCircle,
+  ChevronDown,
+  CircleDollarSign,
+  ClipboardCheck,
+  Clock3,
+  CreditCard,
+  Heart,
+  Home,
+  Loader2,
+  LockKeyhole,
+  Mail,
+  MapPin,
+  Network,
+  Phone,
+  QrCode,
+  RotateCcw,
+  Save,
+  ShieldCheck,
+  Sparkles,
+  Upload,
+  User,
+  Users,
+  WalletCards,
+  X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { uploadFile, createObject } from '../lib/parse';
+import { createObject, uploadFile } from '../lib/parse';
+import MemberCard from '../components/admin/MemberCard';
 
-const WAVE_PHONE = '+221 77 650 73 36';
-const WAVE_PHONE_RAW = '221776507336';
+const DRAFT_KEY = 'asfo-member-card-draft-v1';
+const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
+const MIN_PHOTO_DIMENSION = 300;
 
 interface FormInputs {
   lastName: string;
@@ -17,631 +50,1287 @@ interface FormInputs {
   phone: string;
   profession: string;
   address: string;
-  photo: FileList;
   acceptTerms: boolean;
 }
 
+interface SubmissionReceipt {
+  requestId: string;
+  createdAt: Date;
+  fullName: string;
+}
+
+interface SavedDraft {
+  values: Partial<FormInputs>;
+  savedAt: string;
+}
+
+const DEFAULT_VALUES: FormInputs = {
+  lastName: '',
+  firstName: '',
+  email: '',
+  phone: '',
+  profession: '',
+  address: '',
+  acceptTerms: false,
+};
+
+const PROFESSIONS = [
+  { value: 'medecin', label: 'Médecin' },
+  { value: 'infirmier', label: 'Infirmier(ère)' },
+  { value: 'pharmacien', label: 'Pharmacien(ne)' },
+  { value: 'sage-femme', label: 'Sage-femme' },
+  { value: 'dentiste', label: 'Chirurgien-dentiste' },
+  { value: 'kinesitherapeute', label: 'Kinésithérapeute' },
+  { value: 'laborantin', label: 'Laborantin(e)' },
+  { value: 'etudiant-sante', label: 'Étudiant(e) en santé' },
+  { value: 'benevole', label: 'Membre bénévole' },
+  { value: 'autre', label: 'Autre' },
+];
+
+const CRITERIA = [
+  {
+    icon: Heart,
+    title: 'Adhésion aux valeurs et à la mission',
+    description:
+      'Partager notre engagement envers l’amélioration de la santé et du bien-être des populations du Fouta, ainsi que nos valeurs de solidarité, d’équité et de respect des droits humains.',
+    condition: 'Engagement de principe',
+  },
+  {
+    icon: Sparkles,
+    title: 'Engagement à contribuer activement',
+    description:
+      'Participer aux initiatives de sensibilisation, consultations gratuites, collectes de fonds ou missions, selon ses compétences et ses disponibilités.',
+    condition: 'Participation active',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Respect des règles et des statuts',
+    description:
+      'Suivre le règlement, respecter la confidentialité, les décisions collectives et les autres membres de l’association.',
+    condition: 'Respect du cadre ASFO',
+  },
+  {
+    icon: Users,
+    title: 'Participation aux réunions et activités',
+    description:
+      'Prendre part aux rencontres régulières et aux événements organisés par l’association.',
+    condition: 'Vie associative',
+  },
+  {
+    icon: CreditCard,
+    title: 'Disposer d’une carte de membre',
+    description:
+      'La carte de membre est obligatoire. Son coût est fixé à 2 500 FCFA et le paiement intervient après validation de la demande.',
+    condition: 'Carte obligatoire',
+  },
+  {
+    icon: CircleDollarSign,
+    title: 'Cotisation annuelle',
+    description:
+      'Le montant est fixé par le bureau. Cette cotisation est obligatoire pour soutenir les actions de l’ASFO.',
+    condition: 'Montant fixé par le bureau',
+  },
+];
+
+const MEMBERSHIP_STEPS = [
+  { title: 'Demande en ligne', description: 'Vous transmettez vos informations et votre photo.' },
+  { title: 'Vérification', description: 'L’ASFO contrôle les éléments communiqués.' },
+  { title: 'Validation ASFO', description: 'La demande est acceptée ou refusée par un responsable.' },
+  { title: 'Paiement', description: 'Après validation, vous recevez les instructions pour régler 2 500 FCFA.' },
+  { title: 'Création de la carte', description: 'L’administration génère la carte après confirmation.' },
+  { title: 'Carte numérique', description: 'La carte vérifiable est ensuite mise à disposition.' },
+];
+
+const BENEFITS = [
+  { icon: BadgeCheck, title: 'Identité membre vérifiable', description: 'La carte définitive dispose d’un identifiant et d’un QR de vérification.' },
+  { icon: Users, title: 'Accès aux activités', description: 'Participez aux rencontres, missions et initiatives de l’association.' },
+  { icon: Heart, title: 'Vie communautaire', description: 'Contribuez aux actions sanitaires et solidaires portées par l’ASFO.' },
+  { icon: Network, title: 'Réseau ASFO', description: 'Faites reconnaître votre appartenance au réseau associatif ASFO.' },
+];
+
+const FAQ_ITEMS = [
+  {
+    question: 'Qui peut devenir membre ?',
+    answer:
+      'Toute personne qui adhère aux valeurs de l’ASFO et s’engage à respecter les six critères présentés sur cette page peut déposer une demande.',
+  },
+  {
+    question: 'Quel est le coût de la carte ?',
+    answer: 'La carte membre coûte 2 500 FCFA. Ce montant ne comprend pas la cotisation annuelle fixée par le bureau.',
+  },
+  {
+    question: 'Quand dois-je payer ?',
+    answer:
+      'Aucun paiement n’est demandé lors de l’envoi du formulaire. Les instructions de paiement sont communiquées uniquement après validation de la demande.',
+  },
+  {
+    question: 'Combien de temps dure la validation ?',
+    answer:
+      'Aucun délai fixe n’est publié. L’équipe vérifie chaque demande avant de communiquer sa décision.',
+  },
+  {
+    question: 'Comment récupérer ma carte ?',
+    answer:
+      'Après validation et confirmation du paiement, l’administration crée la carte numérique et vous informe de sa mise à disposition.',
+  },
+  {
+    question: 'Puis-je modifier mes informations ?',
+    answer:
+      'Le portail ne propose pas encore de modification autonome après l’envoi. Contactez l’ASFO en indiquant votre numéro de demande.',
+  },
+  {
+    question: 'Que faire en cas de perte ?',
+    answer:
+      'Contactez l’ASFO pour signaler la perte et connaître la procédure applicable à votre carte.',
+  },
+  {
+    question: 'La cotisation annuelle est-elle distincte du coût de la carte ?',
+    answer:
+      'Oui. La carte coûte 2 500 FCFA ; le montant de la cotisation annuelle est fixé séparément par le bureau.',
+  },
+];
+
+const FORM_STEPS = [
+  { id: 1, title: 'Identité', description: 'Vos coordonnées', icon: User },
+  { id: 2, title: 'Profil', description: 'Profession et photo', icon: Camera },
+  { id: 3, title: 'Vérification', description: 'Relire et envoyer', icon: ClipboardCheck },
+] as const;
+
+const STEP_FIELDS: Record<number, Array<keyof FormInputs>> = {
+  1: ['lastName', 'firstName', 'email', 'phone'],
+  2: ['profession', 'address'],
+  3: ['acceptTerms'],
+};
+
+const inputClass = (hasError?: boolean) =>
+  `w-full rounded-xl border bg-white px-4 py-3.5 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 ${
+    hasError
+      ? 'border-red-300 ring-4 ring-red-50 focus:border-red-500'
+      : 'border-slate-200 focus:border-teal-600 focus:ring-4 focus:ring-teal-50'
+  }`;
+
+const loadDraft = (): SavedDraft | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = window.localStorage.getItem(DRAFT_KEY);
+    return stored ? (JSON.parse(stored) as SavedDraft) : null;
+  } catch {
+    return null;
+  }
+};
+
+const professionLabel = (value: string) =>
+  PROFESSIONS.find((profession) => profession.value === value)?.label ?? '';
+
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+};
+
+const validateImageDimensions = (file: File): Promise<boolean> =>
+  new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const valid = image.naturalWidth >= MIN_PHOTO_DIMENSION && image.naturalHeight >= MIN_PHOTO_DIMENSION;
+      URL.revokeObjectURL(url);
+      resolve(valid);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(false);
+    };
+    image.src = url;
+  });
+
+const FieldError: React.FC<{ id: string; message?: string }> = ({ id, message }) => {
+  if (!message) return null;
+  return (
+    <p id={id} role="alert" className="mt-2 flex items-start gap-1.5 text-sm font-medium text-red-600">
+      <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+      {message}
+    </p>
+  );
+};
+
+const ResponsiveMemberPreview: React.FC<{
+  fullName: string;
+  profession: string;
+  phone: string;
+  address: string;
+  email: string;
+  photo?: string | null;
+  showCaption?: boolean;
+}> = ({ fullName, profession, phone, address, email, photo, showCaption = true }) => (
+  <div className="w-full">
+    <div className="mx-auto h-[176px] w-[280px] sm:h-[243px] sm:w-[385px] lg:h-[270px] lg:w-[428px]">
+      <div className="origin-top-left scale-[0.65] sm:scale-[0.9] lg:scale-100">
+        <MemberCard
+          name={fullName || 'VOTRE IDENTITÉ'}
+          role={profession || 'Membre ASFO'}
+          phone={phone || 'Votre téléphone'}
+          city={address || 'Votre ville'}
+          email={email || undefined}
+          memberId="À ATTRIBUER"
+          photo={photo || undefined}
+          validity="Après validation"
+        />
+      </div>
+    </div>
+    {showCaption && (
+      <p className="mx-auto mt-3 max-w-md text-center text-xs leading-5 text-slate-500">
+        Aperçu non officiel — la carte définitive sera créée après validation et paiement.
+      </p>
+    )}
+  </div>
+);
+
+const HeroCardComposition: React.FC = () => (
+  <div className="relative mx-auto w-full max-w-[560px] pb-8 pt-6 lg:pb-10">
+    <div className="absolute right-0 top-0 hidden h-[270px] w-[428px] rotate-[5deg] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_22px_55px_-24px_rgba(15,23,42,0.32)] sm:block">
+      <div className="flex h-full flex-col justify-between p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/logo-asfo.png" alt="" className="h-11 w-11 rounded-full bg-white object-contain" />
+            <div>
+              <p className="font-black tracking-[0.12em] text-[#1F6F8B]">ASFO</p>
+              <p className="text-[10px] text-slate-500">Action Sanitaire pour le Fouta</p>
+            </div>
+          </div>
+          <div className="rounded-xl border-2 border-[#1F6F8B] p-2 text-[#1F6F8B]">
+            <QrCode size={45} aria-hidden="true" />
+          </div>
+        </div>
+        <div className="rounded-xl border border-teal-100 bg-teal-50 p-4">
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-teal-800">Vérification numérique</p>
+          <p className="mt-1 text-xs leading-5 text-slate-600">Le QR réel est généré uniquement avec une carte validée.</p>
+        </div>
+        <p className="text-sm font-bold italic text-[#1F6F8B]">Au service du Fouta</p>
+      </div>
+    </div>
+
+    <div className="relative z-10 sm:-translate-x-6 sm:translate-y-8">
+      <ResponsiveMemberPreview fullName="" profession="" phone="" address="" email="" showCaption={false} />
+    </div>
+
+    <div className="relative z-20 mx-auto mt-4 grid max-w-[420px] grid-cols-3 gap-2 sm:absolute sm:-bottom-2 sm:left-1/2 sm:mt-0 sm:-translate-x-1/2">
+      {[
+        { icon: BadgeCheck, title: 'Identité vérifiée' },
+        { icon: Clock3, title: 'Valable 2 ans' },
+        { icon: CreditCard, title: 'Accès membre ASFO' },
+      ].map((item) => {
+        const Icon = item.icon;
+        return (
+          <div key={item.title} className="flex min-h-[72px] flex-col items-center justify-center rounded-xl border border-white/80 bg-white/95 p-2 text-center shadow-lg backdrop-blur">
+            <Icon size={17} className="text-teal-700" />
+            <p className="mt-1 text-[10px] font-black leading-4 text-slate-700 sm:text-xs">{item.title}</p>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
+
+const SuccessCard: React.FC<{
+  receipt: SubmissionReceipt;
+  onReset: () => void;
+}> = ({ receipt, onReset }) => {
+  const formattedDate = receipt.createdAt.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  return (
+    <section className="bg-gradient-to-b from-white via-[#f4fbfa] to-white px-4 py-12 sm:px-6 lg:px-8 lg:py-20">
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mx-auto max-w-4xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_28px_90px_-42px_rgba(15,118,110,0.42)]"
+      >
+        <div className="border-b border-teal-100 bg-gradient-to-br from-teal-50 via-white to-emerald-50 px-6 py-10 text-center sm:px-10">
+          <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-teal-700 text-white shadow-lg shadow-teal-700/20">
+            <CheckCircle size={32} aria-hidden="true" />
+          </span>
+          <p className="mt-5 text-xs font-black uppercase tracking-[0.15em] text-teal-700">Demande enregistrée</p>
+          <h1 className="mx-auto mt-2 max-w-2xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+            Votre demande de carte membre a bien été envoyée
+          </h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
+            L’équipe ASFO va vérifier vos informations avant toute instruction de paiement ou création de carte.
+          </p>
+        </div>
+
+        <div className="grid gap-6 p-6 sm:p-10 lg:grid-cols-[1fr_0.95fr]">
+          <dl className="divide-y divide-slate-100 rounded-2xl border border-slate-200 px-5">
+            {[
+              ['Numéro de demande', receipt.requestId],
+              ['Date', formattedDate],
+              ['Demandeur', receipt.fullName],
+              ['Statut initial', 'En attente'],
+            ].map(([label, value]) => (
+              <div key={label} className="grid gap-1 py-4 text-sm sm:grid-cols-[150px_1fr] sm:gap-5">
+                <dt className="text-slate-500">{label}</dt>
+                <dd className={`break-all font-bold text-slate-900 ${label === 'Numéro de demande' ? 'font-mono' : ''}`}>{value}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:p-6">
+            <h2 className="font-black text-blue-950">Prochaines étapes</h2>
+            <ol className="mt-4 space-y-3">
+              {[
+                'Vérification de vos informations et de votre photo.',
+                'Décision de validation par un responsable ASFO.',
+                'Instructions de paiement de 2 500 FCFA si la demande est acceptée.',
+                'Création et mise à disposition de la carte après confirmation.',
+              ].map((step, index) => (
+                <li key={step} className="flex gap-3 text-sm leading-5 text-blue-950/80">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-xs font-black text-blue-700">{index + 1}</span>
+                  {step}
+                </li>
+              ))}
+            </ol>
+            <p className="mt-5 rounded-xl bg-white/80 p-3 text-xs leading-5 text-blue-900">
+              Aucun paiement n’est demandé à cette étape. Conservez votre numéro de demande pour tout échange avec l’ASFO.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50 px-6 py-5 sm:flex-row sm:justify-end sm:px-10">
+          <button
+            type="button"
+            onClick={onReset}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-black text-slate-700 hover:border-teal-300 hover:text-teal-700"
+          >
+            <RotateCcw size={16} /> Nouvelle demande
+          </button>
+          <Link
+            to="/services"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-black text-slate-700 hover:border-teal-300 hover:text-teal-700"
+          >
+            Découvrir les activités
+          </Link>
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-3 text-sm font-black text-white hover:bg-teal-800"
+          >
+            <Home size={16} /> Retour à l’accueil
+          </Link>
+        </div>
+      </motion.div>
+    </section>
+  );
+};
+
 const MemberCardPage: React.FC = () => {
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const initialDraft = useMemo(loadDraft, []);
+  const submissionLock = useRef(false);
+  const [currentStep, setCurrentStep] = useState(1);
   const [submitError, setSubmitError] = useState('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState('');
+  const [uploadStage, setUploadStage] = useState('');
+  const [receipt, setReceipt] = useState<SubmissionReceipt | null>(null);
+  const [draftSavedAt, setDraftSavedAt] = useState(initialDraft?.savedAt ?? '');
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
     reset,
+    trigger,
+    getValues,
     watch,
-  } = useForm<FormInputs>();
+    formState: { errors, isSubmitting },
+  } = useForm<FormInputs>({
+    mode: 'onChange',
+    defaultValues: {
+      ...DEFAULT_VALUES,
+      ...(initialDraft?.values ?? {}),
+      acceptTerms: false,
+    },
+  });
 
-  React.useEffect(() => {
+  const values = watch();
+  const acceptTerms = watch('acceptTerms');
+  const fullName = `${values.firstName || ''} ${values.lastName || ''}`.trim();
+  const selectedProfession = professionLabel(values.profession);
+
+  useEffect(() => {
     document.title = 'Commander ma carte membre | ASFO - Action Sanitaire pour le Fouta';
   }, []);
 
-  // Photo preview
-  const photoFile = watch('photo');
-  React.useEffect(() => {
-    if (photoFile && photoFile[0]) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotoPreview(reader.result as string);
-      reader.readAsDataURL(photoFile[0]);
-    } else {
+  useEffect(() => {
+    if (!photoFile) {
       setPhotoPreview(null);
+      return undefined;
     }
+    const objectUrl = URL.createObjectURL(photoFile);
+    setPhotoPreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
   }, [photoFile]);
 
-  const onSubmit = async (data: FormInputs) => {
+  const handleAcceptedPhoto = useCallback(async (files: File[]) => {
+    const file = files[0];
+    if (!file) return;
+
+    setPhotoError('');
+    const allowedMimeTypes = ['image/jpeg', 'image/png'];
+    const allowedExtension = /\.(jpe?g|png)$/i.test(file.name);
+    if (!allowedMimeTypes.includes(file.type) || !allowedExtension) {
+      setPhotoError('La photo doit être au format JPG, JPEG ou PNG.');
+      return;
+    }
+    if (file.size > MAX_PHOTO_SIZE) {
+      setPhotoError('La photo ne doit pas dépasser 10 Mo.');
+      return;
+    }
+
+    const dimensionsValid = await validateImageDimensions(file);
+    if (!dimensionsValid) {
+      setPhotoError(`La photo doit mesurer au moins ${MIN_PHOTO_DIMENSION} × ${MIN_PHOTO_DIMENSION} pixels.`);
+      return;
+    }
+    setPhotoFile(file);
+  }, []);
+
+  const handleRejectedPhoto = useCallback((rejections: FileRejection[]) => {
+    const tooLarge = rejections.some((rejection) =>
+      rejection.errors.some((error) => error.code === 'file-too-large'),
+    );
+    setPhotoError(
+      tooLarge
+        ? 'La photo ne doit pas dépasser 10 Mo.'
+        : 'La photo doit être au format JPG, JPEG ou PNG.',
+    );
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+    onDropAccepted: handleAcceptedPhoto,
+    onDropRejected: handleRejectedPhoto,
+    accept: {
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+    },
+    maxSize: MAX_PHOTO_SIZE,
+    multiple: false,
+    noClick: true,
+    disabled: isSubmitting,
+  });
+
+  const saveDraft = () => {
+    const savedAt = new Date().toISOString();
+    const valuesToSave = { ...getValues(), acceptTerms: false };
+    try {
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ values: valuesToSave, savedAt }));
+      setDraftSavedAt(savedAt);
+      setSubmitError('');
+    } catch {
+      setSubmitError('Le brouillon n’a pas pu être enregistré sur cet appareil.');
+    }
+  };
+
+  const goToStep = async (target: number) => {
+    if (target <= currentStep) {
+      setCurrentStep(target);
+      setSubmitError('');
+      return;
+    }
+
+    const fieldsValid = await trigger(STEP_FIELDS[currentStep], { shouldFocus: true });
+    if (!fieldsValid) return;
+    if (currentStep === 2 && !photoFile) {
+      setPhotoError('Ajoutez une photo d’identité conforme avant de continuer.');
+      return;
+    }
+
+    setCurrentStep(Math.min(target, currentStep + 1));
     setSubmitError('');
+    window.setTimeout(() => {
+      document.getElementById('member-request-form')?.scrollIntoView({
+        behavior: reduceMotion ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    }, 50);
+  };
+
+  const onSubmit = async (data: FormInputs) => {
+    if (submissionLock.current) return;
+    if (!photoFile) {
+      setCurrentStep(2);
+      setPhotoError('Ajoutez une photo d’identité conforme avant l’envoi.');
+      return;
+    }
+    if (!data.acceptTerms) {
+      setCurrentStep(3);
+      return;
+    }
+
+    submissionLock.current = true;
+    setSubmitError('');
+    setUploadStage('Téléversement sécurisé de la photo…');
 
     try {
-      let parsedPhoto = undefined;
-      if (data.photo?.[0]) {
-        const file = data.photo[0];
-        parsedPhoto = await uploadFile(file.name, file);
-      }
-
-      await createObject('MemberRequests', {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        phone: data.phone,
+      const parsedPhoto = await uploadFile(photoFile.name, photoFile);
+      setUploadStage('Enregistrement de la demande…');
+      const created = await createObject('MemberRequests', {
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        email: data.email.trim(),
+        phone: data.phone.trim(),
         profession: data.profession,
-        village: data.address || '',
+        village: data.address.trim(),
         photo: parsedPhoto,
         status: 'En attente',
+        consentAccepted: true,
+        consentAcceptedAt: new Date().toISOString(),
       });
 
-      setSubmitSuccess(true);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.localStorage.removeItem(DRAFT_KEY);
+      setReceipt({
+        requestId: created.objectId,
+        createdAt: created.createdAt ? new Date(created.createdAt) : new Date(),
+        fullName: `${data.firstName.trim()} ${data.lastName.trim()}`,
+      });
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     } catch (error) {
       console.error('Error submitting member card request:', error);
       const message = error instanceof Error ? error.message : 'Une erreur est survenue';
-      setSubmitError(`Erreur lors de l'envoi : ${message}. Veuillez réessayer.`);
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      setSubmitError(`La demande n’a pas pu être envoyée : ${message}. Vérifiez votre connexion puis réessayez.`);
+    } finally {
+      setUploadStage('');
+      submissionLock.current = false;
     }
+  };
+
+  const handleInvalidSubmit = (invalidErrors: FieldErrors<FormInputs>) => {
+    const firstInvalidStep = FORM_STEPS.find((step) =>
+      STEP_FIELDS[step.id].some((field) => Boolean(invalidErrors[field])),
+    );
+    if (firstInvalidStep) setCurrentStep(firstInvalidStep.id);
+    setSubmitError('Vérifiez les informations signalées avant de transmettre la demande.');
   };
 
   const handleReset = () => {
-    setSubmitSuccess(false);
+    setReceipt(null);
     setSubmitError('');
-    setPhotoPreview(null);
-    reset();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setPhotoFile(null);
+    setPhotoError('');
+    setCurrentStep(1);
+    setDraftSavedAt('');
+    reset(DEFAULT_VALUES);
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
   };
 
-  const [copied, setCopied] = useState(false);
-
-  const copyPhone = async () => {
-    try {
-      await navigator.clipboard.writeText(WAVE_PHONE);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Fallback for older browsers
-      const input = document.createElement('input');
-      input.value = WAVE_PHONE;
-      document.body.appendChild(input);
-      input.select();
-      document.execCommand('copy');
-      document.body.removeChild(input);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  if (submitSuccess) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
-
-          {/* Header vert */}
-          <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-8 text-center">
-            <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="text-white" size={40} />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">
-              Demande envoyée avec succès
-            </h2>
-            <p className="text-white/80 text-sm">
-              Votre demande de carte membre a été enregistrée.
-            </p>
-          </div>
-
-          <div className="p-8 space-y-6">
-
-            {/* Instructions de paiement */}
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
-              <div className="flex items-start gap-3 mb-4">
-                <Smartphone className="text-amber-600 shrink-0 mt-0.5" size={22} />
-                <div>
-                  <p className="font-bold text-gray-900 mb-1">Finalisez votre inscription</p>
-                  <p className="text-gray-700 text-sm leading-relaxed">
-                    Pour valider votre carte membre, envoyez <strong className="text-amber-700">2 500 FCFA via Wave</strong> à :
-                  </p>
-                </div>
-              </div>
-
-              {/* Carte contact Wave */}
-              <div className="bg-white border border-amber-100 rounded-xl p-4 text-center">
-                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Mr DONGO</p>
-                <p className="text-2xl font-extrabold text-gray-900 font-mono tracking-tight mb-4">
-                  {WAVE_PHONE}
-                </p>
-
-                {/* Boutons copier + Wave */}
-                <div className="flex gap-3">
-                  <button
-                    onClick={copyPhone}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition-all touch-manipulation ${
-                      copied
-                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                        : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200 active:bg-gray-300'
-                    }`}
-                  >
-                    {copied ? (
-                      <>
-                        <CheckCircle size={16} />
-                        Copié !
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={16} />
-                        Copier le n°
-                      </>
-                    )}
-                  </button>
-
-                  <a
-                    href={`https://pay.wave.com/m/${WAVE_PHONE_RAW}/2500`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#1DC3E3] text-white rounded-xl font-semibold text-sm hover:bg-[#19b0ce] active:bg-[#1599b3] transition-colors touch-manipulation"
-                  >
-                    <ExternalLink size={16} />
-                    Ouvrir Wave
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Info validation */}
-            <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
-              <p className="text-teal-800 text-sm text-center leading-relaxed">
-                Votre carte sera validée après confirmation du paiement. Vous recevrez un email de notification.
-              </p>
-            </div>
-
-            {/* Boutons navigation */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={handleReset}
-                className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 active:bg-gray-300 transition-colors touch-manipulation"
-              >
-                <RotateCcw size={18} />
-                Nouvelle demande
-              </button>
-              <Link
-                to="/"
-                className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 active:bg-gray-700 transition-colors touch-manipulation"
-              >
-                <Home size={18} />
-                Accueil
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  if (receipt) {
+    return <SuccessCard receipt={receipt} onReset={handleReset} />;
   }
 
-  return (
-    <div>
-      {/* Hero Section */}
-      <div className="relative py-20 bg-gradient-to-br from-teal-600 via-teal-700 to-teal-800">
-        <div className="absolute inset-0 z-0">
-          <img
-            src="/medicalteam.webp"
-            alt="Équipe médicale ASFO"
-            className="w-full h-full object-cover opacity-30"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-teal-900/80 to-teal-700/60" />
-        </div>
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-3xl mx-auto text-center">
-            <div className="inline-flex items-center px-6 py-3 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium mb-6">
-              <CreditCard className="mr-2 text-white" size={16} />
-              <span>Rejoignez notre communauté</span>
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Commander ma carte membre
-            </h1>
-            <p className="text-xl text-white/90 leading-relaxed">
-              Devenez membre officiel de l'ASFO et participez activement à notre mission humanitaire
+  const pageMotion = reduceMotion
+    ? {}
+    : {
+        initial: { opacity: 0, y: 20 },
+        whileInView: { opacity: 1, y: 0 },
+        viewport: { once: true, margin: '-60px' },
+        transition: { duration: 0.5 },
+      };
+
+  const stepMotion = reduceMotion
+    ? {}
+    : {
+        initial: { opacity: 0, x: 14 },
+        animate: { opacity: 1, x: 0 },
+        exit: { opacity: 0, x: -10 },
+        transition: { duration: 0.22 },
+      };
+
+  const validationMessages = [
+    errors.lastName?.message,
+    errors.firstName?.message,
+    errors.email?.message,
+    errors.phone?.message,
+    errors.profession?.message,
+    errors.address?.message,
+    photoError,
+    errors.acceptTerms?.message,
+  ].filter((message): message is string => Boolean(message));
+
+  const renderFormStep = () => {
+    if (currentStep === 1) {
+      return (
+        <motion.div key="identity" {...stepMotion} className="space-y-6">
+          <div>
+            <p className="text-sm font-black text-teal-700">Étape 1 sur 3</p>
+            <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Votre identité</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Utilisez les informations qui devront apparaître dans votre dossier membre.
             </p>
           </div>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label htmlFor="lastName" className="mb-2 block text-sm font-bold text-slate-800">
+                Nom <span className="text-red-600">*</span>
+              </label>
+              <div className="relative">
+                <User size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="lastName"
+                  type="text"
+                  autoComplete="family-name"
+                  className={`${inputClass(Boolean(errors.lastName))} pl-11`}
+                  aria-invalid={Boolean(errors.lastName)}
+                  aria-describedby={errors.lastName ? 'lastName-error' : undefined}
+                  placeholder="Votre nom de famille"
+                  {...register('lastName', {
+                    required: 'Le nom est requis.',
+                    validate: (value) => value.trim().length >= 2 || 'Le nom doit contenir au moins 2 caractères.',
+                  })}
+                />
+              </div>
+              <FieldError id="lastName-error" message={errors.lastName?.message} />
+            </div>
 
-            {/* Criteria Section */}
-            <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12 border border-gray-100">
-              <div className="prose prose-lg max-w-none">
+            <div>
+              <label htmlFor="firstName" className="mb-2 block text-sm font-bold text-slate-800">
+                Prénom <span className="text-red-600">*</span>
+              </label>
+              <div className="relative">
+                <User size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="firstName"
+                  type="text"
+                  autoComplete="given-name"
+                  className={`${inputClass(Boolean(errors.firstName))} pl-11`}
+                  aria-invalid={Boolean(errors.firstName)}
+                  aria-describedby={errors.firstName ? 'firstName-error' : undefined}
+                  placeholder="Votre prénom"
+                  {...register('firstName', {
+                    required: 'Le prénom est requis.',
+                    validate: (value) => value.trim().length >= 2 || 'Le prénom doit contenir au moins 2 caractères.',
+                  })}
+                />
+              </div>
+              <FieldError id="firstName-error" message={errors.firstName?.message} />
+            </div>
 
-                <h3 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6 flex items-center">
-                  Critères d'adhésion à l'Action Sanitaire pour le Fouta
-                </h3>
+            <div>
+              <label htmlFor="email" className="mb-2 block text-sm font-bold text-slate-800">
+                Adresse email <span className="text-red-600">*</span>
+              </label>
+              <div className="relative">
+                <Mail size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  className={`${inputClass(Boolean(errors.email))} pl-11`}
+                  aria-invalid={Boolean(errors.email)}
+                  aria-describedby={errors.email ? 'email-error' : 'email-help'}
+                  placeholder="vous@exemple.com"
+                  {...register('email', {
+                    required: 'L’adresse email est requise.',
+                    pattern: {
+                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                      message: 'Saisissez une adresse email valide.',
+                    },
+                  })}
+                />
+              </div>
+              <p id="email-help" className="mt-2 text-xs text-slate-500">Utilisez une adresse que vous consultez régulièrement.</p>
+              <FieldError id="email-error" message={errors.email?.message} />
+            </div>
 
-                <p className="text-lg text-gray-700 mb-6">
-                  Cher nouveau adhérent,
-                </p>
-                <p className="text-lg text-gray-700 mb-6">
-                  Nous sommes ravis de votre intérêt pour rejoindre l'Action Sanitaire pour le Fouta (ASFO) et de contribuer à notre mission d'amélioration de la santé de la population du Sénégal et du Fouta en particulier.
-                </p>
-                <p className="text-lg text-gray-700 mb-8">
-                  Pour être considéré comme membre de notre association, il faut remplir les critères suivants :
-                </p>
+            <div>
+              <label htmlFor="phone" className="mb-2 block text-sm font-bold text-slate-800">
+                Téléphone <span className="text-red-600">*</span>
+              </label>
+              <div className="relative">
+                <Phone size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  className={`${inputClass(Boolean(errors.phone))} pl-11`}
+                  aria-invalid={Boolean(errors.phone)}
+                  aria-describedby={errors.phone ? 'phone-error' : undefined}
+                  placeholder="+221 77 123 45 67"
+                  {...register('phone', {
+                    required: 'Le téléphone est requis.',
+                    pattern: {
+                      value: /^(\+221)?[0-9\s-]{9,}$/,
+                      message: 'Saisissez un numéro sénégalais valide.',
+                    },
+                  })}
+                />
+              </div>
+              <FieldError id="phone-error" message={errors.phone?.message} />
+            </div>
+          </div>
+        </motion.div>
+      );
+    }
 
-                <div className="space-y-6">
-                  <div className="flex items-start bg-teal-50 p-6 rounded-xl border border-teal-100">
-                    <span className="text-2xl mr-4 shrink-0">1.</span>
-                    <div>
-                      <h4 className="font-bold text-gray-800 mb-2">Adhésion aux valeurs et à la mission</h4>
-                      <p className="text-gray-700">Partager notre engagement envers l'amélioration de la santé et du bien-être des populations du Fouta, et adhérer à nos valeurs de solidarité, d'équité et de respect des droits humains.</p>
-                    </div>
-                  </div>
+    if (currentStep === 2) {
+      return (
+        <motion.div key="profile" {...stepMotion} className="space-y-6">
+          <div>
+            <p className="text-sm font-black text-teal-700">Étape 2 sur 3</p>
+            <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Votre profil</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Complétez les informations professionnelles et ajoutez une photo d’identité récente.
+            </p>
+          </div>
 
-                  <div className="flex items-start bg-blue-50 p-6 rounded-xl border border-blue-100">
-                    <span className="text-2xl mr-4 shrink-0">2.</span>
-                    <div>
-                      <h4 className="font-bold text-gray-800 mb-2">Engagement à contribuer activement</h4>
-                      <p className="text-gray-700">Participer aux initiatives (sensibilisation, consultations gratuites, collectes de fonds, missions, etc.) selon ses compétences et disponibilités.</p>
-                    </div>
-                  </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label htmlFor="profession" className="mb-2 block text-sm font-bold text-slate-800">
+                Profession <span className="text-red-600">*</span>
+              </label>
+              <div className="relative">
+                <Briefcase size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <select
+                  id="profession"
+                  className={`${inputClass(Boolean(errors.profession))} appearance-none pl-11 pr-10`}
+                  aria-invalid={Boolean(errors.profession)}
+                  aria-describedby={errors.profession ? 'profession-error' : undefined}
+                  {...register('profession', { required: 'Sélectionnez votre profession.' })}
+                >
+                  <option value="">Sélectionnez votre profession</option>
+                  {PROFESSIONS.map((profession) => (
+                    <option key={profession.value} value={profession.value}>{profession.label}</option>
+                  ))}
+                </select>
+                <ChevronDown size={17} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              </div>
+              <FieldError id="profession-error" message={errors.profession?.message} />
+            </div>
 
-                  <div className="flex items-start bg-purple-50 p-6 rounded-xl border border-purple-100">
-                    <span className="text-2xl mr-4 shrink-0">3.</span>
-                    <div>
-                      <h4 className="font-bold text-gray-800 mb-2">Respect des règles et des statuts</h4>
-                      <p className="text-gray-700">Suivre le règlement, respecter la confidentialité et les décisions collectives, ainsi que les autres membres.</p>
-                    </div>
-                  </div>
+            <div>
+              <label htmlFor="address" className="mb-2 block text-sm font-bold text-slate-800">
+                Adresse ou ville <span className="text-red-600">*</span>
+              </label>
+              <div className="relative">
+                <MapPin size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="address"
+                  type="text"
+                  autoComplete="street-address"
+                  className={`${inputClass(Boolean(errors.address))} pl-11`}
+                  aria-invalid={Boolean(errors.address)}
+                  aria-describedby={errors.address ? 'address-error' : undefined}
+                  placeholder="Ex. Dakar, Sénégal"
+                  {...register('address', {
+                    required: 'L’adresse ou la ville est requise.',
+                    validate: (value) => value.trim().length >= 2 || 'Précisez votre adresse ou votre ville.',
+                  })}
+                />
+              </div>
+              <FieldError id="address-error" message={errors.address?.message} />
+            </div>
+          </div>
 
-                  <div className="flex items-start bg-green-50 p-6 rounded-xl border border-green-100">
-                    <span className="text-2xl mr-4 shrink-0">4.</span>
-                    <div>
-                      <h4 className="font-bold text-gray-800 mb-2">Participation aux réunions et activités</h4>
-                      <p className="text-gray-700">Prendre part aux rencontres régulières et événements organisés par l'association.</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start bg-yellow-50 p-6 rounded-xl border border-yellow-100">
-                    <span className="text-2xl mr-4 shrink-0">5.</span>
-                    <div>
-                      <h4 className="font-bold text-gray-800 mb-2">Disposer d'une carte de membre</h4>
-                      <p className="text-gray-700">Carte obligatoire, coût fixé à <strong className="text-red-600">2 500 F CFA</strong>.</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start bg-orange-50 p-6 rounded-xl border border-orange-100">
-                    <span className="text-2xl mr-4 shrink-0">6.</span>
-                    <div>
-                      <h4 className="font-bold text-gray-800 mb-2">Cotisation annuelle</h4>
-                      <p className="text-gray-700">Montant fixé par le bureau, obligatoire pour soutenir les actions.</p>
-                    </div>
-                  </div>
+          <div>
+            <label className="mb-2 block text-sm font-bold text-slate-800">
+              Photo d’identité <span className="text-red-600">*</span>
+            </label>
+            <div
+              {...getRootProps()}
+              className={`rounded-2xl border-2 border-dashed p-5 outline-none transition focus-visible:ring-4 focus-visible:ring-teal-100 sm:p-6 ${
+                isDragActive
+                  ? 'border-teal-600 bg-teal-50'
+                  : photoError
+                    ? 'border-red-300 bg-red-50/60'
+                    : 'border-slate-300 bg-slate-50 hover:border-teal-400 hover:bg-teal-50/50'
+              }`}
+            >
+              <input {...getInputProps()} aria-label="Ajouter une photo d’identité" />
+              <div className="flex flex-col items-center gap-5 sm:flex-row">
+                <div className="relative flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  {photoPreview ? (
+                    <img src={photoPreview} alt="Aperçu de la photo sélectionnée" className="h-full w-full object-cover" />
+                  ) : (
+                    <Camera size={32} className="text-slate-300" aria-hidden="true" />
+                  )}
                 </div>
-
-                <div className="bg-gradient-to-r from-teal-50 to-blue-50 p-8 rounded-2xl border border-teal-100 mt-8">
-                  <p className="text-lg text-gray-700 mb-4">
-                    En remplissant ces critères, vous deviendrez un membre actif et engagerez un impact concret.
+                <div className="flex-1 text-center sm:text-left">
+                  <p className="font-black text-slate-900">
+                    {photoFile ? photoFile.name : isDragActive ? 'Déposez la photo ici' : 'Glissez votre photo dans cette zone'}
                   </p>
-                  <p className="text-xl font-bold text-teal-700 mb-4">
-                    Rejoignez-nous dès aujourd'hui et faisons ensemble une réelle différence dans le Fouta.
+                  <p className="mt-1 text-sm leading-5 text-slate-500">
+                    JPG, JPEG ou PNG · 10 Mo maximum · {MIN_PHOTO_DIMENSION} × {MIN_PHOTO_DIMENSION} px minimum
                   </p>
-                  <div className="text-right">
-                    <p className="text-gray-600 italic">Avec enthousiasme,</p>
-                    <p className="font-bold text-gray-800">Mamadou THIOYE</p>
-                    <div className="w-20 h-0.5 bg-teal-500 ml-auto mt-2" />
+                  {photoFile && <p className="mt-1 text-xs font-semibold text-teal-700">{formatFileSize(photoFile.size)} · Photo prête</p>}
+                  <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row sm:justify-start">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        open();
+                      }}
+                      disabled={isSubmitting}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-black text-white hover:bg-teal-800 disabled:opacity-50"
+                    >
+                      <Upload size={16} /> Choisir une photo
+                    </button>
+                    {photoFile && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setPhotoFile(null);
+                          setPhotoError('');
+                        }}
+                        disabled={isSubmitting}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-black text-slate-600 hover:border-red-300 hover:text-red-600 disabled:opacity-50"
+                      >
+                        <X size={16} /> Supprimer
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
+            <FieldError id="photo-error" message={photoError} />
+          </div>
+        </motion.div>
+      );
+    }
 
-            {/* Form Section */}
-            <div className="max-w-2xl mx-auto">
-              <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-                <div className="text-center mb-8">
-                  <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CreditCard className="text-teal-600" size={32} />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                    Formulaire de demande de carte membre
-                  </h2>
-                  <p className="text-gray-600">
-                    Remplissez tous les champs obligatoires pour obtenir votre carte membre ASFO
-                  </p>
-                </div>
+    return (
+      <motion.div key="review" {...stepMotion} className="space-y-6">
+        <div>
+          <p className="text-sm font-black text-teal-700">Étape 3 sur 3</p>
+          <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Vérification de la demande</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Relisez les informations qui seront transmises à l’équipe ASFO.
+          </p>
+        </div>
 
-                <form
-                  onSubmit={handleSubmit(onSubmit, () => {
-                    setSubmitError('Veuillez corriger les erreurs dans le formulaire.');
-                    const firstError = document.querySelector('[class*="border-red"]');
-                    firstError?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  })}
-                  className="space-y-6"
-                >
+        {validationMessages.length > 0 && (
+          <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4">
+            <p className="font-black text-red-900">Éléments à corriger</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-700">
+              {[...new Set(validationMessages)].map((message) => <li key={message}>{message}</li>)}
+            </ul>
+          </div>
+        )}
 
-                  {/* Nom et Prénom */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="lastName" className="block text-sm font-semibold text-gray-700 mb-2">
-                        <User className="inline w-4 h-4 mr-1.5 text-teal-500" />
-                        Nom complet <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="lastName"
-                        className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 ${
-                          errors.lastName ? 'border-red-300' : 'border-gray-200'
-                        }`}
-                        placeholder="Votre nom de famille"
-                        {...register('lastName', { required: 'Le nom est requis' })}
-                      />
-                      {errors.lastName && (
-                        <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                          <AlertCircle size={14} /> {errors.lastName.message}
-                        </p>
-                      )}
-                    </div>
+        <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-slate-50/60 px-5">
+          {[
+            ['Nom complet', fullName],
+            ['Email', values.email],
+            ['Téléphone', values.phone],
+            ['Profession', selectedProfession],
+            ['Adresse / ville', values.address],
+            ['Photo', photoFile ? `${photoFile.name} · ${formatFileSize(photoFile.size)}` : 'Non ajoutée'],
+          ].map(([label, value]) => (
+            <div key={label} className="grid gap-1 py-4 text-sm sm:grid-cols-[135px_1fr] sm:gap-5">
+              <span className="text-slate-500">{label}</span>
+              <span className="break-words font-bold text-slate-900">{value || 'Non renseigné'}</span>
+            </div>
+          ))}
+        </div>
 
-                    <div>
-                      <label htmlFor="firstName" className="block text-sm font-semibold text-gray-700 mb-2">
-                        <User className="inline w-4 h-4 mr-1.5 text-teal-500" />
-                        Prénom <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="firstName"
-                        className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 ${
-                          errors.firstName ? 'border-red-300' : 'border-gray-200'
-                        }`}
-                        placeholder="Votre prénom"
-                        {...register('firstName', { required: 'Le prénom est requis' })}
-                      />
-                      {errors.firstName && (
-                        <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                          <AlertCircle size={14} /> {errors.firstName.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+        <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition ${errors.acceptTerms ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white hover:border-teal-300'}`}>
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"
+            aria-invalid={Boolean(errors.acceptTerms)}
+            aria-describedby={errors.acceptTerms ? 'terms-error' : 'terms-help'}
+            {...register('acceptTerms', {
+              required: 'Vous devez accepter les critères d’adhésion et les règles de l’ASFO.',
+            })}
+          />
+          <span className="text-sm leading-6 text-slate-700">
+            <strong>J’ai lu et j’accepte les critères d’adhésion et les règles de l’ASFO.</strong>
+            <span className="text-red-600"> *</span>
+            <span id="terms-help" className="mt-1 block text-xs text-slate-500">
+              Vos informations sont utilisées pour instruire votre demande. Consultez aussi notre{' '}
+              <Link to="/privacy" className="font-bold text-teal-700 underline underline-offset-2">politique de confidentialité</Link>.
+            </span>
+          </span>
+        </label>
+        <FieldError id="terms-error" message={errors.acceptTerms?.message} />
 
-                  {/* Email et Téléphone */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                        <Mail className="inline w-4 h-4 mr-1.5 text-teal-500" />
-                        Adresse e-mail <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 ${
-                          errors.email ? 'border-red-300' : 'border-gray-200'
-                        }`}
-                        placeholder="votre.email@exemple.com"
-                        {...register('email', {
-                          required: "L'email est requis",
-                          pattern: {
-                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                            message: 'Adresse email invalide',
-                          },
-                        })}
-                      />
-                      {errors.email && (
-                        <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                          <AlertCircle size={14} /> {errors.email.message}
-                        </p>
-                      )}
-                    </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-center gap-3">
+            <WalletCards className="shrink-0 text-amber-700" size={23} />
+            <div>
+              <p className="font-black text-amber-950">2 500 FCFA</p>
+              <p className="text-xs text-amber-900/75">Aucun paiement avant validation</p>
+            </div>
+          </div>
+          <Link to="/terms" className="text-sm font-black text-amber-900 underline underline-offset-4">
+            Lire les conditions complètes
+          </Link>
+        </div>
+      </motion.div>
+    );
+  };
 
-                    <div>
-                      <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-2">
-                        <Phone className="inline w-4 h-4 mr-1.5 text-teal-500" />
-                        Téléphone <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        id="phone"
-                        className={`w-full px-4 py-3 rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 ${
-                          errors.phone ? 'border-red-300' : 'border-gray-200'
-                        }`}
-                        placeholder="+221 77 123 45 67"
-                        {...register('phone', {
-                          required: 'Le téléphone est requis',
-                          pattern: {
-                            value: /^[0-9+\s-]{8,}$/,
-                            message: 'Numéro de téléphone invalide',
-                          },
-                        })}
-                      />
-                      {errors.phone && (
-                        <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                          <AlertCircle size={14} /> {errors.phone.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+  return (
+    <div className="min-h-0 overflow-x-hidden bg-gradient-to-b from-white via-[#f4fbfa] to-white text-slate-900">
+      <section className="relative overflow-hidden border-b border-teal-100/80">
+        <div className="pointer-events-none absolute -left-40 top-10 h-[420px] w-[420px] rounded-full bg-teal-100/45 blur-[110px]" aria-hidden="true" />
+        <div className="pointer-events-none absolute -right-40 -top-20 h-[480px] w-[480px] rounded-full bg-cyan-100/40 blur-[120px]" aria-hidden="true" />
+        <div className="relative mx-auto grid max-w-7xl items-start gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_1fr] lg:items-center lg:px-8 lg:py-16">
+          <motion.div initial={reduceMotion ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}>
+            <span className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-white/85 px-3 py-1.5 text-xs font-black uppercase tracking-[0.13em] text-teal-800 shadow-sm">
+              <Users size={14} /> Rejoignez notre communauté
+            </span>
+            <h1 className="mt-5 max-w-3xl text-4xl font-black leading-[1.06] tracking-[-0.035em] text-slate-950 sm:text-5xl lg:text-[58px]">
+              Commandez votre carte membre ASFO
+            </h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+              Officialisez votre adhésion et participez activement à la vie d’une association engagée au service de la santé et des communautés du Fouta.
+            </p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <a
+                href="#member-request-form"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-teal-800/15 transition hover:-translate-y-0.5 hover:bg-teal-800"
+              >
+                Commencer ma demande <ArrowRight size={17} />
+              </a>
+              <a
+                href="#criteres-adhesion"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white/90 px-5 py-3.5 text-sm font-black text-slate-800 transition hover:border-teal-300 hover:text-teal-700"
+              >
+                Voir les critères d’adhésion
+              </a>
+            </div>
+            <p className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-slate-500">
+              <BadgeCheck size={17} className="text-teal-700" /> Carte membre numérique et vérifiable
+            </p>
+          </motion.div>
 
-                  {/* Profession */}
-                  <div>
-                    <label htmlFor="profession" className="block text-sm font-semibold text-gray-700 mb-2">
-                      <Heart className="inline w-4 h-4 mr-1.5 text-teal-500" />
-                      Profession <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      id="profession"
-                      className={`w-full px-4 py-3 rounded-lg border bg-white transition-all focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 appearance-none ${
-                        errors.profession ? 'border-red-300' : 'border-gray-200'
-                      }`}
-                      {...register('profession', { required: 'La profession est requise' })}
-                    >
-                      <option value="">Sélectionnez votre profession</option>
-                      <option value="medecin">Médecin</option>
-                      <option value="infirmier">Infirmier(ère)</option>
-                      <option value="pharmacien">Pharmacien(ne)</option>
-                      <option value="sage-femme">Sage-femme</option>
-                      <option value="dentiste">Chirurgien-dentiste</option>
-                      <option value="kinesitherapeute">Kinésithérapeute</option>
-                      <option value="laborantin">Laborantin(e)</option>
-                      <option value="etudiant-sante">Étudiant(e) en santé</option>
-                      <option value="benevole">Membre bénévole</option>
-                      <option value="autre">Autre</option>
-                    </select>
-                    {errors.profession && (
-                      <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                        <AlertCircle size={14} /> {errors.profession.message}
-                      </p>
-                    )}
-                  </div>
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.55 }}
+          >
+            <HeroCardComposition />
+          </motion.div>
+        </div>
+      </section>
 
-                  {/* Adresse */}
-                  <div>
-                    <label htmlFor="address" className="block text-sm font-semibold text-gray-700 mb-2">
-                      <MapPin className="inline w-4 h-4 mr-1.5 text-teal-500" />
-                      Adresse / Ville
-                    </label>
-                    <textarea
-                      id="address"
-                      rows={3}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
-                      placeholder="Votre adresse complète"
-                      {...register('address')}
-                    />
-                  </div>
-
-                  {/* Photo d'identité */}
-                  <div>
-                    <label htmlFor="photo" className="block text-sm font-semibold text-gray-700 mb-2">
-                      <Camera className="inline w-4 h-4 mr-1.5 text-teal-500" />
-                      Photo d'identité <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex gap-6">
-                      <div className="flex-1">
-                        <div
-                          className={`relative border-2 border-dashed rounded-xl p-6 transition-colors ${
-                            errors.photo
-                              ? 'border-red-300 bg-red-50'
-                              : 'border-gray-300 bg-gray-50 hover:border-teal-400 hover:bg-teal-50'
-                          }`}
-                        >
-                          <input
-                            type="file"
-                            id="photo"
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            accept="image/jpeg,image/jpg,image/png"
-                            {...register('photo', {
-                              required: 'La photo est requise',
-                              validate: {
-                                fileFormat: (files) => {
-                                  if (!files?.[0]) return true;
-                                  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-                                  return (
-                                    allowedTypes.includes(files[0].type) ||
-                                    'Seuls les fichiers JPG, JPEG et PNG sont acceptés'
-                                  );
-                                },
-                                fileSize: (files) => {
-                                  if (!files?.[0]) return true;
-                                  return files[0].size <= 2_000_000 || 'Le fichier ne doit pas dépasser 2 Mo';
-                                },
-                              },
-                            })}
-                          />
-                          <div className="text-center">
-                            <Upload className="mx-auto h-10 w-10 text-gray-400" />
-                            <p className="mt-2 text-sm font-medium text-gray-600">
-                              Cliquez ou glissez votre photo ici
-                            </p>
-                            <p className="mt-1 text-xs text-gray-500">JPG, JPEG, PNG — 2 Mo maximum</p>
-                          </div>
-                        </div>
-                        {errors.photo && (
-                          <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                            <AlertCircle size={14} /> {errors.photo.message}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Photo Preview */}
-                      {photoPreview && (
-                        <div className="w-32 h-32 flex-shrink-0">
-                          <div className="w-full h-full rounded-xl overflow-hidden border-2 border-teal-200 shadow-md">
-                            <img src={photoPreview} alt="Aperçu" className="w-full h-full object-cover" />
-                          </div>
-                          <p className="text-xs text-gray-500 text-center mt-2">Aperçu</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Acceptation des conditions */}
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <div className="flex items-start">
-                      <input
-                        id="acceptTerms"
-                        type="checkbox"
-                        className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded mt-1"
-                        {...register('acceptTerms', {
-                          required: "Vous devez accepter les critères d'adhésion",
-                        })}
-                      />
-                      <label htmlFor="acceptTerms" className="ml-3 block text-sm text-gray-700">
-                        <span className="font-semibold">J'ai lu et j'accepte les critères d'adhésion</span>
-                        <span className="text-red-500"> *</span>
-                      </label>
-                    </div>
-                    {errors.acceptTerms && (
-                      <p className="mt-2 text-sm text-red-500 flex items-center gap-1">
-                        <AlertCircle size={14} /> {errors.acceptTerms.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Coût de la carte */}
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                    <div className="flex items-center">
-                      <CreditCard className="text-yellow-600 mr-3 shrink-0" size={20} />
-                      <div>
-                        <p className="font-semibold text-yellow-800">Coût de la carte membre</p>
-                        <p className="text-yellow-700 text-sm">
-                          2 500 F CFA (paiement à effectuer après validation de votre dossier)
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Error message */}
-                  {submitError && (
-                    <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
-                      <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} />
-                      <div>
-                        <p className="text-red-800 text-sm font-semibold mb-0.5">Échec de l'envoi</p>
-                        <p className="text-red-700 text-sm">{submitError}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Submit Button */}
-                  <div className="pt-4 pb-16 sm:pb-0">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full px-6 py-4 bg-[#0F766E] text-white rounded-xl font-semibold hover:bg-[#0d6e66] active:bg-[#0b5f58] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center text-lg shadow-md transition-colors touch-manipulation"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 size={20} className="animate-spin mr-3" />
-                          Envoi en cours...
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard size={20} className="mr-3" />
-                          Envoyer ma demande
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
+      <main>
+        <motion.section {...pageMotion} className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="grid overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_22px_70px_-40px_rgba(15,23,42,0.35)] md:grid-cols-[300px_1fr]">
+            <div className="relative min-h-0 overflow-hidden bg-[#eef6f4]">
+              <img
+                src="/images/president-asfo.jpg"
+                alt="Dr Abdaramani Ndiaye, 21e Président de l’ASFO"
+                className="h-full min-h-[340px] w-full object-cover object-top"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-transparent to-transparent" />
+              <div className="absolute bottom-5 left-5 right-5 text-white">
+                <p className="text-xl font-black">Dr Abdaramani Ndiaye</p>
+                <p className="mt-1 text-sm font-semibold text-teal-100">21e Président de l’ASFO</p>
+              </div>
+            </div>
+            <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10">
+              <span className="inline-flex w-fit items-center gap-2 rounded-full bg-teal-50 px-3 py-1.5 text-xs font-black uppercase tracking-[0.12em] text-teal-700">
+                <BadgeCheck size={14} /> Président actuel
+              </span>
+              <h2 className="mt-5 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                Une communauté engagée, ouverte à toutes les compétences
+              </h2>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+                La 21e Présidence invite les professionnels de santé, étudiants, bénévoles et citoyens engagés à rejoindre l’ASFO et à contribuer durablement à ses missions.
+              </p>
+              <div className="mt-6 border-l-2 border-teal-600 pl-4">
+                <p className="font-serif text-xl italic text-slate-800">Dr Abdaramani Ndiaye</p>
+                <p className="mt-1 text-xs font-bold uppercase tracking-[0.13em] text-teal-700">21e Président de l’ASFO</p>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </motion.section>
+
+        <motion.section id="criteres-adhesion" {...pageMotion} className="scroll-mt-24 mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="max-w-3xl">
+            <p className="text-sm font-black uppercase tracking-[0.13em] text-teal-700">Adhérer à l’ASFO</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Les six critères d’adhésion</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base">
+              Ces engagements structurent la vie associative et s’appliquent à toute nouvelle demande de carte membre.
+            </p>
+          </div>
+          <div className="mt-8 grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {CRITERIA.map((criterion, index) => {
+              const Icon = criterion.icon;
+              return (
+                <motion.article
+                  key={criterion.title}
+                  initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-40px' }}
+                  transition={{ delay: reduceMotion ? 0 : index * 0.05 }}
+                  className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-teal-200 hover:shadow-md"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><Icon size={21} /></span>
+                    <span className="text-3xl font-black text-slate-100">0{index + 1}</span>
+                  </div>
+                  <h3 className="mt-5 text-lg font-black text-slate-950">{criterion.title}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{criterion.description}</p>
+                  <span className="mt-5 inline-flex w-fit rounded-full bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-800">{criterion.condition}</span>
+                </motion.article>
+              );
+            })}
+          </div>
+        </motion.section>
+
+        <motion.section {...pageMotion} className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+            <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-6 sm:p-8">
+              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-amber-700 shadow-sm"><WalletCards size={23} /></span>
+              <p className="mt-5 text-xs font-black uppercase tracking-[0.13em] text-amber-800">Coût de la carte membre</p>
+              <p className="mt-2 text-4xl font-black tracking-tight text-amber-950">2 500 FCFA</p>
+              <p className="mt-3 text-sm leading-6 text-amber-950/75">Le paiement intervient uniquement après validation de votre demande.</p>
+              <span className="mt-5 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-900">
+                <LockKeyhole size={14} /> Aucun paiement avant validation
+              </span>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+              <p className="text-xs font-black uppercase tracking-[0.13em] text-teal-700">Parcours d’adhésion</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">De la demande à la carte numérique</h2>
+              <ol className="mt-7 grid gap-5 lg:grid-cols-6">
+                {MEMBERSHIP_STEPS.map((step, index) => (
+                  <li key={step.title} className="relative flex gap-4 lg:block">
+                    {index < MEMBERSHIP_STEPS.length - 1 && (
+                      <span className="absolute left-[17px] top-9 h-[calc(100%+20px)] w-px bg-teal-200 lg:left-[34px] lg:top-[17px] lg:h-px lg:w-[calc(100%-12px)]" aria-hidden="true" />
+                    )}
+                    <span className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-700 text-xs font-black text-white">{index + 1}</span>
+                    <div className="lg:mt-3">
+                      <h3 className="text-sm font-black text-slate-900">{step.title}</h3>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">{step.description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </motion.section>
+
+        <motion.section id="member-request-form" {...pageMotion} className="scroll-mt-24 mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mb-8 max-w-3xl">
+            <p className="text-sm font-black uppercase tracking-[0.13em] text-teal-700">Demande de carte membre</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Complétez votre demande en trois étapes</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base">Les champs marqués d’un astérisque sont obligatoires. La carte ne sera jamais créée automatiquement.</p>
+          </div>
+
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_430px]">
+            <form
+              noValidate
+              onSubmit={handleSubmit(onSubmit, handleInvalidSubmit)}
+              className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_22px_70px_-40px_rgba(15,23,42,0.35)]"
+            >
+              <div
+                role="progressbar"
+                aria-label="Progression de la demande"
+                aria-valuemin={1}
+                aria-valuemax={3}
+                aria-valuenow={currentStep}
+                aria-valuetext={`Étape ${currentStep} sur 3 : ${FORM_STEPS[currentStep - 1].title}`}
+                className="border-b border-slate-100 bg-slate-50 px-5 py-5 sm:px-8"
+              >
+                <div className="grid grid-cols-3 gap-2">
+                  {FORM_STEPS.map((step) => {
+                    const Icon = step.icon;
+                    const active = currentStep === step.id;
+                    const complete = currentStep > step.id;
+                    return (
+                      <button
+                        key={step.id}
+                        type="button"
+                        onClick={() => void goToStep(step.id)}
+                        aria-current={active ? 'step' : undefined}
+                        className={`flex flex-col items-center rounded-xl px-2 py-2 text-center transition sm:flex-row sm:gap-3 sm:text-left ${
+                          active ? 'bg-white shadow-sm ring-1 ring-teal-200' : 'hover:bg-white/70'
+                        }`}
+                      >
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                          complete ? 'bg-teal-700 text-white' : active ? 'bg-teal-50 text-teal-700' : 'bg-slate-200 text-slate-500'
+                        }`}>
+                          {complete ? <Check size={17} /> : <Icon size={17} />}
+                        </span>
+                        <span className="mt-1 min-w-0 sm:mt-0">
+                          <span className={`block text-xs font-black sm:text-sm ${active ? 'text-teal-900' : 'text-slate-700'}`}>{step.title}</span>
+                          <span className="hidden text-xs text-slate-400 sm:block">{step.description}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full rounded-full bg-gradient-to-r from-teal-600 to-emerald-500 transition-all duration-300" style={{ width: `${currentStep * (100 / 3)}%` }} />
+                </div>
+              </div>
+
+              <div className="p-6 sm:p-8 lg:p-10">
+                <AnimatePresence mode="wait">{renderFormStep()}</AnimatePresence>
+
+                {submitError && (
+                  <div role="alert" className="mt-7 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                    <AlertCircle size={19} className="mt-0.5 shrink-0" />
+                    {submitError}
+                  </div>
+                )}
+
+                {isSubmitting && uploadStage && (
+                  <div aria-live="polite" className="mt-7 rounded-xl border border-teal-200 bg-teal-50 p-4">
+                    <div className="flex items-center gap-3 text-sm font-black text-teal-900">
+                      <Loader2 size={18} className="animate-spin" /> {uploadStage}
+                    </div>
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-teal-100">
+                      <div className="h-full w-1/2 animate-pulse rounded-full bg-teal-600" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
+                <div className="flex flex-col items-center gap-1 sm:flex-row sm:gap-3">
+                  <button
+                    type="button"
+                    onClick={saveDraft}
+                    disabled={isSubmitting}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-black text-slate-600 hover:bg-slate-100 hover:text-teal-700 disabled:opacity-50 sm:w-auto"
+                  >
+                    <Save size={16} /> Enregistrer le brouillon
+                  </button>
+                  {draftSavedAt && (
+                    <span role="status" className="text-xs text-slate-400">
+                      Enregistré à {new Date(draftSavedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                  {currentStep > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep((step) => step - 1)}
+                      disabled={isSubmitting}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-black text-slate-700 hover:border-teal-300 hover:text-teal-700 disabled:opacity-50 sm:w-auto"
+                    >
+                      <ArrowLeft size={16} /> Précédent
+                    </button>
+                  )}
+                  {currentStep < 3 ? (
+                    <button
+                      type="button"
+                      onClick={() => void goToStep(currentStep + 1)}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-black text-white hover:bg-teal-800 sm:w-auto"
+                    >
+                      Suivant <ArrowRight size={16} />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || !acceptTerms}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-teal-800/15 hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                    >
+                      {isSubmitting ? <Loader2 size={17} className="animate-spin" /> : <CreditCard size={17} />}
+                      {isSubmitting ? 'Envoi en cours…' : 'Envoyer ma demande'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </form>
+
+            <aside className="self-start rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-teal-700">Votre future carte membre</p>
+                  <p className="mt-1 text-sm text-slate-500">L’aperçu se met à jour avec vos informations.</p>
+                </div>
+                <CreditCard className="shrink-0 text-teal-700" />
+              </div>
+              <div className="mt-5 overflow-hidden rounded-2xl bg-slate-50 py-5">
+                <ResponsiveMemberPreview
+                  fullName={fullName}
+                  profession={selectedProfession}
+                  phone={values.phone}
+                  address={values.address}
+                  email={values.email}
+                  photo={photoPreview}
+                />
+              </div>
+              <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-xs leading-5 text-blue-900">
+                Aucun numéro officiel, QR de vérification ou date d’expiration n’est généré avant la validation humaine et le paiement confirmé.
+              </div>
+            </aside>
+          </div>
+        </motion.section>
+
+        <motion.section {...pageMotion} className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <p className="text-sm font-black uppercase tracking-[0.13em] text-teal-700">Une carte utile et vérifiable</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Les avantages réellement prévus</h2>
+          </div>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {BENEFITS.map((benefit) => {
+              const Icon = benefit.icon;
+              return (
+                <article key={benefit.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><Icon size={21} /></span>
+                  <h3 className="mt-4 font-black text-slate-950">{benefit.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">{benefit.description}</p>
+                </article>
+              );
+            })}
+          </div>
+        </motion.section>
+
+        <motion.section {...pageMotion} className="border-y border-slate-200 bg-white">
+          <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[0.75fr_1.25fr] lg:px-8">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.13em] text-teal-700">FAQ adhésion</p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Vos questions sur la carte membre</h2>
+              <p className="mt-3 text-sm leading-6 text-slate-600">Les réponses reflètent le fonctionnement actuel du portail et n’annoncent aucun délai non publié.</p>
+              <Link to="/contact" className="mt-5 inline-flex items-center gap-2 text-sm font-black text-teal-700 hover:text-teal-900">
+                Contacter l’association <ArrowRight size={16} />
+              </Link>
+            </div>
+            <div className="divide-y divide-slate-200 rounded-2xl border border-slate-200 px-5">
+              {FAQ_ITEMS.map((item) => (
+                <details key={item.question} className="group py-5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-black text-slate-900">
+                    {item.question}
+                    <ChevronDown size={18} className="shrink-0 text-slate-400 transition group-open:rotate-180" />
+                  </summary>
+                  <p className="mt-3 pr-8 text-sm leading-6 text-slate-600">{item.answer}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </motion.section>
+
+        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-[28px] border border-teal-200 bg-gradient-to-br from-teal-50 via-white to-cyan-50 p-7 sm:p-10 lg:p-12">
+            <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-teal-200/35 blur-3xl" aria-hidden="true" />
+            <div className="relative flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-3xl">
+                <p className="text-sm font-black uppercase tracking-[0.13em] text-teal-700">Rejoindre l’ASFO</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Rejoignez une communauté engagée au service de la santé.</h2>
+                <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base">Devenez membre de l’ASFO et participez activement à ses missions, rencontres et actions communautaires.</p>
+              </div>
+              <div className="flex shrink-0 flex-col gap-3 sm:flex-row lg:flex-col">
+                <a href="#member-request-form" className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3.5 text-sm font-black text-white hover:bg-teal-800">
+                  Commencer ma demande <ArrowRight size={16} />
+                </a>
+                <Link to="/about" className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-black text-slate-700 hover:border-teal-300 hover:text-teal-700">Découvrir l’ASFO</Link>
+                <Link to="/contact" className="inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-black text-teal-800 hover:bg-white/70">Contacter l’association</Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   );
 };

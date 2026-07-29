@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import Button from '../components/common/Button';
 import { Home, AlertTriangle } from 'lucide-react';
 

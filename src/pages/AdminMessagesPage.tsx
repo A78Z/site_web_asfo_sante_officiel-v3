@@ -15,7 +15,6 @@ import {
   X,
   Loader2,
   RefreshCw,
-  CalendarDays,
   Inbox,
 } from 'lucide-react';
 import { queryObjects, updateObject, deleteObject } from '../lib/parse';

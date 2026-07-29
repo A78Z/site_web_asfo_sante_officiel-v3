@@ -1,430 +1,740 @@
-import React from 'react';
-import { useInView } from 'react-intersection-observer';
-import { 
-  Users, 
-  Target, 
-  Calendar, 
-  MapPin, 
-  Briefcase, 
-  Heart, 
-  TrendingUp, 
+import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, useInView, useReducedMotion } from 'framer-motion';
+import {
+  Users,
+  Target,
+  CalendarDays,
+  MapPin,
+  Briefcase,
+  Heart,
+  TrendingUp,
   Award,
   Building2,
   Network,
   Zap,
-  Globe
+  Globe,
+  Landmark,
+  Crown,
+  ChevronDown,
+  Scale,
+  ArrowRight,
+  Camera,
+  Mail,
+  Vote,
 } from 'lucide-react';
+import {
+  SENEGAL_LOCATIONS,
+  SENEGAL_MAP_HEIGHT,
+  SENEGAL_MAP_WIDTH,
+  SENEGAL_OUTLINE_PATH,
+  projectSenegalCoordinate,
+} from '../data/senegalMap';
+
+const poppins = { fontFamily: "'Poppins', 'Inter', sans-serif" };
+
+/* ------------------------------------------------------------------ */
+/* Animations                                                           */
+/* ------------------------------------------------------------------ */
+
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 30 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: '-60px' },
+  transition: { duration: 0.6, delay, ease: 'easeOut' as const },
+});
+
+const StatCounter: React.FC<{ value: number; suffix: string }> = ({ value, suffix }) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-40px' });
+  const reduce = useReducedMotion();
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+    if (reduce) {
+      setDisplay(value);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / 1600, 1);
+      setDisplay(Math.round(value * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [inView, value, reduce]);
+
+  return (
+    <span ref={ref}>
+      {display.toLocaleString('fr-FR')}
+      {suffix}
+    </span>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* Données (contenu existant, inchangé)                                 */
+/* ------------------------------------------------------------------ */
+
+const COMMISSIONS = [
+  { icon: Target, title: 'Plan & logistique', description: 'Organisation des campagnes et extra-campagnes' },
+  { icon: Award, title: 'Commission scientifique', description: 'Formations, ateliers, journées scientifiques, panels' },
+  { icon: Heart, title: 'Médico-sociale', description: 'Actions sociales, solidarité, dons, suivi des patients' },
+  { icon: Briefcase, title: 'Finances', description: 'Gestion budgétaire, cotisations, dépenses' },
+  { icon: Network, title: 'Presse & Information', description: 'Communication interne/externe, visuels, réseaux sociaux' },
+  { icon: Globe, title: 'Relations extérieures', description: 'Partenariats et collaborations' },
+  { icon: Zap, title: 'Organisation', description: 'Transversale, active sur tous les fronts' },
+];
+
+const SECTIONS = [
+  {
+    name: 'ASFO/Saint-Louis',
+    university: 'Université Gaston Berger',
+    year: '2021',
+    status: 'Établie',
+    image: '/logo-ugb.jpg',
+    progress: 100,
+    progressLabel: 'Pleinement opérationnelle',
+  },
+  {
+    name: 'ASFO/Thiès',
+    university: 'UFR Santé de Thiès',
+    year: '2025',
+    status: 'Prometteuse',
+    image: '/logo-thies.jpg',
+    progress: 75,
+    progressLabel: 'En développement',
+  },
+];
+
+const ORG_CHART = [
+  { icon: Landmark, title: 'Assemblée Générale', text: 'Bilan annuel, priorités et élections' },
+  { icon: Crown, title: 'Président', text: 'Porte la vision et représente l’ASFO' },
+  { icon: Briefcase, title: 'Bureau Exécutif', text: 'Coordonne et applique les décisions de l’AG' },
+  { icon: Network, title: 'Commissions', text: '7 commissions spécialisées' },
+  { icon: MapPin, title: 'Sections régionales', text: 'Dakar, Saint-Louis, Thiès' },
+  { icon: Users, title: 'Bénévoles', text: '600+ membres actifs sur le terrain' },
+];
+
+const GOV_VALUES = [
+  { icon: Scale, title: 'Transparence', text: 'Bilans présentés chaque année en Assemblée Générale.' },
+  { icon: Vote, title: 'Participation', text: 'Un bureau élu, où chaque membre a sa voix.' },
+  { icon: Globe, title: 'Inclusion', text: 'Professionnels de santé et membres d’autres secteurs.' },
+  { icon: Heart, title: 'Engagement', text: 'Le bénévolat au cœur de toutes nos actions.' },
+];
+
+/* Implantations universitaires projetées depuis leurs coordonnées géographiques. */
+const SECTION_POINTS = [
+  {
+    ...projectSenegalCoordinate(SENEGAL_LOCATIONS.dakar),
+    label: 'Dakar',
+    info: 'Siège national — UCAD',
+    labelPos: 'below' as const,
+  },
+  {
+    ...projectSenegalCoordinate(SENEGAL_LOCATIONS.saintLouis),
+    label: 'Saint-Louis',
+    info: 'ASFO/Saint-Louis — UGB · 2021',
+    labelPos: 'above' as const,
+  },
+  {
+    ...projectSenegalCoordinate(SENEGAL_LOCATIONS.thies),
+    label: 'Thiès',
+    info: 'ASFO/Thiès — UFR Santé · 2025',
+    labelPos: 'below' as const,
+  },
+];
+
+const GALLERY = [
+  { src: '/medicalteam.webp', label: 'Notre équipe médicale' },
+  { src: '/images/formation-hero.webp', label: 'Formations' },
+  { src: '/28.webp', label: 'En campagne médicale' },
+  { src: '/11.webp', label: 'Avec les communautés' },
+];
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                 */
+/* ------------------------------------------------------------------ */
 
 const OrganizationPage: React.FC = () => {
-  // Set page title
-  React.useEffect(() => {
+  const reduce = useReducedMotion();
+
+  useEffect(() => {
     document.title = 'Notre organisation | ASFO - Action Sanitaire pour le Fouta';
   }, []);
 
-  const [heroRef, heroInView] = useInView({
-    triggerOnce: true,
-    threshold: 0.1,
-  });
-
-  const [governanceRef, governanceInView] = useInView({
-    triggerOnce: true,
-    threshold: 0.1,
-  });
-
-  const [commissionsRef, commissionsInView] = useInView({
-    triggerOnce: true,
-    threshold: 0.1,
-  });
-
-  const [expansionRef, expansionInView] = useInView({
-    triggerOnce: true,
-    threshold: 0.1,
-  });
-
-  const commissions = [
-    {
-      icon: <Target size={28} />,
-      title: "Plan & logistique",
-      description: "Organisation des campagnes et extra-campagnes",
-      gradient: "from-blue-500 to-blue-600",
-      iconBg: "bg-blue-500"
-    },
-    {
-      icon: <Award size={28} />,
-      title: "Commission scientifique",
-      description: "Formations, ateliers, journées scientifiques, panels",
-      gradient: "from-purple-500 to-purple-600",
-      iconBg: "bg-purple-500"
-    },
-    {
-      icon: <Heart size={28} />,
-      title: "Médico-sociale",
-      description: "Actions sociales, solidarité, dons, suivi des patients",
-      gradient: "from-red-500 to-red-600",
-      iconBg: "bg-red-500"
-    },
-    {
-      icon: <Briefcase size={28} />,
-      title: "Finances",
-      description: "Gestion budgétaire, cotisations, dépenses",
-      gradient: "from-green-500 to-green-600",
-      iconBg: "bg-green-500"
-    },
-    {
-      icon: <Network size={28} />,
-      title: "Presse & Information",
-      description: "Communication interne/externe, visuels, réseaux sociaux",
-      gradient: "from-orange-500 to-orange-600",
-      iconBg: "bg-orange-500"
-    },
-    {
-      icon: <Globe size={28} />,
-      title: "Relations extérieures",
-      description: "Partenariats et collaborations",
-      gradient: "from-teal-500 to-teal-600",
-      iconBg: "bg-teal-500"
-    },
-    {
-      icon: <Zap size={28} />,
-      title: "Organisation",
-      description: "Transversale, active sur tous les fronts",
-      gradient: "from-indigo-500 to-indigo-600",
-      iconBg: "bg-indigo-500"
-    }
-  ];
-
-  const sections = [
-    {
-      name: "ASFO/Saint-Louis",
-      university: "Université Gaston Berger",
-      duration: "2021",
-      status: "Établie",
-      image: "/logo-ugb.jpg",
-      color: "from-blue-500 to-blue-600"
-    },
-    {
-      name: "ASFO/Thiès",
-      university: "UFR Santé de Thiès",
-      duration: "2025",
-      status: "Prometteuse",
-      image: "/logo-thies.jpg",
-      color: "from-green-500 to-green-600"
-    }
-  ];
-
   return (
-    <div>
-      {/* Hero Section */}
-      <div 
-        ref={heroRef}
-        className="relative py-20 bg-gradient-to-br from-teal-600 via-teal-700 to-teal-800 overflow-hidden"
-      >
-        {/* Background decorative elements */}
-        <div className="absolute inset-0">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/10 rounded-full blur-3xl"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/10 rounded-full blur-3xl"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/5 rounded-full blur-3xl"></div>
-        </div>
+    <div className="bg-gradient-to-b from-white via-[#f6fbf9] to-white">
+      {/* ════════════════ HERO ════════════════ */}
+      <section className="relative overflow-hidden pb-20 pt-14 sm:pt-20 lg:pb-24">
+        <div className="pointer-events-none absolute -right-40 -top-24 h-[480px] w-[480px] rounded-full bg-teal-100/40 blur-[120px]" aria-hidden="true" />
+        <div className="pointer-events-none absolute -left-44 top-64 h-[420px] w-[420px] rounded-full bg-teal-50/70 blur-[110px]" aria-hidden="true" />
+        <div className="pointer-events-none absolute left-[44%] top-8 hidden h-28 w-28 rounded-full border border-teal-200/50 lg:block" aria-hidden="true" />
 
-        <div className="container mx-auto px-4 relative z-10">
-          <div 
-            className={`max-w-4xl mx-auto text-center transition-all duration-1000 transform ${
-              heroInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            }`}
-          >
-            <div className="inline-flex items-center px-6 py-3 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium mb-6">
-              <Building2 className="mr-2 text-white" size={16} />
-              <span>🔷 Notre organisation</span>
+        <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-6 sm:px-8 lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:px-10">
+          {/* Texte */}
+          <div>
+            <motion.span
+              {...fadeUp(0)}
+              className="inline-flex items-center gap-2.5 rounded-full border border-teal-200/80 bg-white/80 px-5 py-2 text-xs font-bold uppercase tracking-[0.18em] text-teal-700 shadow-sm backdrop-blur-sm"
+              style={poppins}
+            >
+              <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
+              Notre gouvernance
+            </motion.span>
+
+            <motion.h1
+              {...fadeUp(0.08)}
+              className="mt-6 text-4xl font-extrabold leading-[1.1] text-gray-900 sm:text-5xl xl:text-6xl"
+              style={poppins}
+            >
+              Découvrez les femmes et les hommes qui{' '}
+              <span className="bg-gradient-to-r from-teal-600 to-[#2fb391] bg-clip-text text-transparent">
+                pilotent l’ASFO
+              </span>
+            </motion.h1>
+
+            <motion.p {...fadeUp(0.16)} className="mt-6 max-w-xl text-base leading-relaxed text-gray-600 sm:text-lg sm:leading-8">
+              Une association structurée, portée par une équipe de jeunes professionnels et
+              d'étudiants engagés, tous animés par une même ambition :{' '}
+              <em>servir les populations rurales du Sénégal à travers la santé, la solidarité
+              et l'action de terrain.</em>
+            </motion.p>
+
+            <motion.div {...fadeUp(0.24)} className="mt-8 flex flex-col gap-3.5 sm:flex-row">
+              <Link
+                to="/notre-equipe-medicale"
+                className="inline-flex items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-[#2fb391] to-[#178066] px-7 py-3.5 text-base font-bold text-white shadow-[0_18px_40px_-15px_rgba(23,128,102,0.6)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_50px_-15px_rgba(23,128,102,0.75)] focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-300/70"
+                style={poppins}
+              >
+                Découvrir notre équipe
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link
+                to="/join"
+                className="inline-flex items-center justify-center gap-2.5 rounded-full border border-teal-200/80 bg-white/80 px-7 py-3.5 text-base font-semibold text-teal-800 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-white focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-300/70"
+                style={poppins}
+              >
+                Rejoindre l'organisation
+              </Link>
+            </motion.div>
+          </div>
+
+          {/* Composition photo */}
+          <motion.div {...fadeUp(0.15)} className="relative">
+            <div className="grid grid-cols-3 grid-rows-3 gap-3.5">
+              <div className="col-span-2 row-span-3 overflow-hidden rounded-3xl border border-white/80 shadow-[0_30px_70px_-30px_rgba(18,63,56,0.45)]">
+                <img
+                  src="/medicalteam.webp"
+                  alt="L'équipe médicale de l'ASFO"
+                  className="h-full w-full object-cover transition-transform duration-700 hover:scale-105"
+                />
+              </div>
+              <div className="row-span-2 overflow-hidden rounded-3xl border border-white/80 shadow-[0_20px_50px_-25px_rgba(18,63,56,0.4)]">
+                <img
+                  src="/images/engagement-hero.webp"
+                  alt="Membres de l'ASFO en action"
+                  className="h-full w-full object-cover transition-transform duration-700 hover:scale-105"
+                />
+              </div>
+              <div className="overflow-hidden rounded-3xl border border-white/80 shadow-[0_20px_50px_-25px_rgba(18,63,56,0.4)]">
+                <img
+                  src="/9.webp"
+                  alt="L'équipe devant l'unité mobile"
+                  className="h-full w-full object-cover transition-transform duration-700 hover:scale-105"
+                />
+              </div>
             </div>
-            
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-              Découvrez l'équipe qui pilote l'ASFO
-            </h1>
-            
-            <p className="text-xl md:text-2xl text-white/90 leading-relaxed mb-8">
-              Une association structurée, portée par une équipe de jeunes professionnels et d'étudiants engagés, 
-              tous animés par une même ambition : <em>servir les populations rurales du Sénégal à travers la santé, 
-              la solidarité et l'action de terrain.</em>
+
+            <motion.div
+              animate={reduce ? undefined : { y: [0, -7, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute -bottom-6 -left-4 rounded-2xl border border-white/80 bg-white/90 px-5 py-4 shadow-[0_20px_50px_-20px_rgba(18,63,56,0.4)] backdrop-blur-sm sm:-left-8"
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#2fb391] to-[#178066]">
+                  <Landmark className="h-5 w-5 text-white" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-sm font-extrabold text-gray-900" style={poppins}>25 ans d'engagement</p>
+                  <p className="text-[11px] font-semibold text-gray-500">600+ bénévoles · Structure nationale</p>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ════════════════ STATISTIQUES ════════════════ */}
+      <section className="relative pb-20">
+        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-3 px-6 sm:gap-4 sm:px-8 lg:grid-cols-4 lg:px-10">
+          {[
+            { icon: Users, value: 600, suffix: '+', label: 'Bénévoles actifs' },
+            { icon: MapPin, value: 3, suffix: '', label: 'Sections régionales' },
+            { icon: CalendarDays, value: 25, suffix: '+', label: "Années d'expérience" },
+          ].map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              {...fadeUp(0.05 + i * 0.07)}
+              className="rounded-2xl border border-white/80 bg-white/80 px-5 py-6 text-center shadow-[0_15px_40px_-20px_rgba(18,63,56,0.25)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-white"
+            >
+              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-teal-100 bg-teal-50">
+                <stat.icon className="h-5 w-5 text-teal-600" aria-hidden="true" />
+              </span>
+              <p className="mt-3 text-3xl font-extrabold text-gray-900 sm:text-4xl" style={poppins}>
+                <StatCounter value={stat.value} suffix={stat.suffix} />
+              </p>
+              <p className="mt-1 text-sm text-gray-600">{stat.label}</p>
+            </motion.div>
+          ))}
+          <motion.div
+            {...fadeUp(0.26)}
+            className="rounded-2xl border border-white/80 bg-white/80 px-5 py-6 text-center shadow-[0_15px_40px_-20px_rgba(18,63,56,0.25)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-white"
+          >
+            <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-teal-100 bg-teal-50">
+              <Vote className="h-5 w-5 text-teal-600" aria-hidden="true" />
+            </span>
+            <p className="mt-3 text-lg font-extrabold leading-tight text-gray-900 sm:text-xl" style={poppins}>
+              Organisation démocratique
             </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                <Users className="text-white mb-4 mx-auto" size={32} />
-                <h3 className="text-2xl font-bold text-white mb-2">600+</h3>
-                <p className="text-white/80">Membres actifs</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                <MapPin className="text-white mb-4 mx-auto" size={32} />
-                <h3 className="text-2xl font-bold text-white mb-2">3</h3>
-                <p className="text-white/80">Sections régionales</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                <Calendar className="text-white mb-4 mx-auto" size={32} />
-                <h3 className="text-2xl font-bold text-white mb-2">25+</h3>
-                <p className="text-white/80">Années d'expérience</p>
-              </div>
-            </div>
-          </div>
+            <p className="mt-1 text-sm text-gray-600">Bureau élu chaque année</p>
+          </motion.div>
         </div>
-      </div>
+      </section>
 
-      {/* Governance Section */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div 
-            ref={governanceRef}
-            className={`max-w-4xl mx-auto transition-all duration-1000 transform ${
-              governanceInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            }`}
-          >
-            <div className="text-center mb-16">
-              <div className="inline-flex items-center px-6 py-3 bg-teal-50 text-teal-700 rounded-full mb-6">
-                <Target className="mr-2" size={20} />
-                <span className="font-semibold">🧭 Gouvernance et fonctionnement</span>
-              </div>
-              
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-6">
-                Une structure démocratique et transparente
-              </h2>
+      {/* ════════════════ GOUVERNANCE ════════════════ */}
+      <section className="relative overflow-hidden pb-24">
+        <div className="pointer-events-none absolute -right-40 top-20 h-[420px] w-[420px] rounded-full bg-teal-100/30 blur-[120px]" aria-hidden="true" />
+        <div className="relative mx-auto max-w-7xl px-6 sm:px-8 lg:px-10">
+          <motion.div {...fadeUp(0)} className="mx-auto mb-14 max-w-3xl text-center">
+            <span className="inline-flex items-center gap-2.5 rounded-full border border-teal-200/80 bg-white/80 px-5 py-2 text-xs font-bold uppercase tracking-[0.18em] text-teal-700 shadow-sm backdrop-blur-sm" style={poppins}>
+              <Target className="h-3.5 w-3.5" aria-hidden="true" />
+              Gouvernance et fonctionnement
+            </span>
+            <h2 className="mt-6 text-3xl font-extrabold leading-tight text-gray-900 sm:text-4xl lg:text-5xl" style={poppins}>
+              Une structure démocratique et{' '}
+              <span className="bg-gradient-to-r from-teal-600 to-[#2fb391] bg-clip-text text-transparent">transparente</span>
+            </h2>
+          </motion.div>
+
+          <div className="grid items-start gap-8 lg:grid-cols-2 lg:gap-12">
+            {/* Cartes AG + Bureau */}
+            <div className="min-w-0 space-y-6 self-start">
+              <motion.div
+                {...fadeUp(0.08)}
+                className="rounded-3xl border border-white/80 bg-white/80 p-7 shadow-[0_18px_45px_-25px_rgba(18,63,56,0.3)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 sm:p-8"
+              >
+                <div className="flex items-center gap-4">
+                  <span className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl bg-gradient-to-br from-[#2fb391] to-[#178066] shadow-[0_10px_25px_-10px_rgba(23,128,102,0.6)]">
+                    <Landmark className="h-5 w-5 text-white" aria-hidden="true" />
+                  </span>
+                  <h3 className="text-xl font-bold text-gray-900" style={poppins}>Assemblée Générale Ordinaire</h3>
+                </div>
+                <p className="mt-4 text-[15px] leading-7 text-gray-700">
+                  Chaque année, l'ASFO tient une <strong className="text-gray-900">Assemblée Générale Ordinaire</strong> :
+                  bilan annuel, définition des priorités, et élection du Bureau Exécutif chargé de
+                  mettre en œuvre la feuille de route.
+                </p>
+              </motion.div>
+
+              <motion.div
+                {...fadeUp(0.14)}
+                className="rounded-3xl border border-white/80 bg-white/80 p-7 shadow-[0_18px_45px_-25px_rgba(18,63,56,0.3)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 sm:p-8"
+              >
+                <div className="flex items-center gap-4">
+                  <span className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl bg-gradient-to-br from-[#2fb391] to-[#178066] shadow-[0_10px_25px_-10px_rgba(23,128,102,0.6)]">
+                    <Briefcase className="h-5 w-5 text-white" aria-hidden="true" />
+                  </span>
+                  <h3 className="text-xl font-bold text-gray-900" style={poppins}>Bureau Exécutif</h3>
+                </div>
+                <p className="mt-4 text-[15px] leading-7 text-gray-700">
+                  <strong className="text-gray-900">Le Bureau Exécutif</strong> est composé de membres élus pour :
+                </p>
+                <ul className="mt-3 space-y-2.5">
+                  {['Coordonner les actions', 'Superviser les activités', "Représenter l'association", "Appliquer les décisions de l'AG"].map((item) => (
+                    <li key={item} className="flex items-center gap-2.5 text-[15px] text-gray-700">
+                      <span className="h-1.5 w-1.5 flex-none rounded-full bg-teal-500" aria-hidden="true" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              <div className="space-y-6">
-                <div className="bg-gradient-to-br from-teal-50 to-blue-50 rounded-2xl p-8 border border-teal-100">
-                  <div className="flex items-center mb-4">
-                    <div className="w-12 h-12 bg-teal-500 rounded-full flex items-center justify-center mr-4">
-                      <Calendar className="text-white" size={24} />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-800">Assemblée Générale Ordinaire</h3>
-                  </div>
-                  <p className="text-gray-700 leading-relaxed">
-                    Chaque année, l'ASFO tient une <strong>Assemblée Générale Ordinaire</strong> : 
-                    bilan annuel, définition des priorités, et élection du Bureau Exécutif chargé 
-                    de mettre en œuvre la feuille de route.
-                  </p>
-                </div>
-
-                <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-8 border border-blue-100">
-                  <div className="flex items-center mb-4">
-                    <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mr-4">
-                      <Briefcase className="text-white" size={24} />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-800">Bureau Exécutif</h3>
-                  </div>
-                  <p className="text-gray-700 leading-relaxed mb-4">
-                    <strong>Le Bureau Exécutif</strong> est composé de membres élus pour :
-                  </p>
-                  <ul className="space-y-2">
-                    <li className="flex items-center text-gray-700">
-                      <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
-                      Coordonner les actions
-                    </li>
-                    <li className="flex items-center text-gray-700">
-                      <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
-                      Superviser les activités
-                    </li>
-                    <li className="flex items-center text-gray-700">
-                      <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
-                      Représenter l'association
-                    </li>
-                    <li className="flex items-center text-gray-700">
-                      <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
-                      Appliquer les décisions de l'AG
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="relative">
-                <div className="bg-gradient-to-br from-gray-50 to-white rounded-3xl p-8 shadow-xl border border-gray-100">
-                  <img 
-                    src="/medicalteam.webp" 
-                    alt="Équipe ASFO" 
-                    className="w-full h-64 object-cover rounded-2xl mb-6"
+            {/* Photo */}
+            <motion.div {...fadeUp(0.12)} className="min-w-0 self-start">
+              <div className="group overflow-hidden rounded-3xl border border-white/80 bg-white/80 shadow-[0_25px_60px_-30px_rgba(18,63,56,0.35)] backdrop-blur-sm">
+                <div className="overflow-hidden">
+                  <img
+                    src="/medicalteam.webp"
+                    alt="Équipe ASFO réunie"
+                    className="h-72 w-full object-cover transition-transform duration-700 group-hover:scale-105 sm:h-80"
                   />
-                  <div className="text-center">
-                    <h4 className="text-lg font-bold text-gray-800 mb-2">
-                      Gouvernance participative
-                    </h4>
-                    <p className="text-gray-600">
-                      Une structure démocratique où chaque membre a sa voix
-                    </p>
-                  </div>
+                </div>
+                <div className="p-7 text-center">
+                  <h4 className="text-lg font-bold text-gray-900" style={poppins}>Gouvernance participative</h4>
+                  <p className="mt-1.5 text-sm text-gray-600">Une structure démocratique où chaque membre a sa voix</p>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
-        </div>
-      </section>
 
-      {/* Commissions Section */}
-      <section className="py-20 bg-gradient-to-br from-gray-50 via-teal-50/30 to-gray-50">
-        <div className="container mx-auto px-4">
-          <div 
-            ref={commissionsRef}
-            className={`transition-all duration-1000 transform ${
-              commissionsInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            }`}
-          >
-            <div className="text-center mb-16">
-              <div className="inline-flex items-center px-6 py-3 bg-white/80 backdrop-blur-sm rounded-full shadow-lg border border-teal-100 mb-6">
-                <Network className="text-teal-600 mr-3" size={24} />
-                <span className="text-teal-700 font-semibold text-lg">🧩 Commissions dynamiques</span>
-              </div>
-              
-              <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-gray-800 via-teal-700 to-gray-800 bg-clip-text text-transparent mb-6">
-                Les piliers de l'action
-              </h2>
-              
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                Sept commissions spécialisées qui orchestrent l'ensemble de nos activités avec expertise et coordination
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
-              {commissions.map((commission, index) => (
-                <div 
-                  key={index}
-                  className="group relative bg-white rounded-2xl p-6 shadow-lg border border-gray-100 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  {/* Background Gradient */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${commission.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-500 rounded-2xl`}></div>
-                  
-                  {/* Icon */}
-                  <div className={`w-16 h-16 ${commission.iconBg} rounded-2xl flex items-center justify-center mb-6 text-white shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                    {commission.icon}
-                  </div>
-
-                  {/* Content */}
-                  <div className="relative z-10">
-                    <h3 className="text-lg font-bold text-gray-800 mb-3 group-hover:text-gray-900 transition-colors duration-300">
-                      {commission.title}
-                    </h3>
-                    <p className="text-gray-600 leading-relaxed group-hover:text-gray-700 transition-colors duration-300">
-                      {commission.description}
-                    </p>
-                  </div>
-
-                  {/* Hover Effect Border */}
-                  <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                </div>
+          {/* ─── Organigramme ─── */}
+          <div className="mx-auto mt-20 max-w-2xl">
+            <motion.h3 {...fadeUp(0)} className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl" style={poppins}>
+              L'organigramme de l'ASFO
+            </motion.h3>
+            <ol className="mt-10">
+              {ORG_CHART.map((node, i) => (
+                <li key={node.title}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 24 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: '-40px' }}
+                    transition={{ duration: 0.5, delay: 0.06 + i * 0.08, ease: 'easeOut' }}
+                    className="flex items-center gap-4 rounded-2xl border border-white/80 bg-white/80 p-5 shadow-[0_15px_40px_-25px_rgba(18,63,56,0.3)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-white"
+                  >
+                    <span className={`flex h-12 w-12 flex-none items-center justify-center rounded-2xl ${i === 0 ? 'bg-gradient-to-br from-[#2fb391] to-[#178066] text-white shadow-[0_10px_25px_-10px_rgba(23,128,102,0.6)]' : 'border border-teal-100 bg-teal-50 text-teal-600'}`}>
+                      <node.icon className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-base font-bold text-gray-900" style={poppins}>{node.title}</p>
+                      <p className="text-sm text-gray-600">{node.text}</p>
+                    </div>
+                    <span className="ml-auto text-xs font-extrabold text-teal-600/40" style={poppins}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                  </motion.div>
+                  {i < ORG_CHART.length - 1 && (
+                    <div className="flex justify-center py-1.5" aria-hidden="true">
+                      <ChevronDown className="h-5 w-5 text-teal-300" />
+                    </div>
+                  )}
+                </li>
               ))}
-            </div>
+            </ol>
           </div>
         </div>
       </section>
 
-      {/* Expansion Section */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div 
-            ref={expansionRef}
-            className={`transition-all duration-1000 transform ${
-              expansionInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            }`}
-          >
-            <div className="text-center mb-16">
-              <div className="inline-flex items-center px-6 py-3 bg-teal-50 text-teal-700 rounded-full mb-6">
-                <TrendingUp className="mr-2" size={20} />
-                <span className="font-semibold">🌍 Une association en pleine expansion</span>
-              </div>
-              
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-6">
-                Décentralisation universitaire
-              </h2>
-              
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                Nos sections régionales, avec leur propre bureau, participent pleinement aux activités nationales 
-                et diffusent les valeurs de l'ASFO dans leur zone.
-              </p>
-            </div>
+      {/* ════════════════ COMMISSIONS ════════════════ */}
+      <section className="relative overflow-hidden pb-24">
+        <div className="pointer-events-none absolute -left-44 top-10 h-[400px] w-[400px] rounded-full bg-teal-50/70 blur-[110px]" aria-hidden="true" />
+        <div className="relative mx-auto max-w-7xl px-6 sm:px-8 lg:px-10">
+          <motion.div {...fadeUp(0)} className="mx-auto mb-14 max-w-3xl text-center">
+            <span className="inline-flex items-center gap-2.5 rounded-full border border-teal-200/80 bg-white/80 px-5 py-2 text-xs font-bold uppercase tracking-[0.18em] text-teal-700 shadow-sm backdrop-blur-sm" style={poppins}>
+              <Network className="h-3.5 w-3.5" aria-hidden="true" />
+              Commissions dynamiques
+            </span>
+            <h2 className="mt-6 text-3xl font-extrabold leading-tight text-gray-900 sm:text-4xl lg:text-5xl" style={poppins}>
+              Les piliers de{' '}
+              <span className="bg-gradient-to-r from-teal-600 to-[#2fb391] bg-clip-text text-transparent">l'action</span>
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-gray-600 sm:text-lg">
+              Sept commissions spécialisées qui orchestrent l'ensemble de nos activités avec
+              expertise et coordination.
+            </p>
+          </motion.div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
-              {sections.map((section, index) => (
-                <div 
-                  key={index}
-                  className="group relative bg-white rounded-3xl p-8 shadow-xl border border-gray-100 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2"
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {COMMISSIONS.map((commission, i) => (
+              <motion.div
+                key={commission.title}
+                {...fadeUp(0.05 + i * 0.05)}
+                className="group rounded-3xl border border-white/80 bg-white/80 p-6 shadow-[0_15px_40px_-22px_rgba(18,63,56,0.28)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1.5 hover:bg-white hover:shadow-[0_25px_55px_-22px_rgba(18,63,56,0.38)]"
+              >
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2fb391] to-[#178066] shadow-[0_10px_25px_-10px_rgba(23,128,102,0.6)] transition-transform duration-300 group-hover:scale-110">
+                  <commission.icon className="h-5 w-5 text-white" aria-hidden="true" />
+                </span>
+                <h3 className="mt-4 text-base font-bold text-gray-900" style={poppins}>{commission.title}</h3>
+                <div className="mt-2 h-0.5 w-8 rounded-full bg-gradient-to-r from-[#2fb391] to-[#178066] opacity-60" aria-hidden="true" />
+                <p className="mt-3 text-sm leading-relaxed text-gray-600">{commission.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════ SECTIONS RÉGIONALES + CARTE ════════════════ */}
+      <section className="relative pb-24">
+        <div className="relative mx-auto max-w-7xl px-6 sm:px-8 lg:px-10">
+          <motion.div {...fadeUp(0)} className="mx-auto mb-14 max-w-3xl text-center">
+            <span className="inline-flex items-center gap-2.5 rounded-full border border-teal-200/80 bg-white/80 px-5 py-2 text-xs font-bold uppercase tracking-[0.18em] text-teal-700 shadow-sm backdrop-blur-sm" style={poppins}>
+              <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
+              Une association en pleine expansion
+            </span>
+            <h2 className="mt-6 text-3xl font-extrabold leading-tight text-gray-900 sm:text-4xl lg:text-5xl" style={poppins}>
+              Décentralisation{' '}
+              <span className="bg-gradient-to-r from-teal-600 to-[#2fb391] bg-clip-text text-transparent">universitaire</span>
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-gray-600 sm:text-lg">
+              Nos sections régionales, avec leur propre bureau, participent pleinement aux
+              activités nationales et diffusent les valeurs de l'ASFO dans leur zone.
+            </p>
+          </motion.div>
+
+          <div className="grid items-start gap-8 lg:grid-cols-[1fr_1.1fr] lg:gap-12">
+            {/* Carte du Sénégal */}
+            <motion.div
+              {...fadeUp(0.08)}
+              className="self-start rounded-[2rem] border border-white/80 bg-white/80 p-7 shadow-[0_25px_60px_-30px_rgba(18,63,56,0.35)] backdrop-blur-sm sm:p-9"
+            >
+              <h3 className="text-lg font-bold text-gray-900" style={poppins}>Nos implantations universitaires</h3>
+              <p className="mt-1.5 text-sm text-gray-600">
+                Survolez un point pour découvrir chaque section.
+              </p>
+              <div className="mt-6">
+                <svg
+                  viewBox={`0 0 ${SENEGAL_MAP_WIDTH} ${SENEGAL_MAP_HEIGHT}`}
+                  preserveAspectRatio="xMidYMid meet"
+                  className="h-auto w-full"
+                  role="img"
+                  aria-label="Carte géographique du Sénégal avec les implantations de l'ASFO : Dakar, Saint-Louis et Thiès"
                 >
-                  {/* Background Gradient */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${section.color} opacity-0 group-hover:opacity-5 transition-opacity duration-500 rounded-3xl`}></div>
-                  
-                  <div className="relative z-10">
-                    {/* Header */}
-                    <div className="flex items-center mb-6">
-                      <div className="w-16 h-16 rounded-full overflow-hidden shadow-lg mr-4 border-4 border-white">
-                        <img 
-                          src={section.image} 
-                          alt={section.name}
-                          className="w-full h-full object-cover"
+                  <path d={SENEGAL_OUTLINE_PATH} className="fill-teal-50 stroke-teal-200" strokeWidth="2" strokeLinejoin="round" />
+                  <text x="166" y="211" textAnchor="middle" className="fill-teal-700/35 text-[7px] font-bold tracking-[0.18em]" aria-hidden="true">
+                    GAMBIE
+                  </text>
+                  {SECTION_POINTS.map((pt, i) => (
+                    <g key={pt.label} className="group/pt cursor-pointer">
+                      <motion.circle
+                        cx={pt.x}
+                        cy={pt.y}
+                        r={7}
+                        className="fill-[#178066]"
+                        initial={reduce ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true, margin: '-60px' }}
+                        transition={{ duration: 0.4, delay: reduce ? 0 : 0.2 + i * 0.15, ease: 'easeOut' }}
+                        style={{ transformOrigin: `${pt.x}px ${pt.y}px` }}
+                      />
+                      {!reduce && (
+                        <motion.circle
+                          cx={pt.x}
+                          cy={pt.y}
+                          r={7}
+                          className="fill-none stroke-teal-400"
+                          strokeWidth="2"
+                          animate={{ scale: [1, 2.1], opacity: [0.7, 0] }}
+                          transition={{ duration: 2, repeat: Infinity, delay: i * 0.6, ease: 'easeOut' }}
+                          style={{ transformOrigin: `${pt.x}px ${pt.y}px` }}
+                        />
+                      )}
+                      <text
+                        x={pt.x}
+                        y={pt.labelPos === 'above' ? pt.y - 13 : pt.y + 22}
+                        textAnchor="middle"
+                        className="fill-teal-800 text-[13px] font-bold"
+                        style={poppins}
+                      >
+                        {pt.label}
+                      </text>
+                      {/* infobulle au survol */}
+                      <g className="pointer-events-none opacity-0 transition-opacity duration-300 group-hover/pt:opacity-100">
+                        <rect
+                          x={Math.min(Math.max(pt.x - 85, 18), 210)}
+                          y={pt.labelPos === 'above' ? pt.y - 52 : pt.y + 32}
+                          width={170}
+                          height={26}
+                          rx={13}
+                          className="fill-[#123f38]"
+                        />
+                        <text
+                          x={Math.min(Math.max(pt.x - 85, 18), 210) + 85}
+                          y={(pt.labelPos === 'above' ? pt.y - 52 : pt.y + 32) + 17}
+                          textAnchor="middle"
+                          className="fill-white text-[10.5px] font-semibold"
+                        >
+                          {pt.info}
+                        </text>
+                      </g>
+                    </g>
+                  ))}
+                </svg>
+              </div>
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-600">
+                <span className="h-3 w-3 rounded-full bg-[#178066]" aria-hidden="true" />
+                Sections et siège de l'ASFO
+              </div>
+            </motion.div>
+
+            {/* Cartes sections */}
+            <div className="min-w-0 space-y-6 self-start">
+              {SECTIONS.map((section, i) => (
+                <motion.div
+                  key={section.name}
+                  {...fadeUp(0.1 + i * 0.08)}
+                  className="group rounded-3xl border border-white/80 bg-white/80 p-7 shadow-[0_20px_50px_-25px_rgba(18,63,56,0.35)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-white sm:p-8"
+                >
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={section.image}
+                      alt={`Logo — ${section.university}`}
+                      className="h-14 w-14 flex-none rounded-full border-4 border-white object-cover shadow-lg ring-2 ring-teal-100"
+                    />
+                    <div className="min-w-0">
+                      <h3 className="text-xl font-bold text-gray-900" style={poppins}>{section.name}</h3>
+                      <p className="text-sm font-semibold text-teal-700">{section.university}</p>
+                    </div>
+                    <span
+                      className={`ml-auto flex-none rounded-full px-3 py-1 text-xs font-bold ${
+                        section.status === 'Établie' ? 'bg-teal-50 text-teal-700' : 'bg-amber-50 text-amber-700'
+                      }`}
+                      style={poppins}
+                    >
+                      {section.status}
+                    </span>
+                  </div>
+                  <div className="mt-5 flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-gray-600">
+                      <CalendarDays className="h-4 w-4 text-teal-600" aria-hidden="true" />
+                      Année de mise en place
+                    </span>
+                    <span className="font-bold text-gray-900" style={poppins}>{section.year}</span>
+                  </div>
+                  <div className="mt-4 border-t border-teal-50 pt-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-teal-50">
+                        <motion.div
+                          initial={reduce ? { width: `${section.progress}%` } : { width: 0 }}
+                          whileInView={{ width: `${section.progress}%` }}
+                          viewport={{ once: true, margin: '-40px' }}
+                          transition={{ duration: 1, delay: 0.3, ease: 'easeOut' }}
+                          className="h-full rounded-full bg-gradient-to-r from-[#2fb391] to-[#178066]"
                         />
                       </div>
-                      <div>
-                        <h3 className="text-2xl font-bold text-gray-800 group-hover:text-gray-900 transition-colors duration-300">
-                          {section.name}
-                        </h3>
-                        <p className="text-teal-600 font-medium">
-                          {section.university}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Content */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Année de mise en place</span>
-                        <span className="font-semibold text-gray-800">{section.duration}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Statut :</span>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          section.status === 'Établie' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {section.status}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Progress indicator */}
-                    <div className="mt-6 pt-6 border-t border-gray-100">
-                      <div className="flex items-center">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2 mr-3">
-                          <div 
-                            className={`bg-gradient-to-r ${section.color} h-2 rounded-full transition-all duration-1000`}
-                            style={{ width: section.status === 'Établie' ? '100%' : '75%' }}
-                          ></div>
-                        </div>
-                        <span className="text-sm text-gray-600">
-                          {section.status === 'Établie' ? 'Pleinement opérationnelle' : 'En développement'}
-                        </span>
-                      </div>
+                      <span className="flex-none text-xs font-semibold text-gray-600">{section.progressLabel}</span>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
-            </div>
 
-            {/* Call to Action */}
-            <div className="mt-16 text-center">
-              <div className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-teal-50 to-blue-50 rounded-2xl shadow-xl border border-teal-100">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center">
-                    <Heart className="text-white" size={20} />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-gray-800 font-semibold text-lg">
-                      Rejoignez notre organisation dynamique
-                    </p>
-                    <p className="text-gray-600 text-sm">
-                      Ensemble, construisons l'avenir de la santé communautaire
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <motion.p {...fadeUp(0.26)} className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4 text-center text-[13px] italic leading-relaxed text-gray-600">
+                <strong className="not-italic text-gray-800">Le siège national</strong>, à l'Université Cheikh
+                Anta Diop de Dakar, coordonne l'ensemble des sections.
+              </motion.p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ════════════════ VALEURS DE GOUVERNANCE ════════════════ */}
+      <section className="relative overflow-hidden pb-24">
+        <div className="pointer-events-none absolute -right-40 top-10 h-[400px] w-[400px] rounded-full bg-teal-100/30 blur-[120px]" aria-hidden="true" />
+        <div className="relative mx-auto max-w-7xl px-6 sm:px-8 lg:px-10">
+          <motion.h2 {...fadeUp(0)} className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl" style={poppins}>
+            Nos principes
+          </motion.h2>
+          <div className="mx-auto mt-10 grid max-w-5xl grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+            {GOV_VALUES.map((value, i) => (
+              <motion.div
+                key={value.title}
+                {...fadeUp(0.06 + i * 0.07)}
+                className="rounded-3xl border border-white/80 bg-white/80 p-6 text-center shadow-[0_15px_40px_-22px_rgba(18,63,56,0.28)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1.5 hover:bg-white hover:shadow-[0_22px_50px_-22px_rgba(18,63,56,0.38)]"
+              >
+                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2fb391] to-[#178066] shadow-[0_10px_25px_-10px_rgba(23,128,102,0.6)]">
+                  <value.icon className="h-5 w-5 text-white" aria-hidden="true" />
+                </span>
+                <h3 className="mt-4 text-base font-bold text-gray-900" style={poppins}>{value.title}</h3>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-gray-600">{value.text}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════ GALERIE ════════════════ */}
+      <section className="relative pb-24">
+        <div className="relative mx-auto max-w-7xl px-6 sm:px-8 lg:px-10">
+          <motion.div {...fadeUp(0)} className="mb-10 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <span className="inline-flex items-center gap-2.5 rounded-full border border-teal-200/80 bg-white/80 px-5 py-2 text-xs font-bold uppercase tracking-[0.18em] text-teal-700 shadow-sm backdrop-blur-sm" style={poppins}>
+                <Camera className="h-3.5 w-3.5" aria-hidden="true" />
+                La vie de l'organisation
+              </span>
+              <h2 className="mt-5 text-2xl font-extrabold text-gray-900 sm:text-3xl" style={poppins}>
+                L'ASFO au quotidien
+              </h2>
+            </div>
+            <Link
+              to="/gallery"
+              className="inline-flex items-center gap-1.5 text-sm font-bold text-teal-700 transition-colors hover:text-teal-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+              style={poppins}
+            >
+              Voir la médiathèque
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </motion.div>
+
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+            {GALLERY.map((photo, i) => (
+              <motion.figure
+                key={photo.src}
+                {...fadeUp(0.05 + i * 0.07)}
+                className="group relative aspect-[4/5] overflow-hidden rounded-3xl border border-white/80 shadow-[0_18px_45px_-25px_rgba(18,63,56,0.35)]"
+              >
+                <img
+                  src={photo.src}
+                  alt={photo.label}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#123f38]/70 via-transparent to-transparent" aria-hidden="true" />
+                <figcaption className="absolute bottom-4 left-4 right-4 text-sm font-bold text-white" style={poppins}>
+                  {photo.label}
+                </figcaption>
+              </motion.figure>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════ CTA FINAL ════════════════ */}
+      <section className="relative pb-24">
+        <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-10">
+          <motion.div
+            {...fadeUp(0)}
+            className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-gradient-to-b from-white/90 to-teal-50/60 p-10 text-center shadow-[0_30px_70px_-35px_rgba(18,63,56,0.4)] backdrop-blur-sm sm:p-14"
+          >
+            <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-teal-100/50 blur-3xl" aria-hidden="true" />
+            <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-teal-50/80 blur-3xl" aria-hidden="true" />
+            <h2 className="relative mx-auto max-w-2xl text-2xl font-extrabold leading-tight text-gray-900 sm:text-3xl lg:text-4xl" style={poppins}>
+              Vous souhaitez rejoindre notre{' '}
+              <span className="bg-gradient-to-r from-teal-600 to-[#2fb391] bg-clip-text text-transparent">organisation</span> ?
+            </h2>
+            <p className="relative mx-auto mt-4 max-w-xl text-base leading-relaxed text-gray-600 sm:text-lg">
+              Ensemble, construisons l'avenir de la santé communautaire.
+            </p>
+            <div className="relative mt-8 flex flex-col items-center justify-center gap-3.5 sm:flex-row">
+              <Link
+                to="/join"
+                className="inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-[#2fb391] to-[#178066] px-8 py-3.5 text-base font-bold text-white shadow-[0_18px_40px_-15px_rgba(23,128,102,0.6)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_50px_-15px_rgba(23,128,102,0.75)] focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-300/70"
+                style={poppins}
+              >
+                <Users className="h-5 w-5" aria-hidden="true" />
+                Devenir bénévole
+              </Link>
+              <Link
+                to="/contact"
+                className="inline-flex items-center gap-2.5 rounded-full border border-teal-200/80 bg-white/80 px-7 py-3.5 text-base font-semibold text-teal-800 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-white focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-300/70"
+                style={poppins}
+              >
+                <Building2 className="h-5 w-5 text-teal-600" aria-hidden="true" />
+                Créer une section
+              </Link>
+              <Link
+                to="/contact"
+                className="inline-flex items-center gap-2.5 rounded-full border border-teal-200/80 bg-white/80 px-7 py-3.5 text-base font-semibold text-teal-800 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-white focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-300/70"
+                style={poppins}
+              >
+                <Mail className="h-5 w-5 text-teal-600" aria-hidden="true" />
+                Nous contacter
+              </Link>
+            </div>
+          </motion.div>
         </div>
       </section>
     </div>

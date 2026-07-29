@@ -1,5 +1,4 @@
 import React from 'react';
-import SectionTitle from '../components/common/SectionTitle';
 
 const PrivacyPage: React.FC = () => {
   // Set page title

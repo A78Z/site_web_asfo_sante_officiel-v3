@@ -9,7 +9,6 @@ import {
   HeartHandshake,
   Phone,
   Mail,
-  MapPin,
   User,
   Download,
   FileDown,

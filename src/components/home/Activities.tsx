@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useInView } from 'react-intersection-observer';
-import SectionTitle from '../common/SectionTitle';
-import { Calendar, MapPin, Users, TrendingUp, Sparkles, Eye } from 'lucide-react';
+import { Calendar, TrendingUp, Sparkles, Eye } from 'lucide-react';
 
 interface ActivityCardProps {
   image: string;
@@ -117,43 +116,6 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
       {/* Bottom Glow Effect */}
       <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-3/4 h-4 bg-teal-500/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
     </div>
-  );
-};
-
-// Counter Component for Stats
-const StatCounter: React.FC<{ value: number; suffix?: string }> = ({ value, suffix = "+" }) => {
-  const [ref, inView] = useInView({
-    triggerOnce: true,
-    threshold: 0.1,
-  });
-
-  const [count, setCount] = React.useState(0);
-
-  React.useEffect(() => {
-    if (!inView) return;
-    
-    let start = 0;
-    const end = value;
-    const duration = 2000;
-    const incrementTime = duration / end;
-
-    const timer = setInterval(() => {
-      start += Math.ceil(end / 100);
-      if (start >= end) {
-        setCount(end);
-        clearInterval(timer);
-      } else {
-        setCount(start);
-      }
-    }, incrementTime);
-
-    return () => clearInterval(timer);
-  }, [inView, value]);
-
-  return (
-    <span ref={ref} className="tabular-nums">
-      {inView ? count.toLocaleString() : 0}{suffix}
-    </span>
   );
 };
 

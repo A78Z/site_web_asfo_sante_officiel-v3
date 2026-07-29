@@ -11,7 +11,6 @@ import {
   LogOut,
   Search,
   Bell,
-  ChevronLeft,
   Menu,
   ExternalLink,
   CreditCard,

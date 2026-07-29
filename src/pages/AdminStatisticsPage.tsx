@@ -7,11 +7,9 @@ import {
   CreditCard,
   Mail,
   Archive,
-  TrendingUp,
   Loader2,
   RefreshCw,
   Newspaper,
-  Stethoscope,
 } from 'lucide-react';
 import {
   BarChart,

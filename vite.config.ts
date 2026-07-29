@@ -1,13 +1,13 @@
 import path from "path";
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
-function imageProxyPlugin() {
+function imageProxyPlugin(): Plugin {
   return {
     name: 'image-proxy',
-    configureServer(server: any) {
-      server.middlewares.use('/api/proxy-image', async (req: any, res: any) => {
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use('/api/proxy-image', async (req, res) => {
         const url = new URL(req.url!, 'http://localhost');
         const imageUrl = url.searchParams.get('url');
         if (!imageUrl) { res.writeHead(400); res.end('Missing url'); return; }

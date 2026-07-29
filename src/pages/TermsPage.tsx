@@ -1,5 +1,4 @@
 import React from 'react';
-import SectionTitle from '../components/common/SectionTitle';
 
 const TermsPage: React.FC = () => {
   // Set page title

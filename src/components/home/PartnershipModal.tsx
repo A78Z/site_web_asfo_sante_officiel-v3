@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { X, Upload, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { createObject, uploadFile } from '../../lib/parse';
 
 interface PartnershipModalProps {
   isOpen: boolean;
@@ -34,14 +35,27 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ isOpen, onClose }) 
 
   const onSubmit = async (data: FormInputs) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      console.log('Form submitted:', data);
+      const uploadedDocument =
+        data.file?.length > 0
+          ? await uploadFile(data.file[0].name, data.file[0])
+          : null;
+
+      await createObject('PartnershipRequests', {
+        organizationName: data.organizationName.trim(),
+        organizationType: data.type,
+        contactName: data.contactName.trim(),
+        email: data.email.trim().toLowerCase(),
+        phone: data.phone.trim(),
+        description: data.description.trim(),
+        documentUrl: uploadedDocument?.url ?? null,
+        documentName: uploadedDocument?.name ?? null,
+        status: 'new',
+        source: 'site-web',
+      });
       reset();
       onClose();
       alert('Votre demande de partenariat a été soumise avec succès !');
-    } catch (error) {
-      console.error('Error submitting form:', error);
+    } catch {
       alert('Une erreur est survenue. Veuillez réessayer.');
     }
   };
