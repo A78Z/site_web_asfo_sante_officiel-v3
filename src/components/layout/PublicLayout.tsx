@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import Footer from './Footer';
 import AnnouncementBar from '../common/AnnouncementBar';
-import CandidaturePopup from '../common/CandidaturePopup';
+
+const CandidaturePopup = lazy(() => import('../common/CandidaturePopup'));
 
 const PublicLayout: React.FC = () => {
   return (
@@ -16,7 +17,9 @@ const PublicLayout: React.FC = () => {
         <Outlet />
       </main>
       <Footer />
-      <CandidaturePopup />
+      <Suspense fallback={null}>
+        <CandidaturePopup />
+      </Suspense>
     </div>
   );
 };
