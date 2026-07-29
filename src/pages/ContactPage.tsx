@@ -487,28 +487,30 @@ const ContactPage: React.FC = () => {
             <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base">Retrouvez le siège de l’ASFO à Dakar.</p>
           </div>
 
-          <div className="mt-8 grid items-stretch gap-6 lg:grid-cols-[1.4fr_0.6fr]">
-            <div className="relative aspect-[4/3] overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100 shadow-[0_20px_60px_-35px_rgba(15,23,42,0.4)] sm:aspect-[16/9]">
+          <div className="mt-8 grid min-w-0 grid-cols-1 items-stretch gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.7fr)] xl:gap-8">
+            <div className="relative isolate min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100 shadow-[0_20px_60px_-35px_rgba(15,23,42,0.4)]">
               <iframe
                 title="Localisation du siège de l’ASFO à la Faculté de Médecine et de Pharmacie de Dakar"
                 src={CONTACT_DETAILS.mapsEmbedUrl}
-                className="h-full w-full pointer-events-none sm:pointer-events-auto"
+                className="block h-[340px] w-full max-w-full border-0 pointer-events-none sm:h-[420px] sm:pointer-events-auto xl:h-full xl:min-h-[500px]"
                 style={{ border: 0 }}
                 allowFullScreen
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />
-              <a
-                href={CONTACT_DETAILS.mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-black text-teal-800 shadow-lg sm:hidden"
-              >
-                <Navigation size={16} /> Ouvrir la carte
-              </a>
+              <div className="border-t border-slate-200 bg-white p-3 sm:hidden">
+                <a
+                  href={CONTACT_DETAILS.mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-black text-teal-800 shadow-sm"
+                >
+                  <Navigation size={16} /> Ouvrir la carte
+                </a>
+              </div>
             </div>
 
-            <aside className="flex flex-col rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+            <aside className="flex min-w-0 w-full flex-col rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
               <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
                 <MapPin size={23} />
               </span>
