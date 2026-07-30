@@ -36,11 +36,21 @@ import {
   X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { createObject, uploadFile } from '../lib/parse';
+import { uploadMemberCardPhoto } from '../lib/memberCardUpload';
+import {
+  submitMemberCardRequest,
+} from '../lib/memberCardSubmission';
+import type { ParseFile } from '../lib/parse';
 import MemberCard from '../components/admin/MemberCard';
+import ProfessionCombobox from '../components/member/ProfessionCombobox';
+import {
+  MEMBER_PROFESSIONS,
+  MEMBER_PROFESSION_LABELS,
+} from '../data/memberProfessions';
 
 const DRAFT_KEY = 'asfo-member-card-draft-v1';
-const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
+const SUBMISSION_ID_KEY = 'asfo-member-card-submission-id-v1';
+const MAX_PHOTO_SIZE = 2 * 1024 * 1024;
 const MIN_PHOTO_DIMENSION = 300;
 
 interface FormInputs {
@@ -49,6 +59,7 @@ interface FormInputs {
   email: string;
   phone: string;
   profession: string;
+  professionAutre: string;
   address: string;
   acceptTerms: boolean;
 }
@@ -57,11 +68,13 @@ interface SubmissionReceipt {
   requestId: string;
   createdAt: Date;
   fullName: string;
+  message: string;
 }
 
 interface SavedDraft {
   values: Partial<FormInputs>;
   savedAt: string;
+  submissionId?: string;
 }
 
 const DEFAULT_VALUES: FormInputs = {
@@ -70,22 +83,10 @@ const DEFAULT_VALUES: FormInputs = {
   email: '',
   phone: '',
   profession: '',
+  professionAutre: '',
   address: '',
   acceptTerms: false,
 };
-
-const PROFESSIONS = [
-  { value: 'medecin', label: 'Médecin' },
-  { value: 'infirmier', label: 'Infirmier(ère)' },
-  { value: 'pharmacien', label: 'Pharmacien(ne)' },
-  { value: 'sage-femme', label: 'Sage-femme' },
-  { value: 'dentiste', label: 'Chirurgien-dentiste' },
-  { value: 'kinesitherapeute', label: 'Kinésithérapeute' },
-  { value: 'laborantin', label: 'Laborantin(e)' },
-  { value: 'etudiant-sante', label: 'Étudiant(e) en santé' },
-  { value: 'benevole', label: 'Membre bénévole' },
-  { value: 'autre', label: 'Autre' },
-];
 
 const CRITERIA = [
   {
@@ -198,7 +199,7 @@ const FORM_STEPS = [
 
 const STEP_FIELDS: Record<number, Array<keyof FormInputs>> = {
   1: ['lastName', 'firstName', 'email', 'phone'],
-  2: ['profession', 'address'],
+  2: ['profession', 'professionAutre', 'address'],
   3: ['acceptTerms'],
 };
 
@@ -219,8 +220,46 @@ const loadDraft = (): SavedDraft | null => {
   }
 };
 
-const professionLabel = (value: string) =>
-  PROFESSIONS.find((profession) => profession.value === value)?.label ?? '';
+const createSubmissionId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
+
+const isValidSubmissionId = (value?: string) =>
+  Boolean(
+    value &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        value,
+      ),
+  );
+
+const loadStoredSubmissionId = () => {
+  if (typeof window === 'undefined') return '';
+  try {
+    return window.localStorage.getItem(SUBMISSION_ID_KEY) ?? '';
+  } catch {
+    return '';
+  }
+};
+
+const isOtherProfession = (value: string) => value.toLocaleLowerCase('fr') === 'autre';
+
+const normalizeProfessionAutre = (value: string) =>
+  value.trim().replace(/\s+/g, ' ');
+
+const professionLabel = (value: string, professionAutre = '') => {
+  if (isOtherProfession(value)) {
+    return normalizeProfessionAutre(professionAutre) || 'Autre';
+  }
+  return MEMBER_PROFESSION_LABELS[value] ?? '';
+};
 
 const formatFileSize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} o`;
@@ -357,9 +396,7 @@ const SuccessCard: React.FC<{
           <h1 className="mx-auto mt-2 max-w-2xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
             Votre demande de carte membre a bien été envoyée
           </h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
-            L’équipe ASFO va vérifier vos informations avant toute instruction de paiement ou création de carte.
-          </p>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">{receipt.message}</p>
         </div>
 
         <div className="grid gap-6 p-6 sm:p-10 lg:grid-cols-[1fr_0.95fr]">
@@ -434,13 +471,29 @@ const MemberCardPage: React.FC = () => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState('');
   const [uploadStage, setUploadStage] = useState('');
+  // La photo part vers le serveur dès l’étape 2 : seule la référence de fichier
+  // renvoyée par l’API est transmise à l’étape 3.
+  const [uploadedPhoto, setUploadedPhoto] = useState<ParseFile | null>(null);
+  const [photoUploadStatus, setPhotoUploadStatus] = useState<
+    'idle' | 'uploading' | 'done' | 'error'
+  >('idle');
+  // Évite qu’une réponse tardive d’un ancien fichier écrase la photo courante.
+  const photoUploadToken = useRef(0);
   const [receipt, setReceipt] = useState<SubmissionReceipt | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState(initialDraft?.savedAt ?? '');
+  const [submissionId, setSubmissionId] = useState(() =>
+    isValidSubmissionId(initialDraft?.submissionId)
+      ? initialDraft?.submissionId ?? createSubmissionId()
+      : isValidSubmissionId(loadStoredSubmissionId())
+        ? loadStoredSubmissionId()
+        : createSubmissionId(),
+  );
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     trigger,
     getValues,
     watch,
@@ -450,6 +503,9 @@ const MemberCardPage: React.FC = () => {
     defaultValues: {
       ...DEFAULT_VALUES,
       ...(initialDraft?.values ?? {}),
+      profession: isOtherProfession(initialDraft?.values.profession ?? '')
+        ? 'Autre'
+        : initialDraft?.values.profession ?? '',
       acceptTerms: false,
     },
   });
@@ -457,11 +513,20 @@ const MemberCardPage: React.FC = () => {
   const values = watch();
   const acceptTerms = watch('acceptTerms');
   const fullName = `${values.firstName || ''} ${values.lastName || ''}`.trim();
-  const selectedProfession = professionLabel(values.profession);
+  const showProfessionAutre = isOtherProfession(values.profession);
+  const selectedProfession = professionLabel(values.profession, values.professionAutre);
 
   useEffect(() => {
     document.title = 'Commander ma carte membre | ASFO - Action Sanitaire pour le Fouta';
   }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SUBMISSION_ID_KEY, submissionId);
+    } catch {
+      // L’idempotence côté serveur reste active pendant la session courante.
+    }
+  }, [submissionId]);
 
   useEffect(() => {
     if (!photoFile) {
@@ -473,28 +538,74 @@ const MemberCardPage: React.FC = () => {
     return () => URL.revokeObjectURL(objectUrl);
   }, [photoFile]);
 
-  const handleAcceptedPhoto = useCallback(async (files: File[]) => {
-    const file = files[0];
-    if (!file) return;
+  /** Téléverse la photo et mémorise la référence renvoyée par l’API. */
+  const startPhotoUpload = useCallback(
+    async (file: File) => {
+      photoUploadToken.current += 1;
+      const token = photoUploadToken.current;
+      const isCurrent = () => photoUploadToken.current === token;
 
+      setUploadedPhoto(null);
+      setPhotoUploadStatus('uploading');
+      setPhotoError('');
+
+      try {
+        const photo = await uploadMemberCardPhoto(file, submissionId);
+        if (!isCurrent()) return;
+        setUploadedPhoto(photo);
+        setPhotoUploadStatus('done');
+      } catch (error) {
+        if (!isCurrent()) return;
+        setPhotoUploadStatus('error');
+        setPhotoError(
+          error instanceof Error
+            ? error.message
+            : 'La photo n’a pas pu être téléversée. Veuillez réessayer.',
+        );
+      }
+    },
+    [submissionId],
+  );
+
+  const handleAcceptedPhoto = useCallback(
+    async (files: File[]) => {
+      const file = files[0];
+      if (!file) return;
+
+      setPhotoError('');
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      const allowedExtension = /\.(jpe?g|png|webp)$/i.test(file.name);
+      if ((file.type && !allowedMimeTypes.includes(file.type)) || !allowedExtension) {
+        setPhotoError('La photo doit être au format JPG, JPEG, PNG ou WEBP.');
+        return;
+      }
+      if (file.size > MAX_PHOTO_SIZE) {
+        setPhotoError('La photo ne doit pas dépasser 2 Mo.');
+        return;
+      }
+
+      const dimensionsValid = await validateImageDimensions(file);
+      if (!dimensionsValid) {
+        setPhotoError(`La photo doit mesurer au moins ${MIN_PHOTO_DIMENSION} × ${MIN_PHOTO_DIMENSION} pixels.`);
+        return;
+      }
+      setPhotoFile(file);
+      void startPhotoUpload(file);
+    },
+    [startPhotoUpload],
+  );
+
+  /** Réessai manuel : la saisie du formulaire est conservée. */
+  const handleRetryPhotoUpload = useCallback(() => {
+    if (photoFile) void startPhotoUpload(photoFile);
+  }, [photoFile, startPhotoUpload]);
+
+  const handleRemovePhoto = useCallback(() => {
+    photoUploadToken.current += 1;
+    setPhotoFile(null);
     setPhotoError('');
-    const allowedMimeTypes = ['image/jpeg', 'image/png'];
-    const allowedExtension = /\.(jpe?g|png)$/i.test(file.name);
-    if (!allowedMimeTypes.includes(file.type) || !allowedExtension) {
-      setPhotoError('La photo doit être au format JPG, JPEG ou PNG.');
-      return;
-    }
-    if (file.size > MAX_PHOTO_SIZE) {
-      setPhotoError('La photo ne doit pas dépasser 10 Mo.');
-      return;
-    }
-
-    const dimensionsValid = await validateImageDimensions(file);
-    if (!dimensionsValid) {
-      setPhotoError(`La photo doit mesurer au moins ${MIN_PHOTO_DIMENSION} × ${MIN_PHOTO_DIMENSION} pixels.`);
-      return;
-    }
-    setPhotoFile(file);
+    setUploadedPhoto(null);
+    setPhotoUploadStatus('idle');
   }, []);
 
   const handleRejectedPhoto = useCallback((rejections: FileRejection[]) => {
@@ -503,8 +614,8 @@ const MemberCardPage: React.FC = () => {
     );
     setPhotoError(
       tooLarge
-        ? 'La photo ne doit pas dépasser 10 Mo.'
-        : 'La photo doit être au format JPG, JPEG ou PNG.',
+        ? 'La photo ne doit pas dépasser 2 Mo.'
+        : 'La photo doit être au format JPG, JPEG, PNG ou WEBP.',
     );
   }, []);
 
@@ -514,6 +625,7 @@ const MemberCardPage: React.FC = () => {
     accept: {
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/png': ['.png'],
+      'image/webp': ['.webp'],
     },
     maxSize: MAX_PHOTO_SIZE,
     multiple: false,
@@ -525,7 +637,10 @@ const MemberCardPage: React.FC = () => {
     const savedAt = new Date().toISOString();
     const valuesToSave = { ...getValues(), acceptTerms: false };
     try {
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ values: valuesToSave, savedAt }));
+      window.localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ values: valuesToSave, savedAt, submissionId }),
+      );
       setDraftSavedAt(savedAt);
       setSubmitError('');
     } catch {
@@ -540,7 +655,12 @@ const MemberCardPage: React.FC = () => {
       return;
     }
 
-    const fieldsValid = await trigger(STEP_FIELDS[currentStep], { shouldFocus: true });
+    const fieldsToValidate = STEP_FIELDS[currentStep].filter(
+      (field) =>
+        field !== 'professionAutre' ||
+        isOtherProfession(getValues('profession')),
+    );
+    const fieldsValid = await trigger(fieldsToValidate, { shouldFocus: true });
     if (!fieldsValid) return;
     if (currentStep === 2 && !photoFile) {
       setPhotoError('Ajoutez une photo d’identité conforme avant de continuer.');
@@ -571,35 +691,64 @@ const MemberCardPage: React.FC = () => {
 
     submissionLock.current = true;
     setSubmitError('');
-    setUploadStage('Téléversement sécurisé de la photo…');
 
     try {
-      const parsedPhoto = await uploadFile(photoFile.name, photoFile);
+      // Normalement déjà téléversée à l’étape 2 ; sinon on rattrape ici.
+      let parsedPhoto = uploadedPhoto;
+      if (!parsedPhoto) {
+        setUploadStage('Téléversement sécurisé de la photo…');
+        try {
+          parsedPhoto = await uploadMemberCardPhoto(photoFile, submissionId);
+          setUploadedPhoto(parsedPhoto);
+          setPhotoUploadStatus('done');
+        } catch (uploadError) {
+          // Seule la photo a échoué : on renvoie l’utilisateur à l’étape 2
+          // pour réessayer, sans perdre la saisie du formulaire.
+          setPhotoUploadStatus('error');
+          const message =
+            uploadError instanceof Error
+              ? uploadError.message
+              : 'La photo n’a pas pu être téléversée. Veuillez réessayer.';
+          setPhotoError(message);
+          setCurrentStep(2);
+          setSubmitError(
+            `La photo n’a pas pu être téléversée : ${message} Vos informations sont conservées, réessayez le téléversement.`,
+          );
+          return;
+        }
+      }
+
       setUploadStage('Enregistrement de la demande…');
-      const created = await createObject('MemberRequests', {
+      const otherProfession = normalizeProfessionAutre(data.professionAutre);
+      const result = await submitMemberCardRequest({
+        submissionId,
         firstName: data.firstName.trim(),
         lastName: data.lastName.trim(),
         email: data.email.trim(),
         phone: data.phone.trim(),
-        profession: data.profession,
+        profession: isOtherProfession(data.profession) ? 'Autre' : data.profession,
+        ...(isOtherProfession(data.profession)
+          ? { professionAutre: otherProfession }
+          : {}),
         village: data.address.trim(),
         photo: parsedPhoto,
-        status: 'En attente',
         consentAccepted: true,
-        consentAcceptedAt: new Date().toISOString(),
       });
 
       window.localStorage.removeItem(DRAFT_KEY);
+      window.localStorage.removeItem(SUBMISSION_ID_KEY);
       setReceipt({
-        requestId: created.objectId,
-        createdAt: created.createdAt ? new Date(created.createdAt) : new Date(),
+        requestId: result.request.objectId,
+        createdAt: result.request.createdAt
+          ? new Date(result.request.createdAt)
+          : new Date(),
         fullName: `${data.firstName.trim()} ${data.lastName.trim()}`,
+        message: result.message,
       });
       window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     } catch (error) {
-      console.error('Error submitting member card request:', error);
       const message = error instanceof Error ? error.message : 'Une erreur est survenue';
-      setSubmitError(`La demande n’a pas pu être envoyée : ${message}. Vérifiez votre connexion puis réessayez.`);
+      setSubmitError(`La demande n’a pas pu être envoyée : ${message}`);
     } finally {
       setUploadStage('');
       submissionLock.current = false;
@@ -617,10 +766,10 @@ const MemberCardPage: React.FC = () => {
   const handleReset = () => {
     setReceipt(null);
     setSubmitError('');
-    setPhotoFile(null);
-    setPhotoError('');
+    handleRemovePhoto();
     setCurrentStep(1);
     setDraftSavedAt('');
+    setSubmissionId(createSubmissionId());
     reset(DEFAULT_VALUES);
     window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
   };
@@ -653,6 +802,7 @@ const MemberCardPage: React.FC = () => {
     errors.email?.message,
     errors.phone?.message,
     errors.profession?.message,
+    errors.professionAutre?.message,
     errors.address?.message,
     photoError,
     errors.acceptTerms?.message,
@@ -760,10 +910,9 @@ const MemberCardPage: React.FC = () => {
                   placeholder="+221 77 123 45 67"
                   {...register('phone', {
                     required: 'Le téléphone est requis.',
-                    pattern: {
-                      value: /^(\+221)?[0-9\s-]{9,}$/,
-                      message: 'Saisissez un numéro sénégalais valide.',
-                    },
+                    validate: (value) =>
+                      value.trim().length >= 5 ||
+                      'Saisissez un numéro de téléphone.',
                   })}
                 />
               </div>
@@ -790,24 +939,60 @@ const MemberCardPage: React.FC = () => {
               <label htmlFor="profession" className="mb-2 block text-sm font-bold text-slate-800">
                 Profession <span className="text-red-600">*</span>
               </label>
-              <div className="relative">
-                <Briefcase size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <select
-                  id="profession"
-                  className={`${inputClass(Boolean(errors.profession))} appearance-none pl-11 pr-10`}
-                  aria-invalid={Boolean(errors.profession)}
-                  aria-describedby={errors.profession ? 'profession-error' : undefined}
-                  {...register('profession', { required: 'Sélectionnez votre profession.' })}
-                >
-                  <option value="">Sélectionnez votre profession</option>
-                  {PROFESSIONS.map((profession) => (
-                    <option key={profession.value} value={profession.value}>{profession.label}</option>
-                  ))}
-                </select>
-                <ChevronDown size={17} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
-              </div>
+              <input
+                type="hidden"
+                {...register('profession', { required: 'Sélectionnez votre profession.' })}
+              />
+              <ProfessionCombobox
+                id="profession"
+                value={values.profession}
+                options={MEMBER_PROFESSIONS}
+                onChange={(profession) =>
+                  setValue('profession', profession, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  })
+                }
+                hasError={Boolean(errors.profession)}
+                describedBy={errors.profession ? 'profession-error' : undefined}
+                disabled={isSubmitting}
+              />
               <FieldError id="profession-error" message={errors.profession?.message} />
             </div>
+
+            {showProfessionAutre && (
+              <motion.div
+                initial={reduceMotion ? false : { opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <label htmlFor="professionAutre" className="mb-2 block text-sm font-bold text-slate-800">
+                  Précisez votre profession <span className="text-red-600">*</span>
+                </label>
+                <div className="relative">
+                  <Briefcase size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    id="professionAutre"
+                    type="text"
+                    autoComplete="organization-title"
+                    className={`${inputClass(Boolean(errors.professionAutre))} pl-11`}
+                    aria-invalid={Boolean(errors.professionAutre)}
+                    aria-describedby={errors.professionAutre ? 'professionAutre-error' : undefined}
+                    placeholder="Ex. Médecin du travail, anesthésiste, prothésiste dentaire…"
+                    maxLength={120}
+                    {...register('professionAutre', {
+                      validate: (value) => {
+                        if (!isOtherProfession(getValues('profession'))) return true;
+                        const normalizedValue = normalizeProfessionAutre(value);
+                        if (!normalizedValue) return 'Précisez votre profession.';
+                        return normalizedValue.length >= 3 || 'La profession doit contenir au moins 3 caractères.';
+                      },
+                    })}
+                  />
+                </div>
+                <FieldError id="professionAutre-error" message={errors.professionAutre?.message} />
+              </motion.div>
+            )}
 
             <div>
               <label htmlFor="address" className="mb-2 block text-sm font-bold text-slate-800">
@@ -861,9 +1046,32 @@ const MemberCardPage: React.FC = () => {
                     {photoFile ? photoFile.name : isDragActive ? 'Déposez la photo ici' : 'Glissez votre photo dans cette zone'}
                   </p>
                   <p className="mt-1 text-sm leading-5 text-slate-500">
-                    JPG, JPEG ou PNG · 10 Mo maximum · {MIN_PHOTO_DIMENSION} × {MIN_PHOTO_DIMENSION} px minimum
+                    JPG, JPEG, PNG ou WEBP · 2 Mo maximum · {MIN_PHOTO_DIMENSION} × {MIN_PHOTO_DIMENSION} px minimum
                   </p>
-                  {photoFile && <p className="mt-1 text-xs font-semibold text-teal-700">{formatFileSize(photoFile.size)} · Photo prête</p>}
+                  {photoFile && (
+                    <p
+                      className={`mt-1 flex items-center justify-center gap-1.5 text-xs font-semibold sm:justify-start ${
+                        photoUploadStatus === 'error' ? 'text-red-600' : 'text-teal-700'
+                      }`}
+                      aria-live="polite"
+                    >
+                      {formatFileSize(photoFile.size)} ·{' '}
+                      {photoUploadStatus === 'uploading' && (
+                        <>
+                          <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+                          Téléversement en cours…
+                        </>
+                      )}
+                      {photoUploadStatus === 'done' && (
+                        <>
+                          <CheckCircle size={13} aria-hidden="true" />
+                          Photo enregistrée
+                        </>
+                      )}
+                      {photoUploadStatus === 'error' && 'Téléversement échoué'}
+                      {photoUploadStatus === 'idle' && 'Photo prête'}
+                    </p>
+                  )}
                   <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row sm:justify-start">
                     <button
                       type="button"
@@ -871,20 +1079,32 @@ const MemberCardPage: React.FC = () => {
                         event.stopPropagation();
                         open();
                       }}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || photoUploadStatus === 'uploading'}
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-black text-white hover:bg-teal-800 disabled:opacity-50"
                     >
                       <Upload size={16} /> Choisir une photo
                     </button>
+                    {photoUploadStatus === 'error' && photoFile && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleRetryPhotoUpload();
+                        }}
+                        disabled={isSubmitting}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-teal-600 bg-white px-4 py-2.5 text-sm font-black text-teal-700 hover:bg-teal-50 disabled:opacity-50"
+                      >
+                        <RotateCcw size={16} /> Réessayer le téléversement
+                      </button>
+                    )}
                     {photoFile && (
                       <button
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          setPhotoFile(null);
-                          setPhotoError('');
+                          handleRemovePhoto();
                         }}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || photoUploadStatus === 'uploading'}
                         className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-black text-slate-600 hover:border-red-300 hover:text-red-600 disabled:opacity-50"
                       >
                         <X size={16} /> Supprimer
@@ -926,7 +1146,20 @@ const MemberCardPage: React.FC = () => {
             ['Téléphone', values.phone],
             ['Profession', selectedProfession],
             ['Adresse / ville', values.address],
-            ['Photo', photoFile ? `${photoFile.name} · ${formatFileSize(photoFile.size)}` : 'Non ajoutée'],
+            [
+              'Photo',
+              photoFile
+                ? `${photoFile.name} · ${formatFileSize(photoFile.size)}${
+                    photoUploadStatus === 'done'
+                      ? ' · enregistrée'
+                      : photoUploadStatus === 'uploading'
+                        ? ' · téléversement en cours…'
+                        : photoUploadStatus === 'error'
+                          ? ' · téléversement à refaire'
+                          : ''
+                  }`
+                : 'Non ajoutée',
+            ],
           ].map(([label, value]) => (
             <div key={label} className="grid gap-1 py-4 text-sm sm:grid-cols-[135px_1fr] sm:gap-5">
               <span className="text-slate-500">{label}</span>

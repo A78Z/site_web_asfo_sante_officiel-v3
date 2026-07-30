@@ -31,6 +31,7 @@ import jsPDF from 'jspdf';
 import MemberCard from '../components/admin/MemberCard';
 import MemberCardVerso from '../components/admin/MemberCardVerso';
 import { generateMemberId } from '../utils/memberId';
+import { MEMBER_PROFESSION_LABELS } from '../data/memberProfessions';
 
 const CLASS_NAME = 'MemberRequests';
 
@@ -42,11 +43,20 @@ interface MemberRequest {
   lastName: string;
   email: string;
   profession: string;
+  professionAutre?: string;
   phone: string;
   village: string;
   photo?: ParseFile;
   status: Statut;
   createdAt: string;
+  smsConfirmationStatus?:
+    | 'pending'
+    | 'sent'
+    | 'failed'
+    | 'non_envoye_numero_invalide';
+  smsConfirmationSentAt?: string | { __type: 'Date'; iso: string };
+  smsConfirmationError?: string;
+  smsConfirmationProviderId?: string;
 }
 
 /* ─── StatusBadge ─── */
@@ -68,16 +78,38 @@ const StatusBadge: React.FC<{ statut: Statut }> = ({ statut }) => {
 };
 
 /* ─── Profession helper ─── */
-const professionLabels: Record<string, string> = {
-  medecin: 'Médecin',
-  infirmier: 'Infirmier',
-  pharmacien: 'Pharmacien',
-  benevole: 'Membre bénévole',
-  autre: 'Autre',
-};
-function profLabel(val: string) {
-  return professionLabels[val] ?? val;
+function displayProfession(member: Pick<MemberRequest, 'profession' | 'professionAutre'>) {
+  const profession = (member.profession ?? '').trim();
+  if (profession.toLocaleLowerCase('fr') === 'autre') {
+    return member.professionAutre?.trim() || 'Autre — non précisé';
+  }
+  return MEMBER_PROFESSION_LABELS[profession] ?? (profession || 'Non renseignée');
 }
+
+const smsStatusLabels: Record<
+  NonNullable<MemberRequest['smsConfirmationStatus']>,
+  string
+> = {
+  pending: 'En attente d’envoi',
+  sent: 'Envoyé',
+  failed: 'Échec de l’envoi',
+  non_envoye_numero_invalide: 'Non envoyé — numéro invalide',
+};
+
+const formatSmsDate = (value?: MemberRequest['smsConfirmationSentAt']) => {
+  const iso = typeof value === 'string' ? value : value?.iso;
+  if (!iso) return '—';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? '—'
+    : date.toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+};
 
 /* ─── Generate member card PDF via browser print (pixel-perfect) ─── */
 function openPrintableCard(rectoEl: HTMLElement, versoEl: HTMLElement, memberName: string) {
@@ -175,7 +207,7 @@ function exportCSV(data: MemberRequest[]) {
     rows.push([
       m.firstName,
       m.lastName,
-      profLabel(m.profession),
+      displayProfession(m),
       m.phone,
       m.email || '',
       m.village || '',
@@ -183,7 +215,8 @@ function exportCSV(data: MemberRequest[]) {
       new Date(m.createdAt).toLocaleDateString('fr-FR'),
     ]);
   });
-  const csv = rows.map((r) => r.join(';')).join('\n');
+  const escapeCsvValue = (value: string) => `"${String(value).replace(/"/g, '""')}"`;
+  const csv = rows.map((r) => r.map(escapeCsvValue).join(';')).join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -229,7 +262,7 @@ function exportPDFList(data: MemberRequest[]) {
     }
     doc.text(String(idx + 1), colX[0], y);
     doc.text(`${m.firstName} ${m.lastName}`, colX[1], y);
-    doc.text(profLabel(m.profession), colX[2], y);
+    doc.text(displayProfession(m).slice(0, 27), colX[2], y);
     doc.text(m.phone || '', colX[3], y);
     doc.text((m.village || '').slice(0, 20), colX[4], y);
     doc.text(m.status, colX[5], y);
@@ -282,7 +315,7 @@ const MemberDrawer: React.FC<{
   const InfoRow = ({ label, value }: { label: string; value: string }) => (
     <div className="flex items-start justify-between gap-4 py-2.5">
       <span className="shrink-0 text-sm text-gray-500">{label}</span>
-      <span className="text-right text-sm font-medium text-gray-900">{value}</span>
+      <span className="min-w-0 break-words text-right text-sm font-medium text-gray-900">{value}</span>
     </div>
   );
 
@@ -309,7 +342,7 @@ const MemberDrawer: React.FC<{
             )}
             <div>
               <p className="text-lg font-bold text-gray-900">{member.firstName} {member.lastName}</p>
-              <p className="text-sm text-gray-500">{profLabel(member.profession)}</p>
+              <p className="text-sm text-gray-500">{displayProfession(member)}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -368,7 +401,7 @@ const MemberDrawer: React.FC<{
                 <div className="divide-y divide-gray-200">
                   <InfoRow label="Prénom" value={member.firstName} />
                   <InfoRow label="Nom" value={member.lastName} />
-                  <InfoRow label="Profession" value={profLabel(member.profession)} />
+                  <InfoRow label="Profession" value={displayProfession(member)} />
                   <div className="flex items-center gap-1.5 py-2.5"><Phone className="h-3.5 w-3.5 text-gray-400" /><span className="text-sm font-medium text-gray-900">{member.phone}</span></div>
                   {member.email && (
                     <div className="flex items-center gap-1.5 py-2.5"><span className="text-sm text-gray-500">Email</span><span className="ml-auto text-sm font-medium text-teal-700">{member.email}</span></div>
@@ -389,6 +422,39 @@ const MemberDrawer: React.FC<{
                   <InfoRow label="N° Membre" value={memberId} />
                   <InfoRow label="Date demande" value={new Date(member.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} />
                   <InfoRow label="Coût carte" value="2 500 F CFA" />
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800">
+                  <Phone className="h-4 w-4 text-teal-600" /> Notification SMS
+                </h4>
+                <div className="divide-y divide-gray-200">
+                  <InfoRow
+                    label="Statut"
+                    value={
+                      member.smsConfirmationStatus
+                        ? smsStatusLabels[member.smsConfirmationStatus]
+                        : 'Non disponible — ancien dossier'
+                    }
+                  />
+                  <InfoRow
+                    label="Date d’envoi"
+                    value={formatSmsDate(member.smsConfirmationSentAt)}
+                  />
+                  {member.smsConfirmationProviderId && (
+                    <InfoRow
+                      label="Identifiant fournisseur"
+                      value={member.smsConfirmationProviderId}
+                    />
+                  )}
+                  {member.smsConfirmationStatus === 'failed' &&
+                    member.smsConfirmationError && (
+                      <InfoRow
+                        label="Erreur"
+                        value={member.smsConfirmationError}
+                      />
+                    )}
                 </div>
               </div>
             </>
@@ -437,7 +503,7 @@ const MemberDrawer: React.FC<{
                   <div style={{ position: 'absolute', width: '100%', height: '100%', backfaceVisibility: 'hidden' }}>
                     <MemberCard
                       name={`${member.firstName} ${member.lastName}`}
-                      role={profLabel(member.profession)}
+                      role={displayProfession(member)}
                       phone={member.phone}
                       city={member.village || 'Non renseigné'}
                       memberId={memberId}
@@ -523,7 +589,7 @@ const AdminMemberRequestsPage: React.FC = () => {
     const q = searchQuery.toLowerCase();
     return members.filter((m) => {
       const fullName = `${m.firstName} ${m.lastName}`.toLowerCase();
-      const matchSearch = !q || fullName.includes(q) || m.phone.toLowerCase().includes(q) || (m.village ?? '').toLowerCase().includes(q) || (m.profession ?? '').toLowerCase().includes(q) || (m.email ?? '').toLowerCase().includes(q);
+      const matchSearch = !q || fullName.includes(q) || m.phone.toLowerCase().includes(q) || (m.village ?? '').toLowerCase().includes(q) || displayProfession(m).toLowerCase().includes(q) || (m.professionAutre ?? '').toLowerCase().includes(q) || (m.email ?? '').toLowerCase().includes(q);
       const matchStatus = statusFilter === 'Tous' || m.status === statusFilter;
       return matchSearch && matchStatus;
     });
@@ -662,7 +728,7 @@ const AdminMemberRequestsPage: React.FC = () => {
                         <p className="text-xs text-gray-400">{m.email}</p>
                       </td>
                       <td className="hidden px-5 py-4 md:table-cell">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"><Heart className="h-3 w-3 text-teal-500" />{profLabel(m.profession)}</span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"><Heart className="h-3 w-3 text-teal-500" />{displayProfession(m)}</span>
                       </td>
                       <td className="hidden px-5 py-4 lg:table-cell"><span className="text-sm text-gray-600">{m.phone}</span></td>
                       <td className="hidden px-5 py-4 md:table-cell"><p className="max-w-[160px] truncate text-sm text-gray-600">{m.village || '—'}</p></td>
