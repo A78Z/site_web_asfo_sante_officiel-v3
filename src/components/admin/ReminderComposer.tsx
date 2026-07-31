@@ -55,6 +55,7 @@ const SUGGESTED_TEMPLATES = [
     name: 'Demande validée',
     body:
       "Bonjour {prenom}, votre demande de carte de membre est validee.\n" +
+      "Reglez 2 500 FCFA via Wave/Orange Money au {numero_paiement}.\n" +
       "Vous serez informe des que la carte sera disponible.",
   },
 ];

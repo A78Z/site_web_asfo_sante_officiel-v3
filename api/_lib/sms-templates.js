@@ -15,6 +15,20 @@
 /** Montant de la carte membre, source unique pour l’affichage et les SMS. */
 export const MEMBER_CARD_PRICE = '2 500 FCFA';
 
+/**
+ * Numéro Wave / Orange Money vers lequel le paiement est régulé.
+ *
+ * Configurable par la variable d’environnement `PAYMENT_PHONE` : le numéro se
+ * change depuis Vercel sans toucher au code. La valeur ci-dessous n’est qu’un
+ * repli, pour qu’un SMS ne parte jamais avec un numéro vide si la variable
+ * venait à manquer.
+ *
+ * Le format influe sur le coût : « +221 77 753 15 09 » (avec espaces) laisse
+ * 8 caractères de marge dans un segment unique. Un libellé plus long ferait
+ * basculer l’accusé de réception à deux segments.
+ */
+export const PAYMENT_PHONE = process.env.PAYMENT_PHONE || '+221 77 753 15 09';
+
 /** Alphabet GSM-7 de base (norme GSM 03.38). */
 const GSM7_BASE =
   '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?¡' +
@@ -96,15 +110,19 @@ export const smsSegmentCount = (message) => {
  * réception en un seul segment.
  */
 export const SMS_TEMPLATES = {
-  /** Envoyé automatiquement à la soumission de la demande. */
+  /**
+   * Envoyé automatiquement à la soumission de la demande.
+   * « SEULEMENT apres validation » est en capitales : c’est la protection du
+   * demandeur contre un paiement prématuré ou une sollicitation frauduleuse.
+   */
   requestReceived:
-    'Merci, votre demande de carte membre est bien enregistree. Ref : {REF}. ' +
-    'Carte : {MONTANT}, a regler seulement apres validation. Suivi par SMS.',
+    'Demande de carte membre enregistree. Ref {REF}. {MONTANT} a payer ' +
+    'SEULEMENT apres validation (Wave/Orange Money {PAYMENT_PHONE}). Suivi par SMS.',
 
   /** Prêt à l’emploi : à déclencher depuis le back-office à la validation. */
   requestApproved:
-    'Bonne nouvelle {NOM}, votre demande {REF} est validee. Reglez {MONTANT} ' +
-    'pour editer votre carte. Details : {LIEN}.',
+    'Bonne nouvelle {NOM}, demande {REF} validee. Reglez {MONTANT} via ' +
+    'Wave/Orange Money au {PAYMENT_PHONE} pour editer votre carte.',
 
   /** Code de vérification du numéro, envoyé avant la soumission. */
   verificationCode:
@@ -153,4 +171,14 @@ export const memberCardReceivedSms = (reference) =>
   renderSms(SMS_TEMPLATES.requestReceived, {
     REF: reference,
     MONTANT: MEMBER_CARD_PRICE,
+    PAYMENT_PHONE,
+  });
+
+/** SMS annonçant la validation, avec les coordonnées de paiement. */
+export const memberCardApprovedSms = (name, reference) =>
+  renderSms(SMS_TEMPLATES.requestApproved, {
+    NOM: name,
+    REF: reference,
+    MONTANT: MEMBER_CARD_PRICE,
+    PAYMENT_PHONE,
   });

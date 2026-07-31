@@ -7,7 +7,7 @@
  * décompte des segments.
  */
 
-import { smsSegmentCount, toGsm7 } from './sms-templates.js';
+import { PAYMENT_PHONE, smsSegmentCount, toGsm7 } from './sms-templates.js';
 
 /**
  * Retire tous les accents, y compris ceux que le GSM-7 accepte (é, è, à).
@@ -34,6 +34,7 @@ export const MESSAGE_VARIABLES = [
   { token: '{date_disponibilite}', label: 'Date de disponibilité', field: 'pickupDate' },
   { token: '{horaires}', label: 'Horaires', field: 'pickupHours' },
   { token: '{numero_carte}', label: 'Numéro de carte', field: 'cardNumber' },
+  { token: '{numero_paiement}', label: 'Numéro Wave / Orange Money', field: 'paymentPhone' },
 ];
 
 const VARIABLE_BY_TOKEN = new Map(
@@ -68,6 +69,8 @@ export const recipientVariables = (member) => ({
   '{date_disponibilite}': formatPickupDate(member.pickupDate),
   '{horaires}': member.pickupHours ?? '',
   '{numero_carte}': member.cardNumber ?? member.objectId ?? '',
+  // Valeur de configuration, identique pour tous les destinataires.
+  '{numero_paiement}': PAYMENT_PHONE,
 });
 
 /** Jetons présents dans un modèle mais inconnus du système. */
