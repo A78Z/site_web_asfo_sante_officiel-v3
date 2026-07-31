@@ -827,7 +827,7 @@ const AdminMemberRequestsPage: React.FC = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Rechercher par nom, téléphone, village, profession..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-teal-300 focus:ring-2 focus:ring-teal-100" />
+            <input type="text" placeholder="Rechercher par nom, téléphone, lieu de naissance, profession..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-teal-300 focus:ring-2 focus:ring-teal-100" />
           </div>
           <div className="flex items-center gap-1.5 rounded-lg bg-gray-100 p-1">
             {(['Tous', 'En attente', 'Validé', 'Refusé'] as const).map((s) => (

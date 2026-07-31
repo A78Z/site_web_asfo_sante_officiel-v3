@@ -27,7 +27,23 @@ export const MEMBER_CARD_PRICE = '2 500 FCFA';
  * 8 caractères de marge dans un segment unique. Un libellé plus long ferait
  * basculer l’accusé de réception à deux segments.
  */
-export const PAYMENT_PHONE = process.env.PAYMENT_PHONE || '+221 77 753 15 09';
+const configuredPaymentPhone = () => {
+  // Côté serveur (fonctions Vercel) : variable d’environnement Node.
+  // La garde `typeof` est indispensable — ce module est aussi importé par le
+  // formulaire et le back-office, où `process` n’existe pas : y accéder sans
+  // protection interrompt le rendu de toute la page.
+  if (typeof process !== 'undefined' && process.env?.PAYMENT_PHONE) {
+    return process.env.PAYMENT_PHONE;
+  }
+  // Côté navigateur : Vite n’expose que les variables préfixées VITE_.
+  try {
+    return import.meta.env?.VITE_PAYMENT_PHONE || '';
+  } catch {
+    return '';
+  }
+};
+
+export const PAYMENT_PHONE = configuredPaymentPhone() || '+221 77 753 15 09';
 
 /** Alphabet GSM-7 de base (norme GSM 03.38). */
 const GSM7_BASE =
