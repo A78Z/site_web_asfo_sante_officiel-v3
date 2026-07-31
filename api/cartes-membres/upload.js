@@ -39,8 +39,16 @@ const serverEnvironment = () => ({
     process.env.VITE_PARSE_SERVER_URL,
 });
 
+// Nom de variable d’environnement à citer dans le diagnostic quand la valeur
+// manque. Seul le NOM est exposé : jamais la valeur, jamais la clé master.
+const ENVIRONMENT_VARIABLE_NAMES = {
+  appId: 'PARSE_APP_ID',
+  masterKey: 'PARSE_MASTER_KEY',
+  serverUrl: 'PARSE_SERVER_URL',
+};
+
 const missingEnvironmentKeys = (environment) =>
-  ['appId', 'masterKey', 'serverUrl'].filter((key) => !environment[key]);
+  Object.keys(ENVIRONMENT_VARIABLE_NAMES).filter((key) => !environment[key]);
 
 const extensionOf = (fileName = '') => {
   const dotIndex = fileName.lastIndexOf('.');
@@ -599,12 +607,14 @@ export default async function handler(request, response) {
   const environment = serverEnvironment();
   const missingKeys = missingEnvironmentKeys(environment);
   if (missingKeys.length > 0) {
-    // On journalise les NOMS manquants, jamais les valeurs.
-    console.error('[member-photo-upload] missing_configuration', { missingKeys });
+    // On journalise et on renvoie les NOMS manquants, jamais les valeurs :
+    // le diagnostic est immédiat sans jamais exposer un secret.
+    const missingNames = missingKeys.map((key) => ENVIRONMENT_VARIABLE_NAMES[key]);
+    console.error('[member-photo-upload] missing_configuration', { missingNames });
     sendError(
       response,
       503,
-      'Le service de téléversement est mal configuré côté serveur. L’équipe technique a été alertée.',
+      `Configuration du stockage manquante : ${missingNames.join(', ')}. L’équipe technique a été alertée.`,
       'missing_configuration',
     );
     return;
