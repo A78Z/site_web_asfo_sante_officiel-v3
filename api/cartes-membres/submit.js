@@ -1,4 +1,27 @@
+import { memberCardReceivedSms } from '../_lib/sms-templates.js';
+import { normalizeSenegalPhone, senegalPhoneIssue } from '../_lib/senegal-phone.js';
+import {
+  validateEmail,
+  validateFieldDistinctness,
+  validatePersonName,
+  validateProfessionAutre,
+  validateVillage,
+} from '../_lib/member-request-validation.js';
+import { consumeVerification, isPhoneVerified } from '../_lib/otp.js';
+
 const MEMBER_REQUEST_CLASS = 'MemberRequests';
+
+/** Refus métier : porte un code exploitable par l’interface. */
+class SubmissionRejection extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = 'SubmissionRejection';
+    this.code = code;
+  }
+}
+
+/** Durée minimale de remplissage plausible pour un humain. */
+const MIN_FILL_DURATION_MS = 3000;
 const AXIOMTEXT_ENDPOINT = 'https://api.axiomtext.com/api/sms/message';
 const REQUEST_TIMEOUT_MS = 30_000;
 const IDEMPOTENCY_CACHE_MS = 10 * 60 * 1000;
@@ -66,28 +89,68 @@ const serverEnvironment = () => ({
 const compactWhitespace = (value) =>
   typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
 
-const normalizeSenegalPhone = (rawPhone) => {
-  const compact = compactWhitespace(rawPhone).replace(/[\s().-]/g, '');
-  let digits = compact.replace(/^\+/, '').replace(/\D/g, '');
+const MAX_BODY_SIZE = 256 * 1024;
 
-  if (digits.startsWith('00221')) digits = digits.slice(5);
-  else if (digits.startsWith('221')) digits = digits.slice(3);
-  else if (digits.length === 10 && digits.startsWith('0')) digits = digits.slice(1);
+/** Lit le corps encore en flux quand le runtime ne l’a pas bufferisé. */
+const readRawBody = (request) =>
+  new Promise((resolve) => {
+    if (request.readableEnded || request.destroyed) {
+      resolve(null);
+      return;
+    }
+    const chunks = [];
+    let size = 0;
+    let settled = false;
+    const settle = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    request.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > MAX_BODY_SIZE) {
+        request.destroy();
+        settle(null);
+        return;
+      }
+      chunks.push(chunk);
+    });
+    request.on('end', () => settle(Buffer.concat(chunks).toString('utf8')));
+    request.on('error', () => settle(null));
+    request.on('aborted', () => settle(null));
+  });
 
-  if (!/^7[05678]\d{7}$/.test(digits)) return null;
-  return `+221${digits}`;
-};
-
-const parseBody = (request) => {
-  if (request.body && typeof request.body === 'object') return request.body;
-  if (typeof request.body === 'string') {
+/**
+ * Récupère le payload JSON quel que soit le runtime : `request.body` déjà
+ * analysé (objet), bufferisé (Buffer/chaîne), ou flux encore ouvert. Sans ce
+ * dernier cas, un runtime qui ne pré-analyse pas le corps produisait un payload
+ * nul, signalé à tort comme un identifiant de demande invalide.
+ */
+const parseBody = async (request) => {
+  const { body } = request;
+  if (Buffer.isBuffer(body)) {
     try {
-      return JSON.parse(request.body);
+      return JSON.parse(body.toString('utf8'));
     } catch {
       return null;
     }
   }
-  return null;
+  if (body && typeof body === 'object') return body;
+  if (typeof body === 'string') {
+    try {
+      return JSON.parse(body);
+    } catch {
+      return null;
+    }
+  }
+
+  const raw = await readRawBody(request);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 };
 
 const isValidSubmissionId = (value) =>
@@ -96,34 +159,52 @@ const isValidSubmissionId = (value) =>
     value,
   );
 
+// Le corps illisible et l’identifiant invalide sont contrôlés en amont dans le
+// handler : ils ont chacun leur message et leur code, pour ne plus être
+// confondus (un corps vide était signalé comme « identifiant invalide »).
 const validatePayload = (payload) => {
-  if (!payload || !isValidSubmissionId(payload.submissionId)) {
-    return 'L’identifiant de la demande est invalide. Rechargez le formulaire puis réessayez.';
+  // Nom et prénom : lettres uniquement, et refus des saisies manifestement
+  // fantaisistes (« ZZTest », « Preprod »…) via le module partagé.
+  const firstNameError = validatePersonName(payload.firstName, 'Le prénom');
+  if (firstNameError) return firstNameError;
+  const lastNameError = validatePersonName(payload.lastName, 'Le nom');
+  if (lastNameError) return lastNameError;
+
+  // L’e-mail est facultatif : le SMS est le canal de suivi principal. Fourni,
+  // il est validé strictement (format, TLD non délivrables, jetables).
+  const emailError = validateEmail(payload.email);
+  if (emailError) return emailError;
+
+  // Le téléphone est revalidé ici avec la même fonction que le formulaire : le
+  // SMS de confirmation est la seule voie de suivi, un numéro injoignable ne
+  // doit pas franchir cette étape même si le client a été contourné.
+  const phoneIssue = senegalPhoneIssue(payload.phone);
+  if (phoneIssue === 'landline') {
+    return 'Les numéros fixes ne reçoivent pas de SMS. Indiquez un mobile sénégalais (70, 75, 76, 77 ou 78).';
+  }
+  if (phoneIssue) {
+    return 'Entrez un numéro de mobile sénégalais valide : +221 suivi de 9 chiffres (ex. 77 123 45 67).';
   }
 
-  const requiredTextFields = [
-    ['firstName', 'Le prénom est requis.'],
-    ['lastName', 'Le nom est requis.'],
-    ['email', 'L’adresse e-mail est requise.'],
-    ['phone', 'Le téléphone est requis.'],
-    ['village', 'L’adresse ou la ville est requise.'],
-  ];
-  for (const [field, message] of requiredTextFields) {
-    if (compactWhitespace(payload[field]).length < 2) return message;
-  }
-
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(compactWhitespace(payload.email))) {
-    return 'L’adresse e-mail est invalide.';
-  }
   if (!ALLOWED_PROFESSIONS.has(payload.profession)) {
     return 'La profession sélectionnée est invalide.';
   }
-  if (
-    payload.profession === 'Autre' &&
-    compactWhitespace(payload.professionAutre).length < 3
-  ) {
-    return 'Précisez votre profession.';
+  if (payload.profession === 'Autre') {
+    const professionError = validateProfessionAutre(payload.professionAutre);
+    if (professionError) return professionError;
   }
+
+  const villageError = validateVillage(payload.village);
+  if (villageError) return villageError;
+
+  const distinctnessError = validateFieldDistinctness({
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    village: payload.village,
+    professionAutre: payload.professionAutre,
+  });
+  if (distinctnessError) return distinctnessError;
+
   if (
     payload.photo?.__type !== 'File' ||
     typeof payload.photo?.name !== 'string' ||
@@ -179,7 +260,8 @@ const createMemberRequest = async (environment, payload, normalizedPhone) => {
     firstName: compactWhitespace(payload.firstName),
     lastName: compactWhitespace(payload.lastName),
     email: compactWhitespace(payload.email).toLocaleLowerCase('fr'),
-    phone: compactWhitespace(payload.phone),
+    // Toujours stocké au format E.164 sans espace, prêt pour l’envoi SMS.
+    phone: normalizedPhone ?? compactWhitespace(payload.phone),
     ...(normalizedPhone ? { phoneNormalized: normalizedPhone } : {}),
     profession: payload.profession === 'Autre' ? 'Autre' : payload.profession,
     ...(payload.profession === 'Autre'
@@ -230,7 +312,8 @@ const sendAxiomTextSms = async (environment, to, reference) => {
     };
   }
 
-  const message = `ASFO : votre demande de carte membre a bien été reçue. Référence : ${reference}. Aucun paiement avant validation. Vous serez informé(e) de la suite. Merci.`;
+  // Gabarit centralisé : texte GSM-7, montant inclus, un seul segment facturé.
+  const message = memberCardReceivedSms(reference);
 
   try {
     const response = await fetchWithTimeout(AXIOMTEXT_ENDPOINT, {
@@ -292,12 +375,60 @@ const formatSuccessResponse = (request, idempotent = false) => ({
   message: publicSuccessMessage(request.smsConfirmationStatus),
 });
 
+/**
+ * Refuse une seconde demande en attente pour le même numéro ou le même e-mail.
+ * Les dossiers déjà traités (validés, refusés, archivés) n’entrent pas en jeu.
+ */
+const findPendingDuplicate = async (environment, normalizedPhone, email) => {
+  const clauses = [{ phoneNormalized: normalizedPhone }];
+  if (email) clauses.push({ email });
+
+  const query = new URLSearchParams({
+    where: JSON.stringify({ status: 'En attente', $or: clauses }),
+    limit: '1',
+    keys: 'status',
+  });
+  const response = await fetchWithTimeout(
+    parseUrl(environment, `/classes/${MEMBER_REQUEST_CLASS}?${query.toString()}`),
+    { headers: parseHeaders(environment) },
+  );
+  if (!response.ok) return null;
+  const payload = await response.json();
+  return payload.results?.[0] ?? null;
+};
+
 const processSubmission = async (environment, payload) => {
   const existingRequest = await findExistingRequest(environment, payload.submissionId);
   if (existingRequest) return formatSuccessResponse(existingRequest, true);
 
   const normalizedPhone = normalizeSenegalPhone(payload.phone);
+
+  // Verrou principal : la demande n'est créée que si le numéro porte une
+  // vérification OTP réussie, récente et non déjà utilisée. Ce contrôle relit
+  // l'état en base — un client falsifié ne peut pas se déclarer vérifié.
+  const verification = await isPhoneVerified(environment, normalizedPhone);
+  if (!verification) {
+    throw new SubmissionRejection(
+      'Vérifiez votre numéro avec le code reçu par SMS avant d’envoyer la demande.',
+      'phone_not_verified',
+    );
+  }
+
+  const duplicate = await findPendingDuplicate(
+    environment,
+    normalizedPhone,
+    compactWhitespace(payload.email).toLocaleLowerCase('fr'),
+  );
+  if (duplicate) {
+    throw new SubmissionRejection(
+      'Une demande est déjà en cours pour ce numéro ou cette adresse e-mail.',
+      'duplicate_request',
+    );
+  }
+
   const created = await createMemberRequest(environment, payload, normalizedPhone);
+  // Un code vérifié ne vaut qu'une demande.
+  await consumeVerification(environment, verification.objectId).catch(() => {});
   const request = {
     ...created,
     smsConfirmationStatus: normalizedPhone
@@ -340,8 +471,8 @@ const processSubmission = async (environment, payload) => {
   });
 };
 
-const sendError = (response, status, message) => {
-  response.status(status).json({ success: false, error: message });
+const sendError = (response, status, message, code = 'submission_failed') => {
+  response.status(status).json({ success: false, error: message, code });
 };
 
 export default async function handler(request, response) {
@@ -362,14 +493,63 @@ export default async function handler(request, response) {
     return;
   }
 
-  const payload = parseBody(request);
+  const payload = await parseBody(request);
+  if (!payload || typeof payload !== 'object') {
+    sendError(
+      response,
+      400,
+      'La demande n’a pas pu être lue par le serveur. Veuillez réessayer.',
+      'unreadable_body',
+    );
+    return;
+  }
+  if (!isValidSubmissionId(payload.submissionId)) {
+    sendError(
+      response,
+      400,
+      'L’identifiant de la demande est invalide. Rechargez le formulaire puis réessayez.',
+      'invalid_submission_id',
+    );
+    return;
+  }
+
+  // Anti-bot 1 : champ piège, invisible pour un humain. Rempli => robot.
+  // Le rejet est silencieux (200) pour ne rien apprendre à l’automate.
+  if (compactWhitespace(payload.website).length > 0) {
+    console.warn('[member-request] honeypot_triggered');
+    response.status(200).json({
+      success: true,
+      request: { objectId: '', createdAt: new Date().toISOString(), smsConfirmationStatus: 'pending' },
+      message: 'Votre demande a bien été enregistrée.',
+    });
+    return;
+  }
+
+  // Anti-bot 2 : un formulaire rempli en moins de trois secondes n’est pas
+  // rempli à la main. Indicatif seulement — la valeur vient du client.
+  const filledIn = Number(payload.filledInMs);
+  if (Number.isFinite(filledIn) && filledIn >= 0 && filledIn < MIN_FILL_DURATION_MS) {
+    sendError(
+      response,
+      400,
+      'Votre demande a été envoyée trop rapidement. Vérifiez vos informations puis réessayez.',
+      'filled_too_fast',
+    );
+    return;
+  }
+
   const validationError = validatePayload(payload);
   if (validationError) {
-    sendError(response, 400, validationError);
+    sendError(response, 400, validationError, 'invalid_payload');
     return;
   }
   if (request.headers['x-idempotency-key'] !== payload.submissionId) {
-    sendError(response, 400, 'La clé d’idempotence de la demande est invalide.');
+    sendError(
+      response,
+      400,
+      'La clé d’idempotence de la demande est invalide.',
+      'idempotency_mismatch',
+    );
     return;
   }
 
@@ -383,6 +563,17 @@ export default async function handler(request, response) {
     try {
       response.status(200).json(await cached.promise);
     } catch (error) {
+      // Même traitement que hors cache : un refus métier garde son code.
+      submissionCache.delete(payload.submissionId);
+      if (error instanceof SubmissionRejection) {
+        sendError(
+          response,
+          error.code === 'duplicate_request' ? 409 : 403,
+          error.message,
+          error.code,
+        );
+        return;
+      }
       sendError(
         response,
         502,
@@ -405,6 +596,17 @@ export default async function handler(request, response) {
     response.status(result.idempotent ? 200 : 201).json(result);
   } catch (error) {
     submissionCache.delete(payload.submissionId);
+    // Un refus métier (numéro non vérifié, doublon) est une erreur de requête,
+    // pas une panne : il doit remonter avec son code et un statut 4xx.
+    if (error instanceof SubmissionRejection) {
+      sendError(
+        response,
+        error.code === 'duplicate_request' ? 409 : 403,
+        error.message,
+        error.code,
+      );
+      return;
+    }
     sendError(
       response,
       502,

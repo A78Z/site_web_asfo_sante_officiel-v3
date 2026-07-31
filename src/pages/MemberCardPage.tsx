@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useForm, type FieldErrors } from 'react-hook-form';
 import { FileRejection, useDropzone } from 'react-dropzone';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
@@ -19,11 +26,11 @@ import {
   Heart,
   Home,
   Loader2,
+  CheckCircle2,
   LockKeyhole,
   Mail,
   MapPin,
   Network,
-  Phone,
   QrCode,
   RotateCcw,
   Save,
@@ -38,9 +45,27 @@ import {
 import { Link } from 'react-router-dom';
 import { uploadMemberCardPhoto } from '../lib/memberCardUpload';
 import {
+  MemberCardSubmissionError,
   submitMemberCardRequest,
 } from '../lib/memberCardSubmission';
 import type { ParseFile } from '../lib/parse';
+import {
+  validateEmail as validateEmailValue,
+  validatePersonName,
+  validateVillage,
+  validateProfessionAutre,
+} from '../../api/_lib/member-request-validation.js';
+import {
+  sendVerificationCode,
+  verifyPhoneCode,
+} from '../lib/phoneVerification';
+import {
+  SENEGAL_DIALLING_CODE,
+  SENEGAL_LOCAL_LENGTH,
+  extractSenegalLocalDigits,
+  formatSenegalLocal,
+  senegalPhoneIssue,
+} from '../../api/_lib/senegal-phone.js';
 import MemberCard from '../components/admin/MemberCard';
 import ProfessionCombobox from '../components/member/ProfessionCombobox';
 import {
@@ -293,6 +318,10 @@ const FieldError: React.FC<{ id: string; message?: string }> = ({ id, message })
   );
 };
 
+/** Dimensions natives de `MemberCard`, fixées en style inline dans le composant. */
+const MEMBER_CARD_WIDTH = 428;
+const MEMBER_CARD_HEIGHT = 270;
+
 const ResponsiveMemberPreview: React.FC<{
   fullName: string;
   profession: string;
@@ -301,29 +330,76 @@ const ResponsiveMemberPreview: React.FC<{
   email: string;
   photo?: string | null;
   showCaption?: boolean;
-}> = ({ fullName, profession, phone, address, email, photo, showCaption = true }) => (
-  <div className="w-full">
-    <div className="mx-auto h-[176px] w-[280px] sm:h-[243px] sm:w-[385px] lg:h-[270px] lg:w-[428px]">
-      <div className="origin-top-left scale-[0.65] sm:scale-[0.9] lg:scale-100">
-        <MemberCard
-          name={fullName || 'VOTRE IDENTITÉ'}
-          role={profession || 'Membre ASFO'}
-          phone={phone || 'Votre téléphone'}
-          city={address || 'Votre ville'}
-          email={email || undefined}
-          memberId="À ATTRIBUER"
-          photo={photo || undefined}
-          validity="Après validation"
-        />
+}> = ({ fullName, profession, phone, address, email, photo, showCaption = true }) => {
+  const availableRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  // L’échelle suit la largeur réellement disponible, mesurée sur le conteneur.
+  // Les paliers `sm:`/`lg:` utilisés auparavant réagissaient à la largeur du
+  // *navigateur* : dans la colonne d’aperçu, plus étroite que 428 px alors que
+  // la fenêtre dépassait 1024 px, la carte était rendue à sa taille native et
+  // débordait — le parent en `overflow-hidden` la rognait sur la droite.
+  useLayoutEffect(() => {
+    const element = availableRef.current;
+    if (!element) return undefined;
+
+    const applyScale = (width: number) => {
+      if (width <= 0) return;
+      // Jamais au-delà de 1 : agrandir au-dessus de la taille native
+      // dégraderait le rendu sans bénéfice.
+      setScale(Math.min(1, width / MEMBER_CARD_WIDTH));
+    };
+
+    // Première mesure synchrone : évite d’afficher une image débordante avant
+    // le premier passage du ResizeObserver.
+    applyScale(element.getBoundingClientRect().width);
+
+    const observer = new ResizeObserver((entries) => {
+      applyScale(entries[0]?.contentRect.width ?? 0);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div className="w-full min-w-0">
+      {/* Témoin de mesure : sans contenu, sa largeur est exactement la place
+          disponible. Mesurer la boîte de la carte créerait une boucle, sa
+          largeur dépendant elle-même de l’échelle calculée. */}
+      <div ref={availableRef} aria-hidden="true" className="h-0 w-full" />
+      {/* Boîte aux dimensions exactes de la carte mise à l’échelle : le ratio
+          est conservé et rien ne dépasse, donc aucun rognage possible. */}
+      <div
+        className="relative mx-auto"
+        style={{
+          width: MEMBER_CARD_WIDTH * scale,
+          height: MEMBER_CARD_HEIGHT * scale,
+        }}
+      >
+        <div
+          className="absolute left-0 top-0 origin-top-left"
+          style={{ transform: `scale(${scale})` }}
+        >
+          <MemberCard
+            name={fullName || 'VOTRE IDENTITÉ'}
+            role={profession || 'Membre ASFO'}
+            phone={phone || 'Votre téléphone'}
+            city={address || 'Votre ville'}
+            email={email || undefined}
+            memberId="À ATTRIBUER"
+            photo={photo || undefined}
+            validity="Après validation"
+          />
+        </div>
       </div>
+      {showCaption && (
+        <p className="mx-auto mt-3 max-w-md text-center text-xs leading-5 text-slate-500">
+          Aperçu non officiel — la carte définitive sera créée après validation et paiement.
+        </p>
+      )}
     </div>
-    {showCaption && (
-      <p className="mx-auto mt-3 max-w-md text-center text-xs leading-5 text-slate-500">
-        Aperçu non officiel — la carte définitive sera créée après validation et paiement.
-      </p>
-    )}
-  </div>
-);
+  );
+};
 
 const HeroCardComposition: React.FC = () => (
   <div className="relative mx-auto w-full max-w-[560px] pb-8 pt-6 lg:pb-10">
@@ -479,6 +555,28 @@ const MemberCardPage: React.FC = () => {
   >('idle');
   // Évite qu’une réponse tardive d’un ancien fichier écrase la photo courante.
   const photoUploadToken = useRef(0);
+  // Le champ téléphone ne contient que les 9 chiffres locaux ; l’indicatif est
+  // ajouté à l’enregistrement pour produire l’E.164 attendu par l’envoi SMS.
+  const [phoneDigits, setPhoneDigits] = useState(() =>
+    extractSenegalLocalDigits(initialDraft?.values.phone ?? '').slice(
+      0,
+      SENEGAL_LOCAL_LENGTH,
+    ),
+  );
+  // L’erreur n’apparaît qu’après la sortie du champ ou un clic sur « Suivant »,
+  // pour ne pas signaler un numéro « invalide » dès le premier chiffre tapé.
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  // Vérification du numéro par code SMS : sans elle, aucune demande ne part.
+  const [otpStage, setOtpStage] = useState<'idle' | 'sent' | 'verified'>('idle');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [otpBusy, setOtpBusy] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+  /** Numéro effectivement vérifié : changer de numéro invalide la vérification. */
+  const [verifiedPhone, setVerifiedPhone] = useState('');
+  // Anti-bot : instant d’ouverture du formulaire, comparé à l’envoi.
+  const formOpenedAt = useRef(Date.now());
+  const [honeypot, setHoneypot] = useState('');
   const [receipt, setReceipt] = useState<SubmissionReceipt | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState(initialDraft?.savedAt ?? '');
   const [submissionId, setSubmissionId] = useState(() =>
@@ -515,10 +613,42 @@ const MemberCardPage: React.FC = () => {
   const fullName = `${values.firstName || ''} ${values.lastName || ''}`.trim();
   const showProfessionAutre = isOtherProfession(values.profession);
   const selectedProfession = professionLabel(values.profession, values.professionAutre);
+  const showPhoneError = phoneTouched && Boolean(errors.phone);
+  const currentPhone = phoneDigits ? `${SENEGAL_DIALLING_CODE}${phoneDigits}` : '';
+  /** Vrai seulement si le numéro affiché est celui qui a été vérifié. */
+  const isPhoneVerified = otpStage === 'verified' && verifiedPhone === currentPhone;
+  // Stocké en `+221XXXXXXXXX`, affiché en `+221 77 123 45 67`.
+  const readablePhone = phoneDigits
+    ? `${SENEGAL_DIALLING_CODE} ${formatSenegalLocal(phoneDigits)}`
+    : '';
 
   useEffect(() => {
     document.title = 'Commander ma carte membre | ASFO - Action Sanitaire pour le Fouta';
   }, []);
+
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const timer = window.setInterval(() => {
+      setResendIn((current) => (current <= 1 ? 0 : current - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendIn]);
+
+  // Le champ est piloté à la main (badge d’indicatif + formatage), il est donc
+  // déclaré ici auprès du formulaire avec ses règles de validation.
+  useEffect(() => {
+    register('phone', {
+      validate: (value: string) => {
+        const issue = senegalPhoneIssue(value);
+        if (!issue) return true;
+        if (issue === 'empty') return 'Le téléphone est requis.';
+        if (issue === 'landline') {
+          return 'Les numéros fixes ne reçoivent pas de SMS. Indiquez un mobile sénégalais (70, 75, 76, 77 ou 78).';
+        }
+        return 'Entrez un numéro de mobile sénégalais valide : +221 suivi de 9 chiffres (ex. 77 123 45 67).';
+      },
+    });
+  }, [register]);
 
   useEffect(() => {
     try {
@@ -648,12 +778,56 @@ const MemberCardPage: React.FC = () => {
     }
   };
 
+  /** Demande l’envoi d’un code au numéro saisi. */
+  const requestVerificationCode = async () => {
+    const phone = `${SENEGAL_DIALLING_CODE}${phoneDigits}`;
+    setPhoneTouched(true);
+    const phoneValid = await trigger('phone');
+    if (!phoneValid) return;
+
+    setOtpBusy(true);
+    setOtpError('');
+    try {
+      const result = await sendVerificationCode(phone);
+      setOtpStage('sent');
+      setResendIn(result.resendInSeconds ?? 60);
+    } catch (error) {
+      setOtpError(
+        error instanceof Error ? error.message : 'Le code n’a pas pu être envoyé.',
+      );
+    } finally {
+      setOtpBusy(false);
+    }
+  };
+
+  /** Confronte le code saisi au code reçu par SMS. */
+  const submitVerificationCode = async () => {
+    const phone = `${SENEGAL_DIALLING_CODE}${phoneDigits}`;
+    setOtpBusy(true);
+    setOtpError('');
+    try {
+      await verifyPhoneCode(phone, otpCode);
+      setOtpStage('verified');
+      setVerifiedPhone(phone);
+    } catch (error) {
+      setOtpError(
+        error instanceof Error ? error.message : 'La vérification a échoué.',
+      );
+    } finally {
+      setOtpBusy(false);
+    }
+  };
+
   const goToStep = async (target: number) => {
     if (target <= currentStep) {
       setCurrentStep(target);
       setSubmitError('');
       return;
     }
+
+    // Un clic sur « Suivant » vaut confirmation de saisie : l’erreur de
+    // téléphone devient visible même si le champ n’a jamais perdu le focus.
+    if (currentStep === 1) setPhoneTouched(true);
 
     const fieldsToValidate = STEP_FIELDS[currentStep].filter(
       (field) =>
@@ -662,6 +836,12 @@ const MemberCardPage: React.FC = () => {
     );
     const fieldsValid = await trigger(fieldsToValidate, { shouldFocus: true });
     if (!fieldsValid) return;
+    // Le numéro doit être vérifié avant de quitter l’étape 1 : c’est ce qui
+    // rend impossible une demande derrière un faux numéro.
+    if (currentStep === 1 && !isPhoneVerified) {
+      setOtpError('Vérifiez votre numéro avec le code reçu par SMS pour continuer.');
+      return;
+    }
     if (currentStep === 2 && !photoFile) {
       setPhotoError('Ajoutez une photo d’identité conforme avant de continuer.');
       return;
@@ -720,8 +900,18 @@ const MemberCardPage: React.FC = () => {
 
       setUploadStage('Enregistrement de la demande…');
       const otherProfession = normalizeProfessionAutre(data.professionAutre);
-      const result = await submitMemberCardRequest({
-        submissionId,
+
+      // L’identifiant ne doit jamais partir vide ou mal formé : s’il a été perdu
+      // (stockage local vidé, brouillon corrompu), on en régénère un ici plutôt
+      // que d’imposer un rechargement manuel du formulaire.
+      let requestId = submissionId;
+      if (!isValidSubmissionId(requestId)) {
+        requestId = createSubmissionId();
+        setSubmissionId(requestId);
+      }
+
+      const buildPayload = (id: string) => ({
+        submissionId: id,
         firstName: data.firstName.trim(),
         lastName: data.lastName.trim(),
         email: data.email.trim(),
@@ -732,8 +922,27 @@ const MemberCardPage: React.FC = () => {
           : {}),
         village: data.address.trim(),
         photo: parsedPhoto,
-        consentAccepted: true,
+        consentAccepted: true as const,
+        website: honeypot,
+        filledInMs: Date.now() - formOpenedAt.current,
       });
+
+      let result;
+      try {
+        result = await submitMemberCardRequest(buildPayload(requestId));
+      } catch (submissionError) {
+        // Reprise douce : le serveur a refusé l’identifiant, on en forge un
+        // neuf et on renvoie la même demande. La saisie et la photo déjà
+        // téléversée sont conservées — rien à ressaisir.
+        const rejectedId =
+          submissionError instanceof MemberCardSubmissionError &&
+          submissionError.code === 'invalid_submission_id';
+        if (!rejectedId) throw submissionError;
+
+        const renewedId = createSubmissionId();
+        setSubmissionId(renewedId);
+        result = await submitMemberCardRequest(buildPayload(renewedId));
+      }
 
       window.localStorage.removeItem(DRAFT_KEY);
       window.localStorage.removeItem(SUBMISSION_ID_KEY);
@@ -768,6 +977,8 @@ const MemberCardPage: React.FC = () => {
     setSubmitError('');
     handleRemovePhoto();
     setCurrentStep(1);
+    setPhoneDigits('');
+    setPhoneTouched(false);
     setDraftSavedAt('');
     setSubmissionId(createSubmissionId());
     reset(DEFAULT_VALUES);
@@ -800,7 +1011,7 @@ const MemberCardPage: React.FC = () => {
     errors.lastName?.message,
     errors.firstName?.message,
     errors.email?.message,
-    errors.phone?.message,
+    showPhoneError ? errors.phone?.message : undefined,
     errors.profession?.message,
     errors.professionAutre?.message,
     errors.address?.message,
@@ -821,6 +1032,20 @@ const MemberCardPage: React.FC = () => {
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
+            {/* Champ piège : invisible et hors tabulation pour un humain,
+                rempli par les robots qui remplissent tous les champs. */}
+            <div aria-hidden="true" className="pointer-events-none absolute -left-[9999px] h-0 w-0 overflow-hidden">
+              <label htmlFor="website">Ne pas remplir</label>
+              <input
+                id="website"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypot}
+                onChange={(event) => setHoneypot(event.target.value)}
+              />
+            </div>
+
             <div>
               <label htmlFor="lastName" className="mb-2 block text-sm font-bold text-slate-800">
                 Nom <span className="text-red-600">*</span>
@@ -837,7 +1062,7 @@ const MemberCardPage: React.FC = () => {
                   placeholder="Votre nom de famille"
                   {...register('lastName', {
                     required: 'Le nom est requis.',
-                    validate: (value) => value.trim().length >= 2 || 'Le nom doit contenir au moins 2 caractères.',
+                    validate: (value) => validatePersonName(value, 'Le nom') ?? true,
                   })}
                 />
               </div>
@@ -860,7 +1085,7 @@ const MemberCardPage: React.FC = () => {
                   placeholder="Votre prénom"
                   {...register('firstName', {
                     required: 'Le prénom est requis.',
-                    validate: (value) => value.trim().length >= 2 || 'Le prénom doit contenir au moins 2 caractères.',
+                    validate: (value) => validatePersonName(value, 'Le prénom') ?? true,
                   })}
                 />
               </div>
@@ -869,7 +1094,8 @@ const MemberCardPage: React.FC = () => {
 
             <div>
               <label htmlFor="email" className="mb-2 block text-sm font-bold text-slate-800">
-                Adresse email <span className="text-red-600">*</span>
+                Adresse email{' '}
+                <span className="font-medium text-slate-400">(facultatif)</span>
               </label>
               <div className="relative">
                 <Mail size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -882,15 +1108,11 @@ const MemberCardPage: React.FC = () => {
                   aria-describedby={errors.email ? 'email-error' : 'email-help'}
                   placeholder="vous@exemple.com"
                   {...register('email', {
-                    required: 'L’adresse email est requise.',
-                    pattern: {
-                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: 'Saisissez une adresse email valide.',
-                    },
+                    validate: (value) => validateEmailValue(value) ?? true,
                   })}
                 />
               </div>
-              <p id="email-help" className="mt-2 text-xs text-slate-500">Utilisez une adresse que vous consultez régulièrement.</p>
+              <p id="email-help" className="mt-2 text-xs text-slate-500">Le suivi se fait par SMS. Une adresse e-mail reste utile pour les échanges écrits.</p>
               <FieldError id="email-error" message={errors.email?.message} />
             </div>
 
@@ -898,25 +1120,131 @@ const MemberCardPage: React.FC = () => {
               <label htmlFor="phone" className="mb-2 block text-sm font-bold text-slate-800">
                 Téléphone <span className="text-red-600">*</span>
               </label>
-              <div className="relative">
-                <Phone size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              {/* L’indicatif est un badge fixe, hors du champ : il ne peut être
+                  ni modifié ni effacé, et l’utilisateur ne saisit que les
+                  9 chiffres de son numéro local. */}
+              <div
+                className={`flex items-stretch overflow-hidden rounded-xl border bg-white transition ${
+                  showPhoneError
+                    ? 'border-red-300 ring-4 ring-red-50 focus-within:border-red-500'
+                    : 'border-slate-200 focus-within:border-teal-600 focus-within:ring-4 focus-within:ring-teal-50'
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex select-none items-center gap-1.5 border-r border-slate-200 bg-slate-50 px-3.5 text-[15px] font-bold text-slate-700"
+                >
+                  <span className="text-base leading-none">🇸🇳</span>
+                  +221
+                </span>
                 <input
                   id="phone"
                   type="tel"
-                  autoComplete="tel"
-                  className={`${inputClass(Boolean(errors.phone))} pl-11`}
-                  aria-invalid={Boolean(errors.phone)}
-                  aria-describedby={errors.phone ? 'phone-error' : undefined}
-                  placeholder="+221 77 123 45 67"
-                  {...register('phone', {
-                    required: 'Le téléphone est requis.',
-                    validate: (value) =>
-                      value.trim().length >= 5 ||
-                      'Saisissez un numéro de téléphone.',
-                  })}
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  maxLength={12}
+                  className="w-full bg-transparent px-4 py-3.5 text-[15px] text-slate-900 outline-none placeholder:text-slate-400"
+                  aria-invalid={showPhoneError}
+                  aria-describedby={
+                    showPhoneError ? 'phone-error' : 'phone-hint'
+                  }
+                  placeholder="77 123 45 67"
+                  value={formatSenegalLocal(phoneDigits)}
+                  onChange={(event) => {
+                    // Le champ ne reçoit que le numéro local : un 0 de tête est
+                    // superflu et retiré dès la frappe, pas seulement une fois
+                    // les 10 chiffres atteints.
+                    const digits = extractSenegalLocalDigits(event.target.value)
+                      .replace(/^0+/, '')
+                      .slice(0, SENEGAL_LOCAL_LENGTH);
+                    setPhoneDigits(digits);
+                    const nextPhone = digits ? `${SENEGAL_DIALLING_CODE}${digits}` : '';
+                    setValue('phone', nextPhone, { shouldValidate: phoneTouched });
+                    // Modifier le numéro annule la vérification déjà obtenue.
+                    if (nextPhone !== verifiedPhone) {
+                      setOtpStage('idle');
+                      setOtpCode('');
+                      setOtpError('');
+                    }
+                  }}
+                  onBlur={() => {
+                    setPhoneTouched(true);
+                    void trigger('phone');
+                  }}
                 />
               </div>
-              <FieldError id="phone-error" message={errors.phone?.message} />
+              {showPhoneError ? (
+                <FieldError id="phone-error" message={errors.phone?.message} />
+              ) : (
+                <p id="phone-hint" className="mt-2 text-xs text-slate-500">
+                  Mobile sénégalais uniquement (70, 75, 76, 77 ou 78) — 9 chiffres.
+                </p>
+              )}
+
+              {/* Vérification du numéro par code SMS : verrou principal contre
+                  les faux numéros. Sans code reçu, la demande ne part pas. */}
+              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                {isPhoneVerified ? (
+                  <p className="flex items-center gap-2 text-sm font-bold text-teal-700">
+                    <CheckCircle2 size={16} /> Numéro vérifié
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm text-slate-600">
+                        {otpStage === 'sent'
+                          ? 'Saisissez le code à 6 chiffres reçu par SMS.'
+                          : 'Vérifiez votre numéro pour continuer.'}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void requestVerificationCode()}
+                        disabled={otpBusy || resendIn > 0 || phoneDigits.length !== 9}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-teal-600 bg-white px-3 py-2 text-xs font-bold text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {otpBusy && <Loader2 size={13} className="animate-spin" />}
+                        {resendIn > 0
+                          ? `Renvoyer dans ${resendIn}s`
+                          : otpStage === 'sent'
+                            ? 'Renvoyer le code'
+                            : 'Recevoir un code'}
+                      </button>
+                    </div>
+
+                    {otpStage === 'sent' && (
+                      <div className="mt-2.5 flex gap-2">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={6}
+                          value={otpCode}
+                          onChange={(event) =>
+                            setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+                          }
+                          placeholder="123456"
+                          aria-label="Code de vérification reçu par SMS"
+                          className="w-32 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-center font-mono text-[15px] tracking-[0.3em] text-slate-900 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void submitVerificationCode()}
+                          disabled={otpBusy || otpCode.length !== 6}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {otpBusy && <Loader2 size={14} className="animate-spin" />}
+                          Vérifier
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+                {otpError && (
+                  <p role="alert" className="mt-2 text-sm font-medium text-red-600">
+                    {otpError}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>
@@ -983,9 +1311,7 @@ const MemberCardPage: React.FC = () => {
                     {...register('professionAutre', {
                       validate: (value) => {
                         if (!isOtherProfession(getValues('profession'))) return true;
-                        const normalizedValue = normalizeProfessionAutre(value);
-                        if (!normalizedValue) return 'Précisez votre profession.';
-                        return normalizedValue.length >= 3 || 'La profession doit contenir au moins 3 caractères.';
+                        return validateProfessionAutre(normalizeProfessionAutre(value)) ?? true;
                       },
                     })}
                   />
@@ -1010,7 +1336,7 @@ const MemberCardPage: React.FC = () => {
                   placeholder="Ex. Dakar, Sénégal"
                   {...register('address', {
                     required: 'L’adresse ou la ville est requise.',
-                    validate: (value) => value.trim().length >= 2 || 'Précisez votre adresse ou votre ville.',
+                    validate: (value) => validateVillage(value) ?? true,
                   })}
                 />
               </div>
@@ -1143,7 +1469,7 @@ const MemberCardPage: React.FC = () => {
           {[
             ['Nom complet', fullName],
             ['Email', values.email],
-            ['Téléphone', values.phone],
+            ['Téléphone', readablePhone],
             ['Profession', selectedProfession],
             ['Adresse / ville', values.address],
             [
@@ -1465,18 +1791,31 @@ const MemberCardPage: React.FC = () => {
                   ) : (
                     <button
                       type="submit"
-                      disabled={isSubmitting || !acceptTerms}
+                      // L’envoi attend la référence de photo renvoyée par le
+                      // serveur : sans cela le clic partait avant la fin du
+                      // téléversement de l’étape 2.
+                      disabled={
+                        isSubmitting || !acceptTerms || photoUploadStatus === 'uploading'
+                      }
                       className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-teal-800/15 hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                     >
-                      {isSubmitting ? <Loader2 size={17} className="animate-spin" /> : <CreditCard size={17} />}
-                      {isSubmitting ? 'Envoi en cours…' : 'Envoyer ma demande'}
+                      {isSubmitting || photoUploadStatus === 'uploading' ? (
+                        <Loader2 size={17} className="animate-spin" />
+                      ) : (
+                        <CreditCard size={17} />
+                      )}
+                      {photoUploadStatus === 'uploading'
+                        ? 'Téléversement de la photo…'
+                        : isSubmitting
+                          ? 'Envoi en cours…'
+                          : 'Envoyer ma demande'}
                     </button>
                   )}
                 </div>
               </div>
             </form>
 
-            <aside className="self-start rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
+            <aside className="min-w-0 self-start rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.12em] text-teal-700">Votre future carte membre</p>
@@ -1488,7 +1827,7 @@ const MemberCardPage: React.FC = () => {
                 <ResponsiveMemberPreview
                   fullName={fullName}
                   profession={selectedProfession}
-                  phone={values.phone}
+                  phone={readablePhone}
                   address={values.address}
                   email={values.email}
                   photo={photoPreview}
