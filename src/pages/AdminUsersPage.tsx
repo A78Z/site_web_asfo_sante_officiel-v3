@@ -23,6 +23,7 @@ import {
     Save,
   } from 'lucide-react';
 import { queryObjects, createObject, updateObject, deleteObject } from '../lib/parse';
+import useConfirm from '../components/ui/useConfirm';
 
 const CLASS_NAME = 'AdminUsers';
 
@@ -124,6 +125,8 @@ const AdminUsersPage: React.FC = () => {
     inactifs: users.filter((u) => u.status === 'Inactif').length,
   }), [users]);
 
+  const { confirm, confirmDialog } = useConfirm();
+
   const handleDelete = async (id: string) => {
     setActionError('');
     const target = users.find((u) => u.objectId === id);
@@ -132,7 +135,13 @@ const AdminUsersPage: React.FC = () => {
       setOpenMenu(null);
       return;
     }
-    if (!confirm('Supprimer cet utilisateur ?')) return;
+    const confirmed = await confirm({
+      title: 'Supprimer cet utilisateur ?',
+      variant: 'danger',
+      warning: 'Ce compte administrateur sera définitivement supprimé.',
+      confirmLabel: 'Supprimer',
+    });
+    if (!confirmed) return;
     try {
       await deleteObject(CLASS_NAME, id);
       setUsers((prev) => prev.filter((u) => u.objectId !== id));
@@ -443,6 +452,7 @@ const AdminUsersPage: React.FC = () => {
           </>
         )}
       </AnimatePresence>
+      {confirmDialog}
     </div>
   );
 };

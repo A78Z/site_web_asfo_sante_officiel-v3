@@ -19,6 +19,7 @@ import {
   Save,
 } from 'lucide-react';
 import { queryObjects, createObject, updateObject, deleteObject, uploadFile } from '../lib/parse';
+import useConfirm from '../components/ui/useConfirm';
 
 const CLASS_NAME = 'Missions';
 
@@ -101,8 +102,16 @@ const AdminArchivesPage: React.FC = () => {
     return { total, planifiees, enCours, terminees };
   }, [missions]);
 
+  const { confirm, confirmDialog } = useConfirm();
+
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette mission ?')) return;
+    const confirmed = await confirm({
+      title: 'Supprimer cette mission ?',
+      variant: 'danger',
+      warning: 'Cette mission sera définitivement supprimée des archives.',
+      confirmLabel: 'Supprimer',
+    });
+    if (!confirmed) return;
     setActionError('');
     try {
       await deleteObject(CLASS_NAME, id);
@@ -474,6 +483,7 @@ const AdminArchivesPage: React.FC = () => {
           </>
         )}
       </AnimatePresence>
+      {confirmDialog}
     </div>
   );
 };

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { queryObjects, updateObject, deleteObject } from '../lib/parse';
 import jsPDF from 'jspdf';
+import useConfirm from '../components/ui/useConfirm';
 
 const CLASS_NAME = 'ContactMessages';
 
@@ -358,8 +359,16 @@ const AdminMessagesPage: React.FC = () => {
     }
   };
 
+  const { confirm, confirmDialog } = useConfirm();
+
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer ce message ?')) return;
+    const confirmed = await confirm({
+      title: 'Supprimer ce message ?',
+      variant: 'danger',
+      warning: 'Ce message sera définitivement supprimé.',
+      confirmLabel: 'Supprimer',
+    });
+    if (!confirmed) return;
     try {
       await deleteObject(CLASS_NAME, id);
       setMessages((prev) => prev.filter((m) => m.objectId !== id));
@@ -697,6 +706,7 @@ const AdminMessagesPage: React.FC = () => {
           />
         )}
       </AnimatePresence>
+      {confirmDialog}
     </div>
   );
 };

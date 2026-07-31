@@ -23,6 +23,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { queryObjects, updateObject, deleteObject } from '../lib/parse';
+import useConfirm from '../components/ui/useConfirm';
 
 const CLASS_NAME = 'Candidatures';
 
@@ -259,8 +260,16 @@ const AdminCandidaturesPage: React.FC = () => {
     }
   };
 
+  const { confirm, confirmDialog } = useConfirm();
+
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette candidature ?')) return;
+    const confirmed = await confirm({
+      title: 'Supprimer cette candidature ?',
+      variant: 'danger',
+      warning: 'Cette candidature sera définitivement supprimée.',
+      confirmLabel: 'Supprimer',
+    });
+    if (!confirmed) return;
     try {
       await deleteObject(CLASS_NAME, id);
       setCandidatures((prev) => prev.filter((c) => c.objectId !== id));
@@ -445,6 +454,7 @@ const AdminCandidaturesPage: React.FC = () => {
       <AnimatePresence>
         {selected && <CandidatureDrawer candidature={selected} onClose={() => setSelected(null)} onStatusChange={handleStatusChange} />}
       </AnimatePresence>
+      {confirmDialog}
     </div>
   );
 };

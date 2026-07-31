@@ -17,6 +17,7 @@ import {
   Check,
 } from 'lucide-react';
 import { queryObjects, updateObject, deleteObject } from '../lib/parse';
+import useConfirm from '../components/ui/useConfirm';
 
 const CLASS_NAME = 'NewsletterSubscribers';
 
@@ -125,8 +126,16 @@ const AdminNewsletterPage: React.FC = () => {
     }
   };
 
+  const { confirm, confirmDialog } = useConfirm();
+
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cet abonné ?')) return;
+    const confirmed = await confirm({
+      title: 'Supprimer cet abonné ?',
+      variant: 'danger',
+      warning: 'Cet abonné sera définitivement retiré de la liste de diffusion.',
+      confirmLabel: 'Supprimer',
+    });
+    if (!confirmed) return;
     try {
       await deleteObject(CLASS_NAME, id);
       setSubscribers((prev) => prev.filter((s) => s.objectId !== id));
@@ -465,6 +474,7 @@ const AdminNewsletterPage: React.FC = () => {
           )}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 };

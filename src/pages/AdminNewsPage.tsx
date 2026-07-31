@@ -24,6 +24,7 @@ import {
   Newspaper,
 } from 'lucide-react';
 import { queryObjects, createObject, updateObject, deleteObject, uploadFile } from '../lib/parse';
+import useConfirm from '../components/ui/useConfirm';
 
 const CLASS_NAME = 'News';
 
@@ -332,8 +333,16 @@ const AdminNewsPage: React.FC = () => {
     }
   };
 
+  const { confirm, confirmDialog } = useConfirm();
+
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cet article ?')) return;
+    const confirmed = await confirm({
+      title: 'Supprimer cet article ?',
+      variant: 'danger',
+      warning: 'Cet article sera définitivement supprimé.',
+      confirmLabel: 'Supprimer',
+    });
+    if (!confirmed) return;
     try {
       await deleteObject(CLASS_NAME, id);
       setArticles((prev) => prev.filter((a) => a.objectId !== id));
@@ -715,6 +724,7 @@ const AdminNewsPage: React.FC = () => {
           </>
         )}
       </AnimatePresence>
+      {confirmDialog}
     </div>
   );
 };

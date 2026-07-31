@@ -28,6 +28,7 @@ import {
   deleteObject,
 } from '../lib/parse';
 import jsPDF from 'jspdf';
+import useConfirm from '../components/ui/useConfirm';
 
 const CLASS_NAME = 'VolunteerRequests';
 
@@ -409,8 +410,16 @@ const AdminVolunteersPage: React.FC = () => {
     }
   };
 
+  const { confirm, confirmDialog } = useConfirm();
+
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette candidature bénévole ?')) return;
+    const confirmed = await confirm({
+      title: 'Supprimer cette candidature bénévole ?',
+      variant: 'danger',
+      warning: 'Cette candidature bénévole sera définitivement supprimée.',
+      confirmLabel: 'Supprimer',
+    });
+    if (!confirmed) return;
     try {
       await deleteObject(CLASS_NAME, id);
       setVolunteers((prev) => prev.filter((v) => v.objectId !== id));
@@ -773,6 +782,7 @@ const AdminVolunteersPage: React.FC = () => {
           />
         )}
       </AnimatePresence>
+      {confirmDialog}
     </div>
   );
 };

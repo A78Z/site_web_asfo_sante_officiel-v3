@@ -12,6 +12,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { queryObjects, createObject, deleteObject, uploadFile } from '../lib/parse';
+import useConfirm from '../components/ui/useConfirm';
 
 const CLASS_NAME = 'GalleryImages';
 
@@ -86,8 +87,16 @@ const AdminGalleryPage: React.FC = () => {
     return { total, albums: albumSet.size };
   }, [images]);
 
+  const { confirm, confirmDialog } = useConfirm();
+
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette image ?')) return;
+    const confirmed = await confirm({
+      title: 'Supprimer cette image ?',
+      variant: 'danger',
+      warning: 'Cette image sera définitivement retirée de la galerie.',
+      confirmLabel: 'Supprimer',
+    });
+    if (!confirmed) return;
     setActionError('');
     try {
       await deleteObject(CLASS_NAME, id);
@@ -356,6 +365,7 @@ const AdminGalleryPage: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      {confirmDialog}
     </div>
   );
 };
