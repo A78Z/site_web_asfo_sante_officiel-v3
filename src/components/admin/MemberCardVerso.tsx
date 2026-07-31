@@ -6,6 +6,10 @@ export interface MemberCardVersoProps {
   memberId: string;
   createdAt?: string;
   cardId?: string;
+  /** Date de naissance ISO (AAAA-MM-JJ). Omise, la ligne n’est pas affichée. */
+  birthDate?: string;
+  /** Lieu de naissance. Omis, la ligne n’est pas affichée. */
+  birthPlace?: string;
 }
 
 const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
@@ -13,8 +17,17 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
   memberId,
   createdAt,
   cardId,
+  birthDate,
+  birthPlace,
 }) => {
   const qrUrl = `https://asfosante.org/verify/${memberId}`;
+
+  // Format court : sur 428 px de large, « 18/06/1990 » tient sans risque de
+  // repli, contrairement à « 18 juin 1990 ».
+  const isoBirthDate = birthDate ?? '';
+  const birthDateLabel = /^\d{4}-\d{2}-\d{2}$/.test(isoBirthDate)
+    ? `${isoBirthDate.slice(8, 10)}/${isoBirthDate.slice(5, 7)}/${isoBirthDate.slice(0, 4)}`
+    : isoBirthDate;
 
   // Validite dynamique : 2 ans apres la date de creation
   const creationDate = createdAt ? new Date(createdAt) : new Date();
@@ -241,6 +254,47 @@ const MemberCardVerso: React.FC<MemberCardVersoProps> = ({
                 www.asfosante.org
               </p>
             </div>
+
+            {/* État civil du titulaire. Ajout purement additif : placé dans le
+                seul espace libre mesuré du verso (bas de cette colonne), sans
+                déplacer ni redimensionner aucun élément existant. */}
+            {(birthDateLabel || birthPlace) && (
+              <>
+                <div
+                  style={{
+                    height: '1px',
+                    marginTop: '2px',
+                    background: 'rgba(31,111,139,0.15)',
+                  }}
+                />
+                {birthDateLabel && (
+                  <p style={{ fontSize: '8.5px', color: '#555', fontWeight: 500, lineHeight: 1.3 }}>
+                    <span style={{ color: '#999' }}>Né(e) le : </span>
+                    {birthDateLabel}
+                  </p>
+                )}
+                {birthPlace && (
+                  <p
+                    style={{
+                      fontSize: '8.5px',
+                      color: '#555',
+                      fontWeight: 500,
+                      lineHeight: 1.3,
+                      // Un lieu long est tronqué plutôt que de repousser le
+                      // slogan et le drapeau vers le bas.
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      maxWidth: '200px',
+                    }}
+                    title={birthPlace}
+                  >
+                    <span style={{ color: '#999' }}>Lieu de naissance : </span>
+                    {birthPlace}
+                  </p>
+                )}
+              </>
+            )}
           </div>
 
           {/* Right column: member info summary */}

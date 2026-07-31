@@ -553,6 +553,8 @@ const MemberDrawer: React.FC<{
                       name={`${member.firstName} ${member.lastName}`}
                       memberId={memberId}
                       createdAt={member.createdAt}
+                      birthDate={member.dateNaissance}
+                      birthPlace={member.lieuNaissance}
                     />
                   </div>
                 </div>
