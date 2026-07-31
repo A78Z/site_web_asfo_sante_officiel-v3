@@ -14,7 +14,10 @@ interface MemberCardSubmissionPayload {
   phone: string;
   profession: string;
   professionAutre?: string;
-  village: string;
+  /** Lieu de naissance ; remplace l’ancienne adresse de résidence. */
+  lieuNaissance: string;
+  /** Date de naissance au format ISO AAAA-MM-JJ. */
+  dateNaissance: string;
   photo: ParseFile;
   consentAccepted: true;
   /** Champ piège anti-robot : toujours vide chez un humain. */

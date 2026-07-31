@@ -30,6 +30,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog';
 import ReminderComposer from '../components/admin/ReminderComposer';
 import CardStateDialog from '../components/admin/CardStateDialog';
 import { CARD_STATE_ORDER, CARD_STATES } from '../../api/_lib/card-lifecycle.js';
+import { formatBirthDate } from '../../api/_lib/member-request-validation.js';
 import { ToastStack } from '../components/ui/Toast';
 import { useToasts } from '../components/ui/useToasts';
 import {
@@ -58,6 +59,9 @@ interface MemberRequest {
   professionAutre?: string;
   phone: string;
   village: string;
+  /** Nouveaux champs d’état civil (demandes récentes uniquement). */
+  lieuNaissance?: string;
+  dateNaissance?: string;
   photo?: ParseFile;
   status: Statut;
   createdAt: string;
@@ -220,7 +224,7 @@ ${styles}
 
 /* ─── Export CSV ─── */
 function exportCSV(data: MemberRequest[]) {
-  const rows = [['Prénom', 'Nom', 'Profession', 'Téléphone', 'Email', 'Village', 'Statut', 'Date']];
+  const rows = [['Prénom', 'Nom', 'Profession', 'Téléphone', 'Email', 'Lieu de naissance / Village', 'Date de naissance', 'Statut', 'Date']];
   data.forEach((m) => {
     rows.push([
       m.firstName,
@@ -228,7 +232,8 @@ function exportCSV(data: MemberRequest[]) {
       displayProfession(m),
       m.phone,
       m.email || '',
-      m.village || '',
+      m.lieuNaissance || m.village || '',
+      m.dateNaissance ? formatBirthDate(m.dateNaissance) : '',
       m.status,
       new Date(m.createdAt).toLocaleDateString('fr-FR'),
     ]);
@@ -256,7 +261,7 @@ function exportPDFList(data: MemberRequest[]) {
   doc.setFont('helvetica', 'normal');
   doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')} — ${data.length} membre(s)`, 105, 19, { align: 'center' });
 
-  const headers = ['#', 'Nom', 'Profession', 'Tél', 'Village', 'Statut'];
+  const headers = ['#', 'Nom', 'Profession', 'Tél', 'Naissance / Village', 'Statut'];
   const colX = [10, 20, 75, 120, 152, 185];
 
   doc.setFontSize(7);
@@ -282,7 +287,7 @@ function exportPDFList(data: MemberRequest[]) {
     doc.text(`${m.firstName} ${m.lastName}`, colX[1], y);
     doc.text(displayProfession(m).slice(0, 27), colX[2], y);
     doc.text(m.phone || '', colX[3], y);
-    doc.text((m.village || '').slice(0, 20), colX[4], y);
+    doc.text((m.lieuNaissance || m.village || '').slice(0, 20), colX[4], y);
     doc.text(m.status, colX[5], y);
     y += 6;
   });
@@ -430,7 +435,19 @@ const MemberDrawer: React.FC<{
               {member.village && (
                 <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
                   <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800"><MapPin className="h-4 w-4 text-teal-600" /> Localisation</h4>
-                  <div className="divide-y divide-gray-200"><InfoRow label="Village / Adresse" value={member.village} /></div>
+                  <div className="divide-y divide-gray-200">
+                    {member.dateNaissance && (
+                      <InfoRow label="Date de naissance" value={formatBirthDate(member.dateNaissance)} />
+                    )}
+                    {/* Le libellé suit la donnée : les demandes anterieures
+                        portaient une adresse de residence, les nouvelles un
+                        lieu de naissance. Les confondre serait trompeur. */}
+                    {member.lieuNaissance ? (
+                      <InfoRow label="Lieu de naissance" value={member.lieuNaissance} />
+                    ) : (
+                      <InfoRow label="Village / Adresse" value={member.village} />
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -523,7 +540,7 @@ const MemberDrawer: React.FC<{
                       name={`${member.firstName} ${member.lastName}`}
                       role={displayProfession(member)}
                       phone={member.phone}
-                      city={member.village || 'Non renseigné'}
+                      city={member.lieuNaissance || member.village || 'Non renseigné'}
                       memberId={memberId}
                       photo={member.photo?.url}
                       email={member.email}
@@ -621,7 +638,7 @@ const AdminMemberRequestsPage: React.FC = () => {
     const q = searchQuery.toLowerCase();
     return members.filter((m) => {
       const fullName = `${m.firstName} ${m.lastName}`.toLowerCase();
-      const matchSearch = !q || fullName.includes(q) || m.phone.toLowerCase().includes(q) || (m.village ?? '').toLowerCase().includes(q) || displayProfession(m).toLowerCase().includes(q) || (m.professionAutre ?? '').toLowerCase().includes(q) || (m.email ?? '').toLowerCase().includes(q);
+      const matchSearch = !q || fullName.includes(q) || m.phone.toLowerCase().includes(q) || (m.village ?? '').toLowerCase().includes(q) || (m.lieuNaissance ?? '').toLowerCase().includes(q) || displayProfession(m).toLowerCase().includes(q) || (m.professionAutre ?? '').toLowerCase().includes(q) || (m.email ?? '').toLowerCase().includes(q);
       const matchStatus = statusFilter === 'Tous' || m.status === statusFilter;
       const matchCard =
         cardFilter === 'Tous' ||
@@ -892,7 +909,7 @@ const AdminMemberRequestsPage: React.FC = () => {
                   <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500">Nom complet</th>
                   <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 md:table-cell">Profession</th>
                   <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 lg:table-cell">Téléphone</th>
-                  <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 md:table-cell">Village</th>
+                  <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 md:table-cell">Naissance</th>
                   <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 sm:table-cell">Date</th>
                   <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500">Statut</th>
                   <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 lg:table-cell">Carte</th>
@@ -928,7 +945,12 @@ const AdminMemberRequestsPage: React.FC = () => {
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"><Heart className="h-3 w-3 text-teal-500" />{displayProfession(m)}</span>
                       </td>
                       <td className="hidden px-5 py-4 lg:table-cell"><span className="text-sm text-gray-600">{m.phone}</span></td>
-                      <td className="hidden px-5 py-4 md:table-cell"><p className="max-w-[160px] truncate text-sm text-gray-600">{m.village || '—'}</p></td>
+                      <td className="hidden px-5 py-4 md:table-cell">
+                        <p className="max-w-[160px] truncate text-sm text-gray-600">{m.lieuNaissance || m.village || '—'}</p>
+                        {m.dateNaissance && (
+                          <p className="text-[11px] text-gray-400">{formatBirthDate(m.dateNaissance)}</p>
+                        )}
+                      </td>
                       <td className="hidden px-5 py-4 sm:table-cell"><span className="text-sm text-gray-500">{fmt(m.createdAt)}</span></td>
                       <td className="px-5 py-4"><StatusBadge statut={m.status} /></td>
                       <td className="hidden px-5 py-4 lg:table-cell">

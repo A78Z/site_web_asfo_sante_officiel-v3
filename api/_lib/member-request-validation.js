@@ -130,12 +130,15 @@ export const validateEmail = (value) => {
   return null;
 };
 
-/** Valide le village ou l’adresse. */
-export const validateVillage = (value) => {
+/**
+ * Valide un lieu (lieu de naissance, village, adresse).
+ * Le libellé est paramétrable pour que le message colle au champ affiché.
+ */
+export const validateVillage = (value, label = 'Le lieu de naissance') => {
   const compact = compactWhitespace(value);
-  if (compact.length < 3) return 'L’adresse ou la ville doit contenir au moins 3 caractères.';
-  if (compact.length > 80) return 'L’adresse ou la ville est trop longue.';
-  if (isJunkText(compact)) return 'Entrez une ville ou une adresse réelle.';
+  if (compact.length < 3) return `${label} doit contenir au moins 3 caractères.`;
+  if (compact.length > 80) return `${label} est trop long.`;
+  if (isJunkText(compact)) return `Entrez un ${label.replace(/^Le |^La |^L’/i, '').toLowerCase()} réel.`;
   return null;
 };
 
@@ -149,6 +152,63 @@ export const validateProfessionAutre = (value) => {
   }
   if (isJunkText(compact)) return 'Entrez une profession réelle.';
   return null;
+};
+
+/** Bornes d’âge plausibles pour un membre. */
+export const MIN_MEMBER_AGE = 15;
+export const MAX_MEMBER_AGE = 100;
+
+/**
+ * Valide une date de naissance au format ISO `AAAA-MM-JJ`.
+ * Refuse les dates futures et les âges invraisemblables, qui trahissent une
+ * faute de saisie plus souvent qu’un cas réel.
+ */
+export const validateBirthDate = (value) => {
+  const compact = compactWhitespace(value);
+  if (!compact) return 'La date de naissance est requise.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(compact)) {
+    return 'Indiquez une date de naissance valide.';
+  }
+
+  const birth = new Date(`${compact}T00:00:00Z`);
+  if (Number.isNaN(birth.getTime())) return 'Cette date de naissance n’existe pas.';
+  // Rejette les dates rattrapées par le calendrier (31 février -> 3 mars).
+  if (birth.toISOString().slice(0, 10) !== compact) {
+    return 'Cette date de naissance n’existe pas.';
+  }
+
+  const today = new Date();
+  const todayUtc = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+  );
+  if (birth.getTime() > todayUtc.getTime()) {
+    return 'La date de naissance ne peut pas être dans le futur.';
+  }
+
+  let age = todayUtc.getUTCFullYear() - birth.getUTCFullYear();
+  const monthDiff = todayUtc.getUTCMonth() - birth.getUTCMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && todayUtc.getUTCDate() < birth.getUTCDate())) {
+    age -= 1;
+  }
+  if (age < MIN_MEMBER_AGE) {
+    return `L’adhésion est réservée aux personnes de ${MIN_MEMBER_AGE} ans et plus.`;
+  }
+  if (age > MAX_MEMBER_AGE) return 'Vérifiez la date de naissance saisie.';
+  return null;
+};
+
+/** Date lisible en français : « 30 juillet 1990 ». */
+const FRENCH_MONTHS = [
+  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+];
+
+export const formatBirthDate = (value) => {
+  const compact = compactWhitespace(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(compact);
+  if (!match) return compact;
+  const [, year, month, day] = match;
+  return `${Number(day)} ${FRENCH_MONTHS[Number(month) - 1] ?? month} ${year}`;
 };
 
 /**

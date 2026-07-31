@@ -27,6 +27,7 @@ import {
   Home,
   Loader2,
   CheckCircle2,
+  CalendarDays,
   LockKeyhole,
   Mail,
   MapPin,
@@ -53,6 +54,8 @@ import {
   validateEmail as validateEmailValue,
   validatePersonName,
   validateVillage,
+  validateBirthDate,
+  formatBirthDate,
   validateProfessionAutre,
 } from '../../api/_lib/member-request-validation.js';
 import {
@@ -86,6 +89,7 @@ interface FormInputs {
   profession: string;
   professionAutre: string;
   address: string;
+  birthDate: string;
   acceptTerms: boolean;
 }
 
@@ -110,6 +114,7 @@ const DEFAULT_VALUES: FormInputs = {
   profession: '',
   professionAutre: '',
   address: '',
+  birthDate: '',
   acceptTerms: false,
 };
 
@@ -224,7 +229,7 @@ const FORM_STEPS = [
 
 const STEP_FIELDS: Record<number, Array<keyof FormInputs>> = {
   1: ['lastName', 'firstName', 'email', 'phone'],
-  2: ['profession', 'professionAutre', 'address'],
+  2: ['profession', 'professionAutre', 'birthDate', 'address'],
   3: ['acceptTerms'],
 };
 
@@ -920,7 +925,8 @@ const MemberCardPage: React.FC = () => {
         ...(isOtherProfession(data.profession)
           ? { professionAutre: otherProfession }
           : {}),
-        village: data.address.trim(),
+        lieuNaissance: data.address.trim(),
+        dateNaissance: data.birthDate,
         photo: parsedPhoto,
         consentAccepted: true as const,
         website: honeypot,
@@ -1014,6 +1020,7 @@ const MemberCardPage: React.FC = () => {
     showPhoneError ? errors.phone?.message : undefined,
     errors.profession?.message,
     errors.professionAutre?.message,
+    errors.birthDate?.message,
     errors.address?.message,
     photoError,
     errors.acceptTerms?.message,
@@ -1306,7 +1313,7 @@ const MemberCardPage: React.FC = () => {
                     className={`${inputClass(Boolean(errors.professionAutre))} pl-11`}
                     aria-invalid={Boolean(errors.professionAutre)}
                     aria-describedby={errors.professionAutre ? 'professionAutre-error' : undefined}
-                    placeholder="Ex. Médecin du travail, anesthésiste, prothésiste dentaire…"
+                    placeholder="Ex. Enseignant, Comptable, Logisticien, Médecin du travail..."
                     maxLength={120}
                     {...register('professionAutre', {
                       validate: (value) => {
@@ -1320,27 +1327,55 @@ const MemberCardPage: React.FC = () => {
               </motion.div>
             )}
 
-            <div>
-              <label htmlFor="address" className="mb-2 block text-sm font-bold text-slate-800">
-                Adresse ou ville <span className="text-red-600">*</span>
-              </label>
-              <div className="relative">
-                <MapPin size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  id="address"
-                  type="text"
-                  autoComplete="street-address"
-                  className={`${inputClass(Boolean(errors.address))} pl-11`}
-                  aria-invalid={Boolean(errors.address)}
-                  aria-describedby={errors.address ? 'address-error' : undefined}
-                  placeholder="Ex. Dakar, Sénégal"
-                  {...register('address', {
-                    required: 'L’adresse ou la ville est requise.',
-                    validate: (value) => validateVillage(value) ?? true,
-                  })}
-                />
+            {/* État civil : date et lieu de naissance côte à côte sur écran
+                large, empilés sur mobile. Ensemble, ils permettent de
+                distinguer deux homonymes. */}
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label htmlFor="birthDate" className="mb-2 block text-sm font-bold text-slate-800">
+                  Date de naissance <span className="text-red-600">*</span>
+                </label>
+                <div className="relative">
+                  <CalendarDays size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    id="birthDate"
+                    type="date"
+                    autoComplete="bday"
+                    max={new Date().toISOString().slice(0, 10)}
+                    className={`${inputClass(Boolean(errors.birthDate))} pl-11`}
+                    aria-invalid={Boolean(errors.birthDate)}
+                    aria-describedby={errors.birthDate ? 'birthDate-error' : undefined}
+                    {...register('birthDate', {
+                      required: 'La date de naissance est requise.',
+                      validate: (value) => validateBirthDate(value) ?? true,
+                    })}
+                  />
+                </div>
+                <FieldError id="birthDate-error" message={errors.birthDate?.message} />
               </div>
-              <FieldError id="address-error" message={errors.address?.message} />
+
+              <div>
+                <label htmlFor="address" className="mb-2 block text-sm font-bold text-slate-800">
+                  Lieu de naissance <span className="text-red-600">*</span>
+                </label>
+                <div className="relative">
+                  <MapPin size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    id="address"
+                    type="text"
+                    autoComplete="off"
+                    className={`${inputClass(Boolean(errors.address))} pl-11`}
+                    aria-invalid={Boolean(errors.address)}
+                    aria-describedby={errors.address ? 'address-error' : undefined}
+                    placeholder="Ex. Podor, Sénégal"
+                    {...register('address', {
+                      required: 'Le lieu de naissance est requis.',
+                      validate: (value) => validateVillage(value, 'Le lieu de naissance') ?? true,
+                    })}
+                  />
+                </div>
+                <FieldError id="address-error" message={errors.address?.message} />
+              </div>
             </div>
           </div>
 
@@ -1471,7 +1506,8 @@ const MemberCardPage: React.FC = () => {
             ['Email', values.email],
             ['Téléphone', readablePhone],
             ['Profession', selectedProfession],
-            ['Adresse / ville', values.address],
+            ['Date de naissance', values.birthDate ? formatBirthDate(values.birthDate) : ''],
+            ['Lieu de naissance', values.address],
             [
               'Photo',
               photoFile

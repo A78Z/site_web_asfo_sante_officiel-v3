@@ -1,6 +1,7 @@
 import { memberCardReceivedSms } from '../_lib/sms-templates.js';
 import { normalizeSenegalPhone, senegalPhoneIssue } from '../_lib/senegal-phone.js';
 import {
+  validateBirthDate,
   validateEmail,
   validateFieldDistinctness,
   validatePersonName,
@@ -194,13 +195,15 @@ const validatePayload = (payload) => {
     if (professionError) return professionError;
   }
 
-  const villageError = validateVillage(payload.village);
-  if (villageError) return villageError;
+  const birthPlaceError = validateVillage(payload.lieuNaissance, 'Le lieu de naissance');
+  if (birthPlaceError) return birthPlaceError;
+  const birthDateError = validateBirthDate(payload.dateNaissance);
+  if (birthDateError) return birthDateError;
 
   const distinctnessError = validateFieldDistinctness({
     firstName: payload.firstName,
     lastName: payload.lastName,
-    village: payload.village,
+    village: payload.lieuNaissance,
     professionAutre: payload.professionAutre,
   });
   if (distinctnessError) return distinctnessError;
@@ -267,7 +270,11 @@ const createMemberRequest = async (environment, payload, normalizedPhone) => {
     ...(payload.profession === 'Autre'
       ? { professionAutre: compactWhitespace(payload.professionAutre) }
       : {}),
-    village: compactWhitespace(payload.village),
+    // Nouveaux champs d’état civil. `village` n’est plus alimenté : il
+    // portait une adresse de résidence, de sens différent, et les
+    // enregistrements existants le conservent tel quel.
+    lieuNaissance: compactWhitespace(payload.lieuNaissance),
+    dateNaissance: compactWhitespace(payload.dateNaissance),
     photo: payload.photo,
     status: 'En attente',
     submissionId: payload.submissionId,

@@ -36,7 +36,7 @@ export const MEMBER_PROFESSIONS: ProfessionOption[] = [
   { value: 'etudiant-sante', label: 'Étudiant(e) en santé' },
   { value: 'interne-medecine', label: 'Interne en médecine' },
   { value: 'benevole', label: 'Membre bénévole' },
-  { value: 'Autre', label: 'Autre profession de santé' },
+  { value: 'Autre', label: 'Autre profession' },
 ];
 
 export const MEMBER_PROFESSION_LABELS = Object.fromEntries(

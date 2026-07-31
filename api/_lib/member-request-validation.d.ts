@@ -10,7 +10,7 @@ export declare function validatePersonName(
   label: string,
 ): string | null;
 export declare function validateEmail(value: unknown): string | null;
-export declare function validateVillage(value: unknown): string | null;
+export declare function validateVillage(value: unknown, label?: string): string | null;
 export declare function validateProfessionAutre(value: unknown): string | null;
 
 export declare function validateFieldDistinctness(fields: {
@@ -19,3 +19,8 @@ export declare function validateFieldDistinctness(fields: {
   village?: unknown;
   professionAutre?: unknown;
 }): string | null;
+
+export declare const MIN_MEMBER_AGE: number;
+export declare const MAX_MEMBER_AGE: number;
+export declare function validateBirthDate(value: unknown): string | null;
+export declare function formatBirthDate(value: unknown): string;
