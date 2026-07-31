@@ -24,9 +24,18 @@ import {
 import {
   queryObjects,
   updateObject,
-  deleteObject,
   type ParseFile,
 } from '../lib/parse';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
+import ReminderComposer from '../components/admin/ReminderComposer';
+import CardStateDialog from '../components/admin/CardStateDialog';
+import { CARD_STATE_ORDER, CARD_STATES } from '../../api/_lib/card-lifecycle.js';
+import { ToastStack } from '../components/ui/Toast';
+import { useToasts } from '../components/ui/useToasts';
+import {
+  archiveMemberRequest,
+  restoreMemberRequest,
+} from '../lib/memberRequestArchive';
 import jsPDF from 'jspdf';
 import MemberCard from '../components/admin/MemberCard';
 import MemberCardVerso from '../components/admin/MemberCardVerso';
@@ -36,6 +45,9 @@ import { MEMBER_PROFESSION_LABELS } from '../data/memberProfessions';
 const CLASS_NAME = 'MemberRequests';
 
 type Statut = 'En attente' | 'Validé' | 'Refusé';
+
+/** Statut posé par l’archivage réversible ; ces demandes sont masquées. */
+const ARCHIVED_STATUS = 'Supprimé';
 
 interface MemberRequest {
   objectId: string;
@@ -49,6 +61,12 @@ interface MemberRequest {
   photo?: ParseFile;
   status: Statut;
   createdAt: string;
+  /** Cycle de vie de la carte, distinct du statut de la demande. */
+  cardState?: string | null;
+  pickupLocation?: string;
+  pickupDate?: string;
+  pickupHours?: string;
+  lastReminderAt?: string | { __type: 'Date'; iso: string };
   smsConfirmationStatus?:
     | 'pending'
     | 'sent'
@@ -570,11 +588,25 @@ const AdminMemberRequestsPage: React.FC = () => {
   const [selected, setSelected] = useState<MemberRequest | null>(null);
   const [page, setPage] = useState(1);
   const perPage = 10;
+  // Demande en attente de confirmation de suppression.
+  const [cardFilter, setCardFilter] = useState<string>('Tous');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [cardStateOpen, setCardStateOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<MemberRequest | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const { toasts, pushToast, dismissToast } = useToasts();
 
   const fetchMembers = useCallback(async () => {
     setLoading(true);
     try {
-      const { results } = await queryObjects<MemberRequest>(CLASS_NAME, { order: '-createdAt', limit: 500 });
+      // Les demandes archivées restent en base mais sortent de la liste.
+      const { results } = await queryObjects<MemberRequest>(CLASS_NAME, {
+        where: { status: { $ne: ARCHIVED_STATUS } },
+        order: '-createdAt',
+        limit: 500,
+      });
       setMembers(results);
     } catch (err) {
       console.error('Failed to fetch member requests:', err);
@@ -591,18 +623,70 @@ const AdminMemberRequestsPage: React.FC = () => {
       const fullName = `${m.firstName} ${m.lastName}`.toLowerCase();
       const matchSearch = !q || fullName.includes(q) || m.phone.toLowerCase().includes(q) || (m.village ?? '').toLowerCase().includes(q) || displayProfession(m).toLowerCase().includes(q) || (m.professionAutre ?? '').toLowerCase().includes(q) || (m.email ?? '').toLowerCase().includes(q);
       const matchStatus = statusFilter === 'Tous' || m.status === statusFilter;
-      return matchSearch && matchStatus;
+      const matchCard =
+        cardFilter === 'Tous' ||
+        (cardFilter === 'Sans carte' ? !m.cardState : m.cardState === cardFilter);
+      return matchSearch && matchStatus && matchCard;
     });
-  }, [members, searchQuery, statusFilter]);
+  }, [members, searchQuery, statusFilter, cardFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+
+  /** Demandes cochées, résolues depuis la liste courante. */
+  const selectedMembers = useMemo(
+    () => members.filter((m) => selectedIds.has(m.objectId)),
+    [members, selectedIds],
+  );
+
+  const toggleOne = (objectId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(objectId)) next.delete(objectId);
+      else next.add(objectId);
+      return next;
+    });
+  };
+
+  /** Sélection assistée : cartes disponibles jamais notifiées. */
+  const selectAvailableNotNotified = () => {
+    setSelectedIds(
+      new Set(
+        members
+          .filter((m) => m.cardState === CARD_STATES.AVAILABLE && !m.lastReminderAt)
+          .map((m) => m.objectId),
+      ),
+    );
+  };
+
+  /** Sélection assistée : toutes les cartes disponibles d’un village. */
+  const selectVillage = (village: string) => {
+    setSelectedIds(
+      new Set(
+        members
+          .filter((m) => m.cardState === CARD_STATES.AVAILABLE && m.village === village)
+          .map((m) => m.objectId),
+      ),
+    );
+  };
+
+  /** Villages ayant au moins une carte disponible. */
+  const villagesWithAvailableCards = useMemo(
+    () =>
+      [...new Set(
+        members
+          .filter((m) => m.cardState === CARD_STATES.AVAILABLE && m.village)
+          .map((m) => m.village),
+      )].sort(),
+    [members],
+  );
 
   const stats = useMemo(() => ({
     total: members.length,
     enAttente: members.filter((m) => m.status === 'En attente').length,
     valide: members.filter((m) => m.status === 'Validé').length,
     refuse: members.filter((m) => m.status === 'Refusé').length,
+    cartesDisponibles: members.filter((m) => m.cardState === CARD_STATES.AVAILABLE).length,
   }), [members]);
 
   const handleStatusChange = async (id: string, status: Statut) => {
@@ -615,14 +699,64 @@ const AdminMemberRequestsPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette demande ?')) return;
+  /** Ouvre la confirmation ; la suppression n’a lieu qu’après validation. */
+  const handleDelete = (id: string) => {
+    const target = members.find((m) => m.objectId === id) ?? null;
+    if (!target) return;
+    setDeleteError('');
+    setPendingDelete(target);
+  };
+
+  /** Restaure une demande archivée et la remet dans la liste. */
+  const handleRestore = useCallback(
+    async (member: MemberRequest) => {
+      try {
+        await restoreMemberRequest(member.objectId);
+        setMembers((prev) =>
+          prev.some((m) => m.objectId === member.objectId)
+            ? prev
+            : [member, ...prev].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        );
+        pushToast({ variant: 'success', message: 'Demande restaurée.' });
+      } catch (error) {
+        pushToast({
+          variant: 'error',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'La demande n’a pas pu être restaurée.',
+          durationMs: 8000,
+        });
+      }
+    },
+    [pushToast],
+  );
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    const target = pendingDelete;
+    setDeleting(true);
+    setDeleteError('');
     try {
-      await deleteObject(CLASS_NAME, id);
-      setMembers((prev) => prev.filter((m) => m.objectId !== id));
-      if (selected?.objectId === id) setSelected(null);
-    } catch (err) {
-      console.error('Delete failed:', err);
+      await archiveMemberRequest(target.objectId);
+      setMembers((prev) => prev.filter((m) => m.objectId !== target.objectId));
+      if (selected?.objectId === target.objectId) setSelected(null);
+      setPendingDelete(null);
+      // Fenêtre d’annulation : l’enregistrement est archivé, pas effacé.
+      pushToast({
+        variant: 'success',
+        message: 'Demande supprimée.',
+        durationMs: 8000,
+        action: { label: 'Annuler', onClick: () => void handleRestore(target) },
+      });
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : 'La demande n’a pas pu être supprimée.',
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -633,6 +767,7 @@ const AdminMemberRequestsPage: React.FC = () => {
     { label: 'En attente', value: stats.enAttente, icon: Clock, light: 'bg-amber-50 text-amber-700' },
     { label: 'Validées', value: stats.valide, icon: CheckCircle, light: 'bg-emerald-50 text-emerald-700' },
     { label: 'Refusées', value: stats.refuse, icon: XCircle, light: 'bg-red-50 text-red-700' },
+    { label: 'Cartes disponibles', value: stats.cartesDisponibles, icon: CreditCard, light: 'bg-teal-50 text-teal-700' },
   ];
 
   return (
@@ -682,8 +817,47 @@ const AdminMemberRequestsPage: React.FC = () => {
               <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }} className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${statusFilter === s ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{s}</button>
             ))}
           </div>
+          {/* Filtre par état de carte, distinct du statut de la demande. */}
+          <div className="flex items-center gap-1.5 rounded-lg bg-gray-100 p-1">
+            {(['Tous', 'Sans carte', ...CARD_STATE_ORDER] as string[]).map((s) => (
+              <button key={s} onClick={() => { setCardFilter(s); setPage(1); }} className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${cardFilter === s ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{s}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sélection assistée */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="font-bold text-gray-500">Sélectionner :</span>
+          <button onClick={selectAvailableNotNotified} className="rounded-lg border border-gray-200 px-2.5 py-1.5 font-semibold text-gray-700 hover:bg-gray-50">
+            Cartes disponibles non notifiées
+          </button>
+          {villagesWithAvailableCards.map((village) => (
+            <button key={village} onClick={() => selectVillage(village)} className="rounded-lg border border-gray-200 px-2.5 py-1.5 font-semibold text-gray-700 hover:bg-gray-50">
+              {village}
+            </button>
+          ))}
+          {selectedIds.size > 0 && (
+            <button onClick={() => setSelectedIds(new Set())} className="rounded-lg px-2.5 py-1.5 font-semibold text-gray-400 hover:text-gray-600">
+              Tout décocher
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Barre d'action, visible dès qu'un membre est coché */}
+      {selectedIds.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3">
+          <p className="text-sm font-bold text-teal-900">
+            {selectedIds.size} membre{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
+          </p>
+          <button onClick={() => setCardStateOpen(true)} className="rounded-lg border border-teal-600 bg-white px-3 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-50">
+            Marquer les cartes comme disponibles
+          </button>
+          <button onClick={() => setComposerOpen(true)} className="ml-auto rounded-lg bg-teal-700 px-4 py-1.5 text-xs font-bold text-white hover:bg-teal-800">
+            Envoyer un rappel
+          </button>
+        </div>
+      )}
 
       {/* Loading */}
       {loading && (
@@ -700,6 +874,20 @@ const AdminMemberRequestsPage: React.FC = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label="Tout sélectionner"
+                      checked={paginated.length > 0 && paginated.every((m) => selectedIds.has(m.objectId))}
+                      onChange={(event) => {
+                        setSelectedIds((current) => {
+                          const next = new Set(current);
+                          paginated.forEach((m) => (event.target.checked ? next.add(m.objectId) : next.delete(m.objectId)));
+                          return next;
+                        });
+                      }}
+                    />
+                  </th>
                   <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500">Photo</th>
                   <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500">Nom complet</th>
                   <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 md:table-cell">Profession</th>
@@ -707,6 +895,7 @@ const AdminMemberRequestsPage: React.FC = () => {
                   <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 md:table-cell">Village</th>
                   <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 sm:table-cell">Date</th>
                   <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500">Statut</th>
+                  <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 lg:table-cell">Carte</th>
                   <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-gray-500">Actions</th>
                 </tr>
               </thead>
@@ -714,6 +903,14 @@ const AdminMemberRequestsPage: React.FC = () => {
                 <AnimatePresence>
                   {paginated.map((m) => (
                     <motion.tr key={m.objectId} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="group transition-colors hover:bg-teal-50/30">
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          aria-label={`Sélectionner ${m.firstName} ${m.lastName}`}
+                          checked={selectedIds.has(m.objectId)}
+                          onChange={() => toggleOne(m.objectId)}
+                        />
+                      </td>
                       <td className="px-5 py-4">
                         {m.photo?.url ? (
                           <img src={m.photo.url} alt={`${m.firstName} ${m.lastName}`} className="h-12 w-12 rounded-xl border border-gray-200 object-cover shadow-sm transition duration-300 hover:scale-105 hover:shadow-md" />
@@ -734,6 +931,26 @@ const AdminMemberRequestsPage: React.FC = () => {
                       <td className="hidden px-5 py-4 md:table-cell"><p className="max-w-[160px] truncate text-sm text-gray-600">{m.village || '—'}</p></td>
                       <td className="hidden px-5 py-4 sm:table-cell"><span className="text-sm text-gray-500">{fmt(m.createdAt)}</span></td>
                       <td className="px-5 py-4"><StatusBadge statut={m.status} /></td>
+                      <td className="hidden px-5 py-4 lg:table-cell">
+                        {m.cardState ? (
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            m.cardState === CARD_STATES.AVAILABLE
+                              ? 'bg-teal-50 text-teal-700'
+                              : m.cardState === CARD_STATES.HANDED_OVER
+                                ? 'bg-gray-100 text-gray-600'
+                                : 'bg-amber-50 text-amber-700'
+                          }`}>
+                            {m.cardState}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                        {m.lastReminderAt && (
+                          <p className="mt-1 text-[11px] text-gray-400">
+                            Dernier rappel : {fmt(typeof m.lastReminderAt === 'string' ? m.lastReminderAt : m.lastReminderAt.iso)}
+                          </p>
+                        )}
+                      </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button onClick={() => setSelected(m)} className="inline-flex items-center gap-1.5 rounded-lg bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700 transition hover:bg-teal-100">
@@ -784,6 +1001,72 @@ const AdminMemberRequestsPage: React.FC = () => {
       <AnimatePresence>
         {selected && <MemberDrawer member={selected} allMembers={members} onClose={() => setSelected(null)} onStatusChange={handleStatusChange} />}
       </AnimatePresence>
+
+      <CardStateDialog
+        open={cardStateOpen}
+        onOpenChange={setCardStateOpen}
+        objectIds={selectedMembers.map((m) => m.objectId)}
+        villages={[...new Set(selectedMembers.map((m) => m.village).filter(Boolean))]}
+        onDone={() => { setSelectedIds(new Set()); void fetchMembers(); }}
+      />
+
+      <ReminderComposer
+        open={composerOpen}
+        onOpenChange={setComposerOpen}
+        members={selectedMembers.map((m) => ({
+          objectId: m.objectId,
+          firstName: m.firstName,
+          lastName: m.lastName,
+          village: m.village,
+          professionLabel: displayProfession(m),
+          phone: m.phone,
+          email: m.email,
+          cardState: m.cardState ?? null,
+          pickupLocation: m.pickupLocation,
+          pickupDate: m.pickupDate,
+          pickupHours: m.pickupHours,
+          lastReminderAt:
+            typeof m.lastReminderAt === 'string' ? m.lastReminderAt : m.lastReminderAt?.iso,
+        }))}
+        onSent={() => { void fetchMembers(); }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDelete(null);
+            setDeleteError('');
+          }
+        }}
+        variant="danger"
+        title="Supprimer cette demande ?"
+        description="Vous êtes sur le point de supprimer une demande de carte membre."
+        record={
+          pendingDelete
+            ? {
+                name: `${pendingDelete.firstName} ${pendingDelete.lastName}`.trim(),
+                reference: pendingDelete.objectId,
+                date: fmt(pendingDelete.createdAt),
+                imageUrl: pendingDelete.photo?.url,
+              }
+            : undefined
+        }
+        warning={
+          <>
+            La demande sera <strong>retirée de la liste et archivée</strong>. Les
+            informations du demandeur et sa photo sont conservées le temps qu’une
+            restauration reste possible.
+          </>
+        }
+        requireTyping="SUPPRIMER"
+        confirmLabel="Supprimer définitivement"
+        loading={deleting}
+        error={deleteError}
+        onConfirm={() => void confirmDelete()}
+      />
+
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };
