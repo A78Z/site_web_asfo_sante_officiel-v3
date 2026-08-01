@@ -20,6 +20,8 @@ import {
   RefreshCw,
   FileText,
   Wallet,
+  BellRing,
+  Send,
 } from 'lucide-react';
 import {
   queryObjects,
@@ -37,6 +39,7 @@ import {
   archiveMemberRequest,
   restoreMemberRequest,
 } from '../lib/memberRequestArchive';
+import { notifyCardAvailable } from '../lib/adminReminders';
 import jsPDF from 'jspdf';
 import MemberCard from '../components/admin/MemberCard';
 import MemberCardVerso from '../components/admin/MemberCardVerso';
@@ -79,6 +82,12 @@ interface MemberRequest {
   smsConfirmationSentAt?: string | { __type: 'Date'; iso: string };
   smsConfirmationError?: string;
   smsConfirmationProviderId?: string;
+  /** Notification « carte disponible », distincte de l’accusé de réception. */
+  cardReadySmsStatus?: 'sent' | 'failed';
+  cardReadySmsSentAt?: string | { __type: 'Date'; iso: string };
+  cardReadySmsProviderId?: string;
+  cardReadySmsError?: string;
+  cardReadySmsCount?: number;
 }
 
 /* ─── StatusBadge ─── */
@@ -114,8 +123,10 @@ const smsStatusLabels: Record<
 > = {
   pending: 'En attente d’envoi',
   sent: 'Envoyé',
-  failed: 'Échec de l’envoi',
-  non_envoye_numero_invalide: 'Non envoyé — numéro invalide',
+  // Le dossier reste valable même si la notification n’est pas partie : le
+  // libellé le dit explicitement pour éviter qu’un dossier soit repris à zéro.
+  failed: 'SMS non envoyé — échec technique',
+  non_envoye_numero_invalide: 'SMS non envoyé — numéro invalide',
 };
 
 const formatSmsDate = (value?: MemberRequest['smsConfirmationSentAt']) => {
@@ -301,10 +312,16 @@ const MemberDrawer: React.FC<{
   allMembers: MemberRequest[];
   onClose: () => void;
   onStatusChange: (id: string, status: Statut) => void;
-}> = ({ member, allMembers, onClose, onStatusChange }) => {
+  onNotified: () => void;
+}> = ({ member, allMembers, onClose, onStatusChange, onNotified }) => {
   const [generating, setGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'card'>('info');
   const [cardFace, setCardFace] = useState<'recto' | 'verso'>('recto');
+  const [notifying, setNotifying] = useState(false);
+  const [notifyFeedback, setNotifyFeedback] = useState<{
+    tone: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   if (!member) return null;
 
@@ -334,6 +351,42 @@ const MemberDrawer: React.FC<{
   };
 
   const memberId = generateMemberId(member, allMembers);
+
+  // La notification n’est proposée que sur une carte réellement disponible :
+  // le serveur applique la même règle, l’interface ne fait que l’exposer.
+  const cardIsAvailable = member.cardState === CARD_STATES.AVAILABLE;
+  const alreadyNotified = member.cardReadySmsStatus === 'sent';
+  const notifyCount = Number(member.cardReadySmsCount ?? 0);
+  const cardReadyStatusLabel = alreadyNotified
+    ? notifyCount > 1
+      ? `Envoyé — ${notifyCount} envois`
+      : 'Envoyé'
+    : member.cardReadySmsStatus === 'failed'
+      ? 'SMS non envoyé — à relancer'
+      : 'Membre pas encore notifié';
+
+  const handleNotifyMember = async () => {
+    if (!cardIsAvailable || notifying) return;
+    setNotifying(true);
+    setNotifyFeedback(null);
+    try {
+      // Le renvoi n’est demandé que depuis le bouton « Renvoyer le SMS » :
+      // sans ce drapeau, le serveur refuse un second envoi.
+      const result = await notifyCardAvailable(member.objectId, alreadyNotified);
+      setNotifyFeedback({
+        tone: result.status === 'sent' ? 'success' : 'error',
+        text: result.message,
+      });
+      onNotified();
+    } catch (error) {
+      setNotifyFeedback({
+        tone: 'error',
+        text: error instanceof Error ? error.message : 'L’envoi a échoué.',
+      });
+    } finally {
+      setNotifying(false);
+    }
+  };
 
   const InfoRow = ({ label, value }: { label: string; value: string }) => (
     <div className="flex items-start justify-between gap-4 py-2.5">
@@ -492,6 +545,65 @@ const MemberDrawer: React.FC<{
                     )}
                 </div>
               </div>
+
+              {/* Notification de retrait : proposée seulement quand la carte
+                  est au statut « Disponible ». Prévenir un membre avant que
+                  sa carte existe le ferait se déplacer pour rien. */}
+              {cardIsAvailable && (
+                <div className="mt-6 rounded-xl border border-teal-200 bg-teal-50/60 p-4">
+                  <h4 className="mb-1 flex items-center gap-2 text-sm font-bold text-gray-800">
+                    <BellRing className="h-4 w-4 text-teal-600" /> Notifier le membre
+                  </h4>
+                  <p className="text-xs leading-5 text-gray-600">
+                    Envoie le message officiel « votre carte de membre est
+                    disponible » au {member.phone}.
+                  </p>
+                  <div className="mt-3 divide-y divide-teal-100">
+                    <InfoRow label="Statut" value={cardReadyStatusLabel} />
+                    {member.cardReadySmsSentAt && (
+                      <InfoRow
+                        label="Date d’envoi"
+                        value={formatSmsDate(member.cardReadySmsSentAt)}
+                      />
+                    )}
+                    {member.cardReadySmsProviderId && (
+                      <InfoRow
+                        label="Identifiant fournisseur"
+                        value={member.cardReadySmsProviderId}
+                      />
+                    )}
+                    {member.cardReadySmsStatus === 'failed' &&
+                      member.cardReadySmsError && (
+                        <InfoRow label="Erreur" value={member.cardReadySmsError} />
+                      )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleNotifyMember}
+                    disabled={notifying}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {notifying ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    {alreadyNotified ? 'Renvoyer le SMS' : 'Notifier le membre'}
+                  </button>
+                  {notifyFeedback && (
+                    <p
+                      role="status"
+                      className={`mt-2 text-xs leading-5 ${
+                        notifyFeedback.tone === 'success'
+                          ? 'text-teal-800'
+                          : 'text-red-700'
+                      }`}
+                    >
+                      {notifyFeedback.text}
+                    </p>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <div className="flex flex-col items-center gap-4">
@@ -635,6 +747,16 @@ const AdminMemberRequestsPage: React.FC = () => {
   }, []);
 
   useEffect(() => { fetchMembers(); }, [fetchMembers]);
+
+  // Le tiroir ouvert suit la liste rechargée : après une notification, il doit
+  // montrer le statut d’envoi réellement enregistré, pas celui d’avant l’appel.
+  useEffect(() => {
+    setSelected((current) =>
+      current
+        ? members.find((m) => m.objectId === current.objectId) ?? current
+        : current,
+    );
+  }, [members]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -1023,7 +1145,17 @@ const AdminMemberRequestsPage: React.FC = () => {
 
       {/* Drawer */}
       <AnimatePresence>
-        {selected && <MemberDrawer member={selected} allMembers={members} onClose={() => setSelected(null)} onStatusChange={handleStatusChange} />}
+        {selected && (
+          <MemberDrawer
+            member={selected}
+            allMembers={members}
+            onClose={() => setSelected(null)}
+            onStatusChange={handleStatusChange}
+            // Le statut d’envoi vient d’être écrit en base : on relit la liste
+            // pour que le tiroir affiche l’état réel, pas l’état supposé.
+            onNotified={() => { void fetchMembers(); }}
+          />
+        )}
       </AnimatePresence>
 
       <CardStateDialog

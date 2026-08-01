@@ -119,21 +119,38 @@ export const smsSegmentCount = (message) => {
 
 /**
  * Gabarits du parcours. Variables disponibles : {NOM}, {REF}, {MONTANT},
- * {DATE}, {LIEN}.
+ * {DATE}, {LIEN}, {PAYMENT_PHONE}.
  *
- * Le corps ne répète pas « ASFO SANTE » : l’expéditeur affiche déjà ce nom sur
- * le téléphone, et les 12 caractères économisés font tenir l’accusé de
- * réception en un seul segment.
+ * Sauf mention contraire, le corps ne répète pas « ASFO SANTE » : l’expéditeur
+ * affiche déjà ce nom sur le téléphone, et les caractères économisés évitent
+ * un segment facturé de plus.
  */
 export const SMS_TEMPLATES = {
   /**
-   * Envoyé automatiquement à la soumission de la demande.
-   * « SEULEMENT apres validation » est en capitales : c’est la protection du
-   * demandeur contre un paiement prématuré ou une sollicitation frauduleuse.
+   * Accusé de réception officiel, envoyé automatiquement une fois la demande
+   * réellement enregistrée dans Back4App — jamais avant.
+   *
+   * Le texte reprend mot pour mot le message validé par l’association. Trois
+   * éléments de la version d’origine ne sont pas repris, parce qu’ils sont
+   * propres à une messagerie enrichie et non au SMS :
+   *   - l’emoji « 📱 », les puces « • » et le filet « ━ », hors alphabet GSM-7 :
+   *     un seul de ces caractères bascule le message entier en UCS-2, où un
+   *     segment ne porte plus que 70 caractères (facture multipliée par deux) ;
+   *   - le gras Markdown « ** », qui s’afficherait tel quel sur le téléphone.
+   * La mention « uniquement apres validation » reste la protection du demandeur
+   * contre un paiement prématuré ou une sollicitation frauduleuse.
    */
   requestReceived:
-    'Demande de carte membre enregistree. Ref {REF}. {MONTANT} a payer ' +
-    'SEULEMENT apres validation (Wave/Orange Money {PAYMENT_PHONE}). Suivi par SMS.',
+    'ASFO : Votre demande de carte membre a bien ete enregistree.\n' +
+    'Reference : {REF}\n' +
+    'Pour finaliser votre demande, veuillez effectuer le paiement de {MONTANT}, ' +
+    'uniquement apres validation de votre dossier, via :\n' +
+    '- Wave\n' +
+    '- Orange Money\n' +
+    '{PAYMENT_PHONE}\n' +
+    'Votre carte sera traitee des confirmation du paiement.\n' +
+    'Vous serez informe(e) de l\'evolution de votre demande par SMS ou WhatsApp.\n' +
+    'Merci de votre confiance.',
 
   /** Prêt à l’emploi : à déclencher depuis le back-office à la validation. */
   requestApproved:
@@ -145,10 +162,30 @@ export const SMS_TEMPLATES = {
     'ASFO SANTE : votre code de verification est {CODE}. Valable {MINUTES} minutes. ' +
     'Ne le communiquez a personne.',
 
-  /** Prêt à l’emploi : à déclencher quand la carte numerique est disponible. */
-  cardReady:
-    'Votre carte membre ASFO est prete ! Ref : {REF}. Retrouvez-la ici : ' +
-    '{LIEN}. Bienvenue parmi nous.',
+  /**
+   * Message officiel annonçant qu’une carte est retirable. Envoyé uniquement
+   * depuis le back-office, et uniquement sur une carte à l’état « Disponible ».
+   *
+   * Le texte ne comporte ni lieu ni horaire : l’association a choisi de fixer
+   * les modalités de retrait au cas par cas, par contact direct. C’est aussi ce
+   * qui met fin aux messages tronqués du type « Retrait a , , a partir du . »,
+   * produits par un rappel libre dont les variables de retrait étaient vides.
+   *
+   * Comme pour l’accusé de réception, l’emoji, les puces et le gras de la
+   * version d’origine ne sont pas repris : ils feraient basculer le message en
+   * UCS-2 (70 caractères par segment au lieu de 160).
+   */
+  cardAvailable:
+    'Bonjour {PRENOM} {NOM},\n' +
+    'Nous avons le plaisir de vous informer que votre carte de membre ASFO ' +
+    'est desormais disponible.\n' +
+    'Merci de nous contacter afin de convenir des modalites de recuperation ' +
+    'de votre carte.\n' +
+    'Le jour du retrait, veuillez vous munir d\'une piece d\'identite en cours ' +
+    'de validite.\n' +
+    'Nous restons a votre disposition et serons heureux de vous remettre ' +
+    'personnellement votre carte.\n' +
+    'L\'equipe ASFO',
 };
 
 /**
@@ -197,4 +234,15 @@ export const memberCardApprovedSms = (name, reference) =>
     REF: reference,
     MONTANT: MEMBER_CARD_PRICE,
     PAYMENT_PHONE,
+  });
+
+/**
+ * SMS officiel « votre carte est disponible ».
+ * `renderSms` lève une erreur si le prénom ou le nom est vide : un message
+ * commençant par « Bonjour , » ne peut donc pas partir.
+ */
+export const memberCardAvailableSms = (firstName, lastName) =>
+  renderSms(SMS_TEMPLATES.cardAvailable, {
+    PRENOM: firstName,
+    NOM: lastName,
   });

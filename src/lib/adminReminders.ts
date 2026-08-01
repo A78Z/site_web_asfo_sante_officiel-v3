@@ -99,6 +99,26 @@ export const updateCardState = (
     { objectIds, state, pickup },
   );
 
+export interface CardNotifyResult {
+  objectId: string;
+  /** `failed` n’est pas une erreur d’appel : le dossier reste « SMS non envoyé ». */
+  status: 'sent' | 'failed';
+  resend: boolean;
+  sentAt: string | null;
+  providerId: string;
+  segments: number;
+  message: string;
+}
+
+/**
+ * Notifie un membre que sa carte est disponible, avec le message officiel.
+ * Le serveur refuse l’envoi si la carte n’est pas au statut « Disponible », si
+ * le numéro est invalide, ou si le membre a déjà été notifié — sauf renvoi
+ * explicite (`force`).
+ */
+export const notifyCardAvailable = (objectId: string, force = false) =>
+  post<CardNotifyResult>('/api/admin/cards/notify', { objectId, force });
+
 /** Envoie un lot de rappels. `mode: 'test'` expédie au numéro de l’administrateur. */
 export const sendReminderBatch = (params: {
   template: string;

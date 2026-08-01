@@ -319,8 +319,19 @@ const sendAxiomTextSms = async (environment, to, reference) => {
     };
   }
 
-  // Gabarit centralisé : texte GSM-7, montant inclus, un seul segment facturé.
-  const message = memberCardReceivedSms(reference);
+  // Gabarit centralisé : texte officiel normalisé en GSM-7, référence réelle du
+  // dossier, montant et numéro de paiement interpolés. Le rendu est protégé :
+  // la demande vient d’être enregistrée, un gabarit incomplet ne doit jamais
+  // faire échouer la réponse — il se journalise comme un envoi en échec.
+  let message;
+  try {
+    message = memberCardReceivedSms(reference);
+  } catch {
+    return {
+      status: 'failed',
+      error: 'Le message de confirmation n’a pas pu être composé.',
+    };
+  }
 
   try {
     const response = await fetchWithTimeout(AXIOMTEXT_ENDPOINT, {
