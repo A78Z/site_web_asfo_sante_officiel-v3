@@ -2,6 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mise en valeur discrète du CTA « Ma carte membre » dans le header. */
+@keyframes memberCardShine {
+  0%,
+  72% {
+    transform: translateX(-180%) skewX(-18deg);
+  }
+
+  84%,
+  100% {
+    transform: translateX(520%) skewX(-18deg);
+  }
+}
+
+@keyframes memberCardHalo {
+  0%,
+  14%,
+  100% {
+    box-shadow: 0 2px 8px rgba(23, 128, 102, 0.3), 0 0 0 rgba(45, 212, 191, 0);
+  }
+
+  7% {
+    box-shadow: 0 5px 15px rgba(23, 128, 102, 0.34), 0 0 18px rgba(45, 212, 191, 0.24);
+  }
+}
+
+.member-card-cta {
+  isolation: isolate;
+  box-shadow: 0 2px 8px rgba(23, 128, 102, 0.3);
+  animation: memberCardHalo 5.4s ease-in-out infinite;
+}
+
+.member-card-cta::after {
+  position: absolute;
+  inset: -45% auto -45% -35%;
+  z-index: 1;
+  width: 28%;
+  content: '';
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  transform: translateX(-180%) skewX(-18deg);
+  animation: memberCardShine 5.4s ease-in-out infinite;
+}
+
+.member-card-cta__icon {
+  transition: transform 260ms ease;
+}
+
+.member-card-cta:hover .member-card-cta__icon,
+.member-card-cta:focus-visible .member-card-cta__icon {
+  transform: translateY(-1px) rotate(-4deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .member-card-cta,
+  .member-card-cta::after {
+    animation: none;
+  }
+
+  .member-card-cta::after {
+    display: none;
+  }
+}
+
 @keyframes softPulse {
 
   0%,

@@ -127,10 +127,10 @@ const AnnouncementBar: React.FC = () => {
         {/* Libellé + séparateur + message (tronqué) */}
         <p className="min-w-0 flex-1 truncate text-[13px] text-[#132a2e]">
           <span className="font-bold uppercase tracking-wide text-teal-800">{item.label}</span>
-          <span className="mx-2 text-teal-800/30" aria-hidden="true">
+          <span className="mx-2 hidden text-teal-800/30 lg:inline" aria-hidden="true">
             |
           </span>
-          <span className="text-[#3d5a55]">{item.message}</span>
+          <span className="hidden text-[#3d5a55] lg:inline">{item.message}</span>
         </p>
 
         {/* Puces de rotation */}

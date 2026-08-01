@@ -49,7 +49,7 @@ const Header: React.FC = () => {
           : 'bg-white border-b border-gray-200'
       }`}
     >
-      <div className="mx-auto flex h-20 max-w-[1480px] items-center justify-between gap-4 px-4 sm:px-8 [@media(min-width:1240px)_and_(max-width:1399px)]:gap-6 [@media(min-width:1240px)_and_(max-width:1399px)]:px-5 [@media(min-width:1400px)]:gap-8">
+      <div className="mx-auto flex h-20 w-full max-w-[1480px] min-w-0 items-center justify-between gap-4 px-4 sm:px-8 [@media(min-width:1600px)]:grid [@media(min-width:1600px)]:grid-cols-[max-content_minmax(0,1fr)_max-content] [@media(min-width:1600px)]:gap-12">
         {/* ─── Zone 1 : logo + nom ─── */}
         <Link to="/" className="flex shrink-0 items-center gap-3 transition-transform duration-200 hover:scale-[1.02]">
           <img src="/logo.png" alt="ASFO Logo" className="h-12 w-12 rounded-full object-contain" />
@@ -57,15 +57,15 @@ const Header: React.FC = () => {
             <span style={poppins} className="text-lg font-extrabold tracking-tight text-[#123f38]">
               ASFO
             </span>
-            <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500 [@media(min-width:1240px)_and_(max-width:1499px)]:hidden">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
               Action Sanitaire pour le Fouta
             </span>
           </span>
         </Link>
 
         {/* ─── Zone 2 : navigation desktop ─── */}
-        <NavigationMenu className="hidden min-w-0 max-w-none flex-1 justify-center [@media(min-width:1240px)]:flex">
-          <NavigationMenuList className="flex-nowrap gap-1 whitespace-nowrap [@media(min-width:1240px)_and_(max-width:1399px)]:gap-0.5">
+        <NavigationMenu className="hidden w-full min-w-0 max-w-none justify-center [@media(min-width:1600px)]:flex [&>div:first-child]:w-full [&>div:first-child]:min-w-0">
+          <NavigationMenuList className="w-full min-w-0 flex-nowrap justify-center gap-1 space-x-0 whitespace-nowrap">
             <NavigationMenuItem>
               <PlainNavLink to="/" active={isActive('/')}>
                 Accueil
@@ -76,7 +76,7 @@ const Header: React.FC = () => {
               <NavigationMenuItem key={menu.label}>
                 <NavigationMenuTrigger
                   style={poppins}
-                  className={`h-auto whitespace-nowrap bg-transparent px-2.5 py-2 text-[14px] font-bold uppercase tracking-wide transition-colors duration-200 hover:bg-[#e8f3ef] focus:bg-[#e8f3ef] data-[state=open]:bg-[#e8f3ef] data-[state=open]:text-teal-700 [@media(min-width:1240px)_and_(max-width:1399px)]:px-2 ${
+                  className={`h-auto whitespace-nowrap bg-transparent px-2.5 py-2 text-[14px] font-bold uppercase tracking-wide transition-colors duration-200 hover:bg-[#e8f3ef] focus:bg-[#e8f3ef] data-[state=open]:bg-[#e8f3ef] data-[state=open]:text-teal-700 ${
                     isMenuActive(menu) ? 'text-teal-600' : 'text-gray-600 hover:text-teal-700'
                   }`}
                 >
@@ -97,17 +97,17 @@ const Header: React.FC = () => {
         </NavigationMenu>
 
         {/* ─── Zone 3 : actions desktop ─── */}
-        <div className="hidden shrink-0 items-center gap-3 whitespace-nowrap uppercase tracking-wider [@media(min-width:1240px)]:flex">
+        <div className="hidden shrink-0 items-center gap-4 whitespace-nowrap uppercase tracking-wider [@media(min-width:1600px)]:flex">
           <Button
             asChild
             variant="outline"
-            className="h-9 rounded-lg border-teal-500/60 px-3 text-[13px] font-medium text-teal-600 transition-all duration-200 hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 [@media(min-width:1400px)]:px-4"
+            className="h-9 shrink-0 rounded-lg border-teal-500/60 px-4 text-[13px] font-medium text-teal-600 shadow-none transition-all duration-200 hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700"
           >
             <Link to="/candidature">Candidature</Link>
           </Button>
           <Button
             asChild
-            className="h-9 rounded-lg bg-[#e5533d] px-3 text-[13px] font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#d04832] [@media(min-width:1400px)]:px-4"
+            className="h-9 shrink-0 rounded-lg bg-[#e5533d] px-4 text-[13px] font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#d04832]"
           >
             <Link to="/donate">
               <Heart className="mr-1 h-3.5 w-3.5" />
@@ -116,24 +116,26 @@ const Header: React.FC = () => {
           </Button>
           <Button
             asChild
-            className="h-9 rounded-lg px-3 text-[13px] font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 [@media(min-width:1400px)]:px-4"
-            style={{ background: 'linear-gradient(135deg, #2fb391, #178066)', boxShadow: '0 2px 8px rgba(23,128,102,0.3)' }}
+            className="member-card-cta relative h-9 shrink-0 overflow-hidden rounded-lg px-4 text-[13px] font-medium text-white transition-all duration-200 hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#5eead4] focus-visible:ring-offset-2"
+            style={{ background: 'linear-gradient(135deg, #2fb391, #178066)' }}
           >
-            <Link to="/member-card">
-              <CreditCard className="mr-1 h-3.5 w-3.5" />
-              Ma Carte
+            <Link to="/member-card" aria-label="Demander ma carte membre ASFO">
+              <CreditCard className="member-card-cta__icon relative z-10 mr-1 h-3.5 w-3.5" />
+              <span className="relative z-10">Ma carte</span>
             </Link>
           </Button>
         </div>
 
         {/* ─── Mobile Hamburger ─── */}
-        <div className="[@media(min-width:1240px)]:hidden">
+        <div className="shrink-0 [@media(min-width:1600px)]:hidden">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 aria-label="Menu"
+                aria-expanded={mobileOpen}
+                aria-controls="mobile-navigation-panel"
                 className="h-11 w-11 text-gray-700 hover:bg-gray-100 hover:text-teal-600"
               >
                 <Menu className="h-5 w-5" />
@@ -141,6 +143,7 @@ const Header: React.FC = () => {
             </SheetTrigger>
 
             <SheetContent
+              id="mobile-navigation-panel"
               side="right"
               className="flex w-[320px] flex-col border-l border-gray-100 bg-white p-0 sm:w-[380px]"
             >
@@ -217,12 +220,16 @@ const Header: React.FC = () => {
                   </Button>
                   <Button
                     asChild
-                    className="h-11 w-full justify-center rounded-lg text-[13px] font-medium text-white"
+                    className="member-card-cta relative h-11 w-full justify-center overflow-hidden rounded-lg text-[13px] font-medium text-white focus-visible:ring-2 focus-visible:ring-[#5eead4] focus-visible:ring-offset-2"
                     style={{ background: 'linear-gradient(135deg, #2fb391, #178066)' }}
                   >
-                    <Link to="/member-card" onClick={() => setMobileOpen(false)}>
-                      <CreditCard className="mr-1.5 h-4 w-4" />
-                      Ma Carte Membre
+                    <Link
+                      to="/member-card"
+                      onClick={() => setMobileOpen(false)}
+                      aria-label="Demander ma carte membre ASFO"
+                    >
+                      <CreditCard className="member-card-cta__icon relative z-10 mr-1.5 h-4 w-4" />
+                      <span className="relative z-10">Ma carte</span>
                     </Link>
                   </Button>
                 </div>
@@ -304,7 +311,7 @@ function PlainNavLink({ to, active, children }: { to: string; active: boolean; c
       <Link
         to={to}
         style={poppins}
-        className={`group relative inline-flex whitespace-nowrap items-center rounded-md px-2.5 py-2 text-[14px] font-bold uppercase tracking-wide no-underline transition-colors duration-200 hover:bg-[#e8f3ef] [@media(min-width:1240px)_and_(max-width:1399px)]:px-2 ${
+        className={`group relative inline-flex whitespace-nowrap items-center rounded-md px-2.5 py-2 text-[14px] font-bold uppercase tracking-wide no-underline transition-colors duration-200 hover:bg-[#e8f3ef] ${
           active ? 'text-teal-600' : 'text-gray-600 hover:text-teal-700'
         }`}
       >
