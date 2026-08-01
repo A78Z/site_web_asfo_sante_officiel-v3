@@ -54,10 +54,20 @@ import {
   validateEmail as validateEmailValue,
   validatePersonName,
   validateVillage,
-  validateBirthDate,
   formatBirthDate,
   validateProfessionAutre,
 } from '../../api/_lib/member-request-validation.js';
+import {
+  BIRTH_DATE_PLACEHOLDER,
+  caretPositionAfterDigits,
+  frenchDateToIso,
+  isoToFrenchDate,
+  maskBirthDateInput,
+  maxBirthDateIso,
+  minBirthDateIso,
+  normalizeBirthDateForDisplay,
+  validateBirthDateInput,
+} from '../lib/birthDateField';
 import {
   sendVerificationCode,
   verifyPhoneCode,
@@ -235,6 +245,18 @@ const STEP_FIELDS: Record<number, Array<keyof FormInputs>> = {
 
 const inputClass = (hasError?: boolean) =>
   `w-full rounded-xl border bg-white px-4 py-3.5 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 ${
+    hasError
+      ? 'border-red-300 ring-4 ring-red-50 focus:border-red-500'
+      : 'border-slate-200 focus:border-teal-600 focus:ring-4 focus:ring-teal-50'
+  }`;
+
+/**
+ * Le champ de date se saisit au clavier : 16 px évitent le zoom automatique de
+ * Safari iOS à la mise au point, et 48 px garantissent une cible tactile
+ * confortable. Le bouton calendrier occupe la droite du champ.
+ */
+const birthDateInputClass = (hasError?: boolean) =>
+  `w-full min-h-[48px] rounded-xl border bg-white py-3 pl-11 pr-14 text-base text-slate-900 outline-none transition placeholder:text-slate-400 ${
     hasError
       ? 'border-red-300 ring-4 ring-red-50 focus:border-red-500'
       : 'border-slate-200 focus:border-teal-600 focus:ring-4 focus:ring-teal-50'
@@ -609,6 +631,8 @@ const MemberCardPage: React.FC = () => {
       profession: isOtherProfession(initialDraft?.values.profession ?? '')
         ? 'Autre'
         : initialDraft?.values.profession ?? '',
+      // Les brouillons antérieurs à la saisie manuelle stockent la date en ISO.
+      birthDate: normalizeBirthDateForDisplay(initialDraft?.values.birthDate),
       acceptTerms: false,
     },
   });
@@ -626,6 +650,84 @@ const MemberCardPage: React.FC = () => {
   const readablePhone = phoneDigits
     ? `${SENEGAL_DIALLING_CODE} ${formatSenegalLocal(phoneDigits)}`
     : '';
+
+  // Date de naissance : le champ visible est un texte masqué en JJ/MM/AAAA, le
+  // sélectionneur natif reste accessible par le bouton calendrier.
+  const birthDatePickerRef = useRef<HTMLInputElement | null>(null);
+  const birthDateBounds = useMemo(
+    () => ({ min: minBirthDateIso(), max: maxBirthDateIso() }),
+    [],
+  );
+  const birthDateField = register('birthDate', {
+    required: 'La date de naissance est requise.',
+    validate: (value: string) => validateBirthDateInput(value) ?? true,
+  });
+  const birthDateIso = frenchDateToIso(values.birthDate);
+
+  const handleBirthDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const field = event.currentTarget;
+    const typed = field.value;
+    const caret = field.selectionStart ?? typed.length;
+    const masked = maskBirthDateInput(typed);
+
+    // Corriger un chiffre au milieu du champ ne doit pas renvoyer le curseur
+    // à la fin : on le replace après le même nombre de chiffres.
+    if (caret < typed.length) {
+      const digitsBeforeCaret = typed.slice(0, caret).replace(/\D/g, '').length;
+      const nextCaret = caretPositionAfterDigits(masked, digitsBeforeCaret);
+      window.requestAnimationFrame(() => {
+        if (field.value === masked) field.setSelectionRange(nextCaret, nextCaret);
+      });
+    }
+
+    setValue('birthDate', masked, {
+      shouldDirty: true,
+      // On n’alerte qu’une fois la date complète — ou pour effacer un message
+      // déjà affiché — plutôt qu’au premier chiffre tapé.
+      shouldValidate: masked.length === 10 || Boolean(errors.birthDate),
+    });
+  };
+
+  const handleBirthDateBlur = (event: React.FocusEvent<HTMLInputElement>) => {
+    void birthDateField.onBlur(event);
+    if (event.target.value) void trigger('birthDate');
+  };
+
+  /** Sur mobile, remonte le champ au centre pour qu’il échappe au clavier. */
+  const handleBirthDateFocus = (event: React.FocusEvent<HTMLInputElement>) => {
+    if (typeof window === 'undefined' || window.innerWidth >= 640) return;
+    const field = event.target;
+    window.setTimeout(() => {
+      field.scrollIntoView({
+        block: 'center',
+        behavior: reduceMotion ? 'auto' : 'smooth',
+      });
+    }, 300);
+  };
+
+  const handleBirthDatePicked = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = event.target.value;
+    setValue('birthDate', picked ? isoToFrenchDate(picked) : '', {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
+  const openBirthDatePicker = () => {
+    const picker = birthDatePickerRef.current;
+    if (!picker) return;
+    if (typeof picker.showPicker === 'function') {
+      try {
+        picker.showPicker();
+        return;
+      } catch {
+        // Certains navigateurs refusent l’appel hors geste direct : on retombe
+        // sur l’ouverture par activation du champ natif.
+      }
+    }
+    picker.focus();
+    picker.click();
+  };
 
   useEffect(() => {
     document.title = 'Commander ma carte membre | ASFO - Action Sanitaire pour le Fouta';
@@ -926,7 +1028,9 @@ const MemberCardPage: React.FC = () => {
           ? { professionAutre: otherProfession }
           : {}),
         lieuNaissance: data.address.trim(),
-        dateNaissance: data.birthDate,
+        // Affichée en JJ/MM/AAAA, la date part en ISO AAAA-MM-JJ : le format
+        // déjà stocké côté Back4App reste inchangé.
+        dateNaissance: frenchDateToIso(data.birthDate),
         photo: parsedPhoto,
         consentAccepted: true as const,
         website: honeypot,
@@ -1336,21 +1440,51 @@ const MemberCardPage: React.FC = () => {
                   Date de naissance <span className="text-red-600">*</span>
                 </label>
                 <div className="relative">
-                  <CalendarDays size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <CalendarDays size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                   <input
                     id="birthDate"
-                    type="date"
+                    type="text"
+                    inputMode="numeric"
                     autoComplete="bday"
-                    max={new Date().toISOString().slice(0, 10)}
-                    className={`${inputClass(Boolean(errors.birthDate))} pl-11`}
+                    placeholder={BIRTH_DATE_PLACEHOLDER}
+                    maxLength={10}
+                    className={birthDateInputClass(Boolean(errors.birthDate))}
                     aria-invalid={Boolean(errors.birthDate)}
-                    aria-describedby={errors.birthDate ? 'birthDate-error' : undefined}
-                    {...register('birthDate', {
-                      required: 'La date de naissance est requise.',
-                      validate: (value) => validateBirthDate(value) ?? true,
-                    })}
+                    aria-describedby={
+                      errors.birthDate ? 'birthDate-hint birthDate-error' : 'birthDate-hint'
+                    }
+                    name={birthDateField.name}
+                    ref={birthDateField.ref}
+                    value={values.birthDate ?? ''}
+                    onChange={handleBirthDateChange}
+                    onBlur={handleBirthDateBlur}
+                    onFocus={handleBirthDateFocus}
+                  />
+                  <button
+                    type="button"
+                    onClick={openBirthDatePicker}
+                    aria-label="Ouvrir le calendrier pour choisir la date de naissance"
+                    className="absolute right-1.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100"
+                  >
+                    <CalendarDays size={18} aria-hidden="true" />
+                  </button>
+                  {/* Sélecteur natif réduit à un point d’ancrage invisible : un
+                      seul champ reste visible à l’écran. */}
+                  <input
+                    ref={birthDatePickerRef}
+                    type="date"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    min={birthDateBounds.min}
+                    max={birthDateBounds.max}
+                    value={birthDateIso}
+                    onChange={handleBirthDatePicked}
+                    className="pointer-events-none absolute bottom-1 right-6 h-px w-px border-0 p-0 opacity-0"
                   />
                 </div>
+                <p id="birthDate-hint" className="mt-1.5 text-xs text-slate-500">
+                  Format JJ/MM/AAAA — tapez la date ou ouvrez le calendrier.
+                </p>
                 <FieldError id="birthDate-error" message={errors.birthDate?.message} />
               </div>
 
@@ -1506,7 +1640,7 @@ const MemberCardPage: React.FC = () => {
             ['Email', values.email],
             ['Téléphone', readablePhone],
             ['Profession', selectedProfession],
-            ['Date de naissance', values.birthDate ? formatBirthDate(values.birthDate) : ''],
+            ['Date de naissance', birthDateIso ? formatBirthDate(birthDateIso) : values.birthDate],
             ['Lieu de naissance', values.address],
             [
               'Photo',
