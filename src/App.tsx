@@ -54,6 +54,9 @@ const VerifyMemberPage = lazy(() => import('./pages/VerifyMemberPage'));
 const CandidaturePage = lazy(() => import('./pages/CandidaturePage'));
 const GuideCandidaturePage = lazy(() => import('./pages/GuideCandidaturePage'));
 const FirstAidGuidePage = lazy(() => import('./pages/FirstAidGuidePage'));
+const RecrutementMedicalPage = lazy(() => import('./pages/RecrutementMedicalPage'));
+const RecrutementCandidaturePage = lazy(() => import('./pages/RecrutementCandidaturePage'));
+const AdminRecruitmentPage = lazy(() => import('./pages/AdminRecruitmentPage'));
 const AdminCandidaturesPage = lazy(() => import('./pages/AdminCandidaturesPage'));
 const AdminMemberRequestsPage = lazy(() => import('./pages/AdminMemberRequestsPage'));
 const AdminVolunteersPage = lazy(() => import('./pages/AdminVolunteersPage'));
@@ -112,6 +115,11 @@ function App() {
           <Route path="/member-card" element={<MemberCardPage />} />
           <Route path="/verify/:id" element={<VerifyMemberPage />} />
           <Route path="/candidature" element={<CandidaturePage />} />
+          <Route path="/recrutement-medical" element={<RecrutementMedicalPage />} />
+          <Route
+            path="/recrutement-medical/:specialite"
+            element={<RecrutementCandidaturePage />}
+          />
           <Route path="/guide-candidature" element={<GuideCandidaturePage />} />
           <Route path="/presidents" element={<PresidentsPage />} />
           <Route path="/impact" element={<ImpactPagePremium />} />
@@ -139,6 +147,7 @@ function App() {
           <Route path="/admin" element={<AdminDashboardPage />} />
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="/admin/candidatures" element={<AdminCandidaturesPage />} />
+          <Route path="/admin/recrutement" element={<AdminRecruitmentPage />} />
           <Route path="/admin/cartes-membres" element={<AdminMemberRequestsPage />} />
           <Route path="/admin/members" element={<AdminMemberRequestsPage />} />
           <Route path="/admin/benevoles" element={<AdminVolunteersPage />} />

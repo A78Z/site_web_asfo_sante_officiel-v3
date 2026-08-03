@@ -157,6 +157,29 @@ export const SMS_TEMPLATES = {
     'Bonne nouvelle {NOM}, demande {REF} validee. Reglez {MONTANT} via ' +
     'Wave/Orange Money au {PAYMENT_PHONE} pour editer votre carte.',
 
+  /**
+   * Accusé de réception d’une candidature au recrutement médical.
+   * Envoyé uniquement après enregistrement effectif du dossier.
+   */
+  recruitmentReceived:
+    'Bonjour {PRENOM},\n' +
+    'Votre candidature en tant que {SPECIALITE} pour la 27e Grande Caravane ' +
+    'Medicale ASFO 2026 a bien ete enregistree.\n' +
+    'Reference : {REFERENCE}\n' +
+    'Notre commission examinera votre dossier.\n' +
+    'Vous serez informe(e) de la suite par SMS ou WhatsApp.\n' +
+    'Merci pour votre engagement.\n' +
+    'ASFO',
+
+  /** Décision de la commission, déclenchée depuis le back-office. */
+  recruitmentDecision:
+    'Bonjour {PRENOM},\n' +
+    'Votre candidature {REFERENCE} ({SPECIALITE}) pour la Grande Caravane ' +
+    'Medicale ASFO 2026 a ete examinee par notre commission.\n' +
+    'Decision : {DECISION}.\n' +
+    'Nous reviendrons vers vous par SMS ou WhatsApp pour la suite.\n' +
+    'ASFO',
+
   /** Code de vérification du numéro, envoyé avant la soumission. */
   verificationCode:
     'ASFO SANTE : votre code de verification est {CODE}. Valable {MINUTES} minutes. ' +
@@ -234,6 +257,28 @@ export const memberCardApprovedSms = (name, reference) =>
     REF: reference,
     MONTANT: MEMBER_CARD_PRICE,
     PAYMENT_PHONE,
+  });
+
+/**
+ * Accusé de réception d’une candidature au recrutement médical.
+ * La spécialité passe en minuscules : elle est insérée au milieu d’une phrase
+ * (« en tant que chirurgien-dentiste »), où la capitale du catalogue serait
+ * une faute de typographie française.
+ */
+export const recruitmentReceivedSms = (firstName, specialty, reference) =>
+  renderSms(SMS_TEMPLATES.recruitmentReceived, {
+    PRENOM: firstName,
+    SPECIALITE: String(specialty ?? '').toLocaleLowerCase('fr'),
+    REFERENCE: reference,
+  });
+
+/** SMS de décision de la commission de recrutement. */
+export const recruitmentDecisionSms = (firstName, specialty, reference, decision) =>
+  renderSms(SMS_TEMPLATES.recruitmentDecision, {
+    PRENOM: firstName,
+    SPECIALITE: specialty,
+    REFERENCE: reference,
+    DECISION: decision,
   });
 
 /**

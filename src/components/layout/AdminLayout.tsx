@@ -17,6 +17,7 @@ import {
   HeartHandshake,
   Mail,
   Newspaper,
+  Stethoscope,
 } from 'lucide-react';
 
 const navSections = [
@@ -25,6 +26,7 @@ const navSections = [
     items: [
       { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
       { name: 'Candidatures', path: '/admin/candidatures', icon: FileText },
+      { name: 'Recrutement médical', path: '/admin/recrutement', icon: Stethoscope },
       { name: 'Cartes membres', path: '/admin/cartes-membres', icon: CreditCard },
       { name: 'Demandes bénévoles', path: '/admin/benevoles', icon: HeartHandshake },
       { name: 'Messages reçus', path: '/admin/messages', icon: Mail },
