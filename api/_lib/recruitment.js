@@ -142,6 +142,19 @@ const SPECIALTY_BY_SLUG = new Map(SPECIALTIES.map((item) => [item.slug, item]));
 
 export const specialtyBySlug = (slug) => SPECIALTY_BY_SLUG.get(String(slug ?? '')) ?? null;
 
+/**
+ * Notifications par e-mail : interrupteur unique du module.
+ *
+ * `false` tant que le service d’envoi n’est pas configuré en production
+ * (`RESEND_API_KEY` et `EMAIL_FROM` côté Vercel). Seul le SMS est annoncé au
+ * candidat et proposé au back-office — mieux vaut ne rien promettre que
+ * promettre un e-mail qui ne partira pas.
+ *
+ * Le code d’envoi reste en place : basculer cette constante à `true` réactive
+ * l’ensemble, sans autre modification.
+ */
+export const EMAIL_NOTIFICATIONS_ENABLED = false;
+
 /** Statuts d’instruction d’une candidature. */
 export const RECRUITMENT_STATUSES = [
   'En attente',

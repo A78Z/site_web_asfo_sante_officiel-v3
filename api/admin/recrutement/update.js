@@ -25,6 +25,7 @@ import { recruitmentDecisionSms } from '../../_lib/sms-templates.js';
 import { sendEmail } from '../../_lib/email-sender.js';
 import { recruitmentDecisionEmail } from '../../_lib/email-templates.js';
 import {
+  EMAIL_NOTIFICATIONS_ENABLED,
   RECRUITMENT_CLASS,
   isRecruitmentStatus,
   specialtyBySlug,
@@ -180,6 +181,19 @@ export default async function handler(request, response) {
   /* ─── Notification du candidat ─── */
   if (action === 'notify') {
     const channel = payload.channel === 'email' ? 'email' : 'sms';
+
+    // Le bouton est désactivé dans le back-office, mais la route reste
+    // atteignable : le refus est posé ici aussi.
+    if (channel === 'email' && !EMAIL_NOTIFICATIONS_ENABLED) {
+      sendError(
+        response,
+        409,
+        'La notification par e-mail n’est pas encore activée. Utilisez le SMS.',
+        'email_disabled',
+      );
+      return;
+    }
+
     const status = application.status ?? '';
     if (!isRecruitmentStatus(status)) {
       sendError(

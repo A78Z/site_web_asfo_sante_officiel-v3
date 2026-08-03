@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import {
   AVAILABILITY_OPTIONS,
+  EMAIL_NOTIFICATIONS_ENABLED,
   FILE_RULES,
   GENDERS,
   MAX_RECRUITMENT_AGE,
@@ -187,19 +188,27 @@ const SuccessCard: React.FC<{ receipt: ApplicationReceipt; specialty: string }> 
         </p>
       </div>
 
-      <dl className="mt-5 grid gap-3 text-left sm:grid-cols-2">
+      <dl
+        className={`mt-5 grid gap-3 text-left ${
+          EMAIL_NOTIFICATIONS_ENABLED ? 'sm:grid-cols-2' : ''
+        }`}
+      >
         <div className="rounded-xl border border-slate-200 p-4">
           <dt className="text-xs font-semibold text-slate-500">Confirmation SMS</dt>
           <dd className="mt-1 text-sm font-bold text-slate-900">
             {receipt.smsStatus === 'sent' ? 'Envoyée' : 'Non envoyée — sans effet sur votre dossier'}
           </dd>
         </div>
-        <div className="rounded-xl border border-slate-200 p-4">
-          <dt className="text-xs font-semibold text-slate-500">Confirmation e-mail</dt>
-          <dd className="mt-1 text-sm font-bold text-slate-900">
-            {receipt.emailStatus === 'sent' ? 'Envoyée' : 'Non envoyée — sans effet sur votre dossier'}
-          </dd>
-        </div>
+        {EMAIL_NOTIFICATIONS_ENABLED && (
+          <div className="rounded-xl border border-slate-200 p-4">
+            <dt className="text-xs font-semibold text-slate-500">Confirmation e-mail</dt>
+            <dd className="mt-1 text-sm font-bold text-slate-900">
+              {receipt.emailStatus === 'sent'
+                ? 'Envoyée'
+                : 'Non envoyée — sans effet sur votre dossier'}
+            </dd>
+          </div>
+        )}
       </dl>
 
       <div className="mt-7 flex flex-wrap justify-center gap-3">
@@ -1155,8 +1164,10 @@ const RecrutementCandidaturePage: React.FC = () => {
           </motion.button>
 
           <p className="text-center text-xs leading-5 text-slate-500">
-            Vous recevrez un SMS et un e-mail de confirmation avec votre référence de
-            dossier. Aucun paiement n’est demandé à aucune étape du recrutement.
+            {EMAIL_NOTIFICATIONS_ENABLED
+              ? 'Vous recevrez un SMS et un e-mail de confirmation avec votre référence de dossier.'
+              : 'Vous recevrez un SMS de confirmation avec votre référence de dossier.'}{' '}
+            Aucun paiement n’est demandé à aucune étape du recrutement.
           </p>
         </Section>
       </form>

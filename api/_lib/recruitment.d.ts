@@ -36,6 +36,7 @@ export declare const RECRUITMENT_YEAR: string;
 export declare const RECRUITMENT_CLASS: string;
 export declare const SPECIALTY_CLASS: string;
 export declare const SPECIALTIES: RecruitmentSpecialty[];
+export declare const EMAIL_NOTIFICATIONS_ENABLED: boolean;
 export declare const RECRUITMENT_STATUSES: string[];
 export declare const DEFAULT_RECRUITMENT_STATUS: string;
 export declare const SELECTED_STATUSES: string[];

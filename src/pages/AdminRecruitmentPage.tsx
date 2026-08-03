@@ -40,6 +40,7 @@ import {
   type RecruitmentStats,
 } from '../lib/adminRecruitment';
 import {
+  EMAIL_NOTIFICATIONS_ENABLED,
   RECRUITMENT_CAMPAIGN,
   RECRUITMENT_STATUSES,
   SELECTED_STATUSES,
@@ -503,19 +504,32 @@ const ApplicationDrawer: React.FC<{
               )}
               Notifier par SMS
             </button>
-            <button
-              type="button"
-              disabled={busy === 'email'}
-              onClick={() => run('email', () => notifyApplicant(application.objectId, 'email'))}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-teal-200 bg-white px-3 py-2 text-xs font-bold text-teal-700 transition hover:bg-teal-50 disabled:opacity-50"
-            >
-              {busy === 'email' ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-              ) : (
+            {EMAIL_NOTIFICATIONS_ENABLED ? (
+              <button
+                type="button"
+                disabled={busy === 'email'}
+                onClick={() => run('email', () => notifyApplicant(application.objectId, 'email'))}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-teal-200 bg-white px-3 py-2 text-xs font-bold text-teal-700 transition hover:bg-teal-50 disabled:opacity-50"
+              >
+                {busy === 'email' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                Notifier par e-mail
+              </button>
+            ) : (
+              // Le service d’envoi n’est pas encore configuré : le bouton est
+              // désactivé plutôt que masqué, pour que la commission sache que
+              // le canal existe et arrive.
+              <span
+                title="La notification par e-mail sera activée une fois le service d’envoi configuré."
+                className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-bold text-gray-400"
+              >
                 <Mail className="h-3.5 w-3.5" aria-hidden="true" />
-              )}
-              Notifier par e-mail
-            </button>
+                E-mail — bientôt disponible
+              </span>
+            )}
             <button
               type="button"
               onClick={() => exportPDF([application], `Dossier ${application.reference}`)}

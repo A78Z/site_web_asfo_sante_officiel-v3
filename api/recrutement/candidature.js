@@ -28,6 +28,7 @@ import { sendEmail } from '../_lib/email-sender.js';
 import { recruitmentReceivedEmail } from '../_lib/email-templates.js';
 import {
   DEFAULT_RECRUITMENT_STATUS,
+  EMAIL_NOTIFICATIONS_ENABLED,
   RECRUITMENT_CLASS,
   SPECIALTY_CLASS,
   buildRecruitmentReference,
@@ -312,17 +313,21 @@ export default async function handler(request, response) {
     notifications.smsStatus = 'non_envoye_numero_invalide';
   }
 
-  const emailOutcome = await sendEmail({
-    to: email,
-    ...recruitmentReceivedEmail({
-      firstName,
-      lastName,
-      specialty: specialty.label,
-      reference,
-      region: record.region,
-      availability: record.availability,
-    }),
-  });
+  // Canal e-mail désactivé : on ne tente rien, et le dossier le dit clairement
+  // plutôt que de porter un échec qui n’en est pas un.
+  const emailOutcome = EMAIL_NOTIFICATIONS_ENABLED
+    ? await sendEmail({
+        to: email,
+        ...recruitmentReceivedEmail({
+          firstName,
+          lastName,
+          specialty: specialty.label,
+          reference,
+          region: record.region,
+          availability: record.availability,
+        }),
+      })
+    : { status: 'disabled' };
   notifications.emailStatus = emailOutcome.status;
   notifications.emailProviderId = emailOutcome.providerId ?? '';
   notifications.emailError = emailOutcome.error ? String(emailOutcome.error).slice(0, 180) : '';
