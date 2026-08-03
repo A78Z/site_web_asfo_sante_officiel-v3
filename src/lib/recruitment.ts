@@ -138,9 +138,10 @@ export interface ApplicationPayload {
   motivation: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
-  cvFile: ParseFile;
-  diplomaFile: ParseFile;
-  photoFile: ParseFile;
+  /** Pièces facultatives : la commission les réclame à l’instruction. */
+  cvFile?: ParseFile;
+  diplomaFile?: ParseFile;
+  photoFile?: ParseFile;
   consentAccepted: true;
   website?: string;
   filledInMs?: number;

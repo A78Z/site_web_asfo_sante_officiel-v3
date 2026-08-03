@@ -200,7 +200,14 @@ const foldAccents = (value) =>
 
 const REGION_SET = new Set(SENEGAL_REGIONS.map(foldAccents));
 
-/** Règles de fichiers, appliquées à l’identique par le client et le serveur. */
+/**
+ * Règles de fichiers, appliquées à l’identique par le client et le serveur.
+ *
+ * `required: false` sur les trois pièces : une candidature part sans elles, la
+ * commission réclamant les documents manquants au moment de l’instruction.
+ * Le contrôle de format, de taille et de contenu reste entier — il s’applique
+ * dès qu’un fichier est effectivement joint.
+ */
 export const FILE_RULES = {
   cv: {
     field: 'cvFile',
@@ -211,7 +218,7 @@ export const FILE_RULES = {
     mimeTypes: ['application/pdf'],
     extensions: ['.pdf'],
     formatLabel: 'PDF',
-    required: true,
+    required: false,
   },
   diploma: {
     field: 'diplomaFile',
@@ -222,7 +229,7 @@ export const FILE_RULES = {
     mimeTypes: ['application/pdf'],
     extensions: ['.pdf'],
     formatLabel: 'PDF',
-    required: true,
+    required: false,
   },
   photo: {
     field: 'photoFile',
@@ -233,7 +240,7 @@ export const FILE_RULES = {
     mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
     extensions: ['.jpg', '.jpeg', '.png', '.webp'],
     formatLabel: 'JPG, PNG ou WEBP',
-    required: true,
+    required: false,
   },
 };
 

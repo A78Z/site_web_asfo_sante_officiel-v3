@@ -259,10 +259,11 @@ export default async function handler(request, response) {
     emergencyContactPhone:
       normalizeSenegalPhone(payload.emergencyContactPhone) ??
       compactWhitespace(payload.emergencyContactPhone),
-    // Pièces jointes
-    cvFile: payload.cvFile,
-    diplomaFile: payload.diplomaFile,
-    photoFile: payload.photoFile,
+    // Pièces jointes, toutes facultatives : un champ absent n’est pas écrit,
+    // plutôt que stocké à `null`, pour rester lisible dans Back4App.
+    ...(payload.cvFile ? { cvFile: payload.cvFile } : {}),
+    ...(payload.diplomaFile ? { diplomaFile: payload.diplomaFile } : {}),
+    ...(payload.photoFile ? { photoFile: payload.photoFile } : {}),
     // Instruction
     status: DEFAULT_RECRUITMENT_STATUS,
     comments: '',

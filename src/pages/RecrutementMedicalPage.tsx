@@ -389,18 +389,18 @@ const RecrutementMedicalPage: React.FC = () => {
                 className="text-xl font-black tracking-tight text-slate-950 sm:text-2xl"
                 style={poppins}
               >
-                Préparez vos pièces avant de commencer
+                Les pièces à prévoir
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Le formulaire se remplit en une seule fois. Munissez-vous des
-                documents suivants au format numérique : votre dossier n’en sera
-                que plus vite instruit par la commission.
+                Ces documents sont facultatifs au moment de la candidature : la
+                commission vous réclamera ceux qui manquent lors de l’instruction.
+                Les joindre dès maintenant accélère l’examen de votre dossier.
               </p>
               <ul className="mt-5 grid gap-3 sm:grid-cols-3">
                 {[
-                  { icon: FileText, label: 'CV', hint: 'PDF · 5 Mo max' },
-                  { icon: BadgeCheck, label: 'Diplôme', hint: 'PDF · 5 Mo max' },
-                  { icon: Users, label: 'Photo', hint: 'JPG/PNG/WEBP · 2 Mo' },
+                  { icon: FileText, label: 'CV', hint: 'PDF · 5 Mo max · facultatif' },
+                  { icon: BadgeCheck, label: 'Diplôme', hint: 'PDF · 5 Mo max · facultatif' },
+                  { icon: Users, label: 'Photo', hint: 'JPG/PNG/WEBP · 2 Mo · facultatif' },
                 ].map((item) => (
                   <li
                     key={item.label}

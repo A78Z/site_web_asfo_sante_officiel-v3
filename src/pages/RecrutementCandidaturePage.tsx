@@ -340,10 +340,11 @@ const RecrutementCandidaturePage: React.FC = () => {
       return;
     }
 
-    const missingFile = FILE_FIELDS.find(({ kind }) => !uploads[kind].file);
-    if (missingFile) {
+    // Un téléversement encore en cours partirait sans sa pièce : on attend.
+    const pending = FILE_FIELDS.find(({ kind }) => uploads[kind].status === 'uploading');
+    if (pending) {
       setSubmitError(
-        `Le fichier « ${FILE_RULES[missingFile.kind].label} » est requis pour envoyer la candidature.`,
+        `Le fichier « ${FILE_RULES[pending.kind].label} » est encore en cours d’envoi. Patientez quelques instants.`,
       );
       return;
     }
@@ -370,9 +371,9 @@ const RecrutementCandidaturePage: React.FC = () => {
         motivation: data.motivation.trim(),
         emergencyContactName: data.emergencyContactName.trim(),
         emergencyContactPhone: emergencyPhone,
-        cvFile: uploads.cv.file as ParseFile,
-        diplomaFile: uploads.diploma.file as ParseFile,
-        photoFile: uploads.photo.file as ParseFile,
+        ...(uploads.cv.file ? { cvFile: uploads.cv.file } : {}),
+        ...(uploads.diploma.file ? { diplomaFile: uploads.diploma.file } : {}),
+        ...(uploads.photo.file ? { photoFile: uploads.photo.file } : {}),
         consentAccepted: true,
         website: honeypot,
         filledInMs: Date.now() - openedAt.current,
@@ -913,7 +914,7 @@ const RecrutementCandidaturePage: React.FC = () => {
           icon={Upload}
           step={4}
           title="Vos pièces justificatives"
-          description="Chaque fichier est vérifié à l’envoi : format, taille et contenu réel."
+          description="Facultatives à ce stade : la commission vous réclamera les documents manquants lors de l’instruction. Les joindre maintenant accélère l’examen de votre dossier."
         >
           <div className="grid gap-4 sm:grid-cols-3">
             {FILE_FIELDS.map(({ kind, icon: Icon, hint }) => {
@@ -945,7 +946,8 @@ const RecrutementCandidaturePage: React.FC = () => {
                   </div>
 
                   <p className="mt-2 text-sm font-black text-slate-900">
-                    {rule.label} <span className="text-red-600">*</span>
+                    {rule.label}{' '}
+                    <span className="text-xs font-medium text-slate-400">(facultatif)</span>
                   </p>
                   <p className="text-xs leading-5 text-slate-500">{hint}</p>
                   <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">

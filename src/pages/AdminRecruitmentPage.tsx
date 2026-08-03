@@ -378,12 +378,32 @@ const ApplicationDrawer: React.FC<{
                     : 'pointer-events-none border-gray-200 bg-gray-50 opacity-60'
                 }`}
               >
-                <Icon className="h-5 w-5 text-teal-700" aria-hidden="true" />
-                <span className="flex-1 text-sm font-bold text-gray-900">{label}</span>
-                <ExternalLink className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                <Icon
+                  className={`h-5 w-5 ${file?.url ? 'text-teal-700' : 'text-gray-400'}`}
+                  aria-hidden="true"
+                />
+                <span className="flex-1">
+                  <span className="block text-sm font-bold text-gray-900">{label}</span>
+                  {/* Les pièces sont facultatives au dépôt : l’absence doit se
+                      lire d’un coup d’œil pour être réclamée à l’instruction. */}
+                  {!file?.url && (
+                    <span className="block text-xs font-semibold text-amber-600">
+                      Non fourni — à réclamer
+                    </span>
+                  )}
+                </span>
+                {file?.url && (
+                  <ExternalLink className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                )}
               </a>
             ))}
           </div>
+
+          {!application.photoFile?.url && (
+            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">
+              Photo d’identité non fournie — à réclamer avant l’édition du badge.
+            </p>
+          )}
 
           {/* Historique */}
           <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
