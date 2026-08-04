@@ -5,6 +5,7 @@ import {
   AlertCircle,
   ArrowRight,
   BadgeCheck,
+  CalendarCheck,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
@@ -58,74 +59,179 @@ const HERO_IMAGES = [
   { src: '/soins-medicaux-base.webp', alt: 'Soins médicaux de base dispensés aux populations', span: '' },
 ];
 
-/* ─── Carte de spécialité ─── */
-const SpecialtyCard: React.FC<{
+/**
+ * Vrai sur les petits écrans. Les animations d’attention y sont allégées : sur
+ * un téléphone tenu à trente centimètres, le mouvement qui attire l’œil sur un
+ * grand écran devient vite fatigant.
+ */
+const useIsSmallScreen = () => {
+  const [small, setSmall] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const query = window.matchMedia('(max-width: 639px)');
+    const update = () => setSmall(query.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  return small;
+};
+
+/* ─── Carte d’une spécialité fermée ─── */
+const ClosedSpecialtyCard: React.FC<{
+  specialty: RecruitmentSpecialtyState;
+  index: number;
+  reduceMotion: boolean | null;
+}> = ({ specialty, index, reduceMotion }) => (
+  <motion.article
+    {...(reduceMotion ? {} : fadeUp(Math.min(index, 8) * 0.035))}
+    className="relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70 p-5"
+  >
+    <div className="flex items-start justify-between gap-3">
+      <span
+        aria-hidden="true"
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-2xl grayscale"
+      >
+        {specialty.emoji}
+      </span>
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200/70 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-slate-500">
+        <Clock3 className="h-3 w-3" aria-hidden="true" /> Bientôt disponible
+      </span>
+    </div>
+
+    <h3 className="mt-4 text-lg font-black tracking-tight text-slate-500" style={poppins}>
+      {specialty.label}
+    </h3>
+    <p className="mt-2 flex-1 text-sm leading-6 text-slate-400">{specialty.description}</p>
+
+    <p className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-400">
+      <Lock className="h-4 w-4" aria-hidden="true" />
+      Bientôt disponible
+    </p>
+  </motion.article>
+);
+
+/* ─── Carte d’une spécialité ouverte ─── */
+const OpenSpecialtyCard: React.FC<{
   specialty: RecruitmentSpecialtyState;
   index: number;
   reduceMotion: boolean | null;
 }> = ({ specialty, index, reduceMotion }) => {
-  const open = specialty.open;
+  const isSmall = useIsSmallScreen();
+  // La brillance et la pulsation ne servent qu’à orienter le regard : elles
+  // s’effacent dès que le visiteur a demandé moins de mouvement.
+  const animate = !reduceMotion;
+  const pulse = animate && !isSmall;
 
   return (
-    <motion.article
-      {...(reduceMotion ? {} : fadeUp(Math.min(index, 8) * 0.035))}
-      className={`group relative flex flex-col overflow-hidden rounded-2xl border p-5 transition duration-300 ${
-        open
-          ? 'border-teal-200 bg-white shadow-[0_18px_50px_-34px_rgba(13,148,136,0.55)] hover:-translate-y-1 hover:border-teal-400 hover:shadow-[0_24px_60px_-32px_rgba(13,148,136,0.6)]'
-          : 'border-slate-200 bg-slate-50/70'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <span
-          aria-hidden="true"
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl ${
-            open ? 'bg-teal-50' : 'bg-slate-100 grayscale'
-          }`}
-        >
-          {specialty.emoji}
-        </span>
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${
-            open ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-200/70 text-slate-500'
-          }`}
-        >
-          {open ? (
-            <>
-              <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> Inscriptions ouvertes
-            </>
-          ) : (
-            <>
-              <Clock3 className="h-3 w-3" aria-hidden="true" /> Bientôt disponible
-            </>
-          )}
-        </span>
-      </div>
+    <div className="relative">
+      {/* Halo lumineux : décoratif, hors du flux et hors du clic. Il est
+          statique, donc conservé même en « mouvement réduit » — c’est lui qui
+          distingue la carte ouverte, et ce n’est pas une animation. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -inset-2 rounded-[28px] bg-gradient-to-br from-teal-300/30 via-emerald-300/20 to-teal-400/25 blur-xl"
+      />
 
-      <h3
-        className={`mt-4 text-lg font-black tracking-tight ${open ? 'text-slate-950' : 'text-slate-500'}`}
-        style={poppins}
+      <motion.article
+        {...(animate ? fadeUp(Math.min(index, 8) * 0.035) : {})}
+        className="group relative flex h-full flex-col overflow-hidden rounded-2xl border-2 border-teal-300 bg-white p-5 shadow-[0_26px_70px_-34px_rgba(13,148,136,0.75)] transition duration-300 hover:-translate-y-0.5 hover:border-teal-400 hover:shadow-[0_32px_80px_-32px_rgba(13,148,136,0.85)] sm:p-6"
       >
-        {specialty.label}
-      </h3>
-      <p className={`mt-2 flex-1 text-sm leading-6 ${open ? 'text-slate-600' : 'text-slate-400'}`}>
-        {specialty.description}
-      </p>
-
-      {open ? (
-        <Link
-          to={`/recrutement-medical/${specialty.slug}`}
-          className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-200"
+        {/* Badge secondaire, annoncé avant le reste du contenu. */}
+        <motion.p
+          {...(animate
+            ? {
+                initial: { opacity: 0, y: -6 },
+                whileInView: { opacity: 1, y: 0 },
+                viewport: { once: true, margin: '-60px' },
+                transition: { duration: 0.4, delay: 0.28 },
+              }
+            : {})}
+          className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-teal-600/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-teal-800"
         >
-          S’inscrire
-          <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Link>
-      ) : (
-        <p className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-400">
-          <Lock className="h-4 w-4" aria-hidden="true" />
-          Bientôt disponible
+          <span
+            aria-hidden="true"
+            className="h-1.5 w-1.5 rounded-full bg-teal-600"
+          />
+          Recrutement en cours
+        </motion.p>
+
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <span
+            aria-hidden="true"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-2xl ring-1 ring-teal-100"
+          >
+            {specialty.emoji}
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-white shadow-sm">
+            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+            Inscriptions ouvertes
+          </span>
+        </div>
+
+        <h3 className="mt-4 text-lg font-black tracking-tight text-slate-950" style={poppins}>
+          {specialty.label}
+        </h3>
+        <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{specialty.description}</p>
+
+        <p className="mt-4 flex items-start gap-2 rounded-xl bg-teal-50/80 px-3 py-2.5 text-sm font-semibold leading-5 text-teal-900">
+          <CalendarCheck className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" aria-hidden="true" />
+          Les candidatures sont ouvertes pour l’édition 2026.
         </p>
-      )}
-    </motion.article>
+
+        {/* Bouton principal : halo, brillance et pulsation vivent ici. */}
+        <motion.div
+          className="relative mt-5"
+          {...(pulse
+            ? {
+                animate: { scale: [1, 1.012, 1] },
+                transition: {
+                  duration: 0.75,
+                  repeat: Infinity,
+                  repeatDelay: 5,
+                  delay: 2.4,
+                  ease: 'easeInOut' as const,
+                },
+              }
+            : {})}
+        >
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-1 rounded-2xl bg-gradient-to-r from-teal-400/40 to-emerald-400/40 blur-md"
+          />
+
+          <Link
+            to={`/recrutement-medical/${specialty.slug}`}
+            aria-label={`S’inscrire comme ${specialty.label.toLocaleLowerCase('fr')} à la caravane médicale ASFO 2026`}
+            className="group/cta relative flex min-h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-teal-600 via-teal-600 to-emerald-600 px-5 text-[15px] font-bold tracking-tight text-white shadow-[0_14px_30px_-14px_rgba(13,148,136,0.9)] transition-transform duration-150 hover:from-teal-700 hover:to-emerald-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-300 focus-visible:ring-offset-2 active:scale-[0.985] sm:min-h-[56px] sm:text-base"
+          >
+            {/* Couche de brillance : interne, sous les coins arrondis du
+                bouton, et jamais un obstacle au clic. */}
+            {animate && (
+              <motion.span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                initial={{ x: '-110%' }}
+                animate={{ x: ['-110%', '110%'] }}
+                transition={{
+                  duration: 1.25,
+                  repeat: Infinity,
+                  repeatDelay: isSmall ? 6 : 4.5,
+                  delay: 1.4,
+                  ease: 'easeInOut',
+                }}
+              />
+            )}
+            <span className="relative">S’inscrire</span>
+            <ArrowRight
+              className="relative h-4 w-4 transition-transform duration-300 group-hover/cta:translate-x-1"
+              aria-hidden="true"
+            />
+          </Link>
+        </motion.div>
+      </motion.article>
+    </div>
   );
 };
 
@@ -305,7 +411,9 @@ const RecrutementMedicalPage: React.FC = () => {
       </section>
 
       {/* ─── Spécialités ─── */}
-      <section id="specialites" className="scroll-mt-24">
+      {/* `overflow-x-clip` : le halo flouté de la carte ouverte déborde de son
+          cadre, ce qui pourrait provoquer un défilement horizontal sur mobile. */}
+      <section id="specialites" className="scroll-mt-24 overflow-x-clip">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <motion.header {...(reduceMotion ? {} : fadeUp())} className="max-w-2xl">
             <h2
@@ -344,9 +452,9 @@ const RecrutementMedicalPage: React.FC = () => {
               <h3 className="mt-10 text-sm font-black uppercase tracking-wide text-teal-700">
                 Ouvertes maintenant
               </h3>
-              <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {openSpecialties.map((specialty, index) => (
-                  <SpecialtyCard
+                  <OpenSpecialtyCard
                     key={specialty.slug}
                     specialty={specialty}
                     index={index}
@@ -364,7 +472,7 @@ const RecrutementMedicalPage: React.FC = () => {
               </h3>
               <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {closedSpecialties.map((specialty, index) => (
-                  <SpecialtyCard
+                  <ClosedSpecialtyCard
                     key={specialty.slug}
                     specialty={specialty}
                     index={index}
