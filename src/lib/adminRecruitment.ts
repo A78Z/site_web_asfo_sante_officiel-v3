@@ -150,6 +150,22 @@ export const notifyApplicant = (
     { action: 'notify', objectId, channel, comment },
   );
 
+/**
+ * Retire une candidature des listes. Réversible : rien n’est effacé en base,
+ * `restoreApplication` remet le dossier en place.
+ */
+export const archiveApplication = (objectId: string) =>
+  post<{ message: string }>('/api/admin/recrutement/archive', {
+    action: 'archive',
+    objectId,
+  });
+
+export const restoreApplication = (objectId: string) =>
+  post<{ message: string }>('/api/admin/recrutement/archive', {
+    action: 'restore',
+    objectId,
+  });
+
 export const listSpecialtySettings = () =>
   post<{ specialties: RecruitmentSpecialtyState[] }>(
     '/api/admin/recrutement/specialites',

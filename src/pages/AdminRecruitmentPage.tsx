@@ -24,13 +24,16 @@ import {
   Settings,
   ShieldCheck,
   Star,
+  Trash2,
   Users,
   X,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import {
   addApplicationComment,
+  archiveApplication,
   listApplications,
+  restoreApplication,
   listSpecialtySettings,
   notifyApplicant,
   setApplicationStatus,
@@ -46,6 +49,7 @@ import {
   SELECTED_STATUSES,
   SPECIALTIES,
 } from '../../api/_lib/recruitment.js';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { ToastStack } from '../components/ui/Toast';
 import { useToasts } from '../components/ui/useToasts';
 
@@ -559,6 +563,10 @@ const AdminRecruitmentPage: React.FC = () => {
   const [departmentFilter, setDepartmentFilter] = useState('Tous');
   const [selected, setSelected] = useState<RecruitmentApplication | null>(null);
   const [togglingSlug, setTogglingSlug] = useState('');
+  // Suppression réversible : la candidature attend une confirmation explicite.
+  const [pendingDelete, setPendingDelete] = useState<RecruitmentApplication | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const { toasts, pushToast, dismissToast } = useToasts();
 
   const notify = useCallback(
@@ -650,6 +658,52 @@ const AdminRecruitmentPage: React.FC = () => {
     [applications],
   );
 
+  const handleRestore = async (application: RecruitmentApplication) => {
+    try {
+      await restoreApplication(application.objectId);
+      // Remise en place immédiate, sans attendre un rechargement complet.
+      setApplications((prev) =>
+        prev.some((item) => item.objectId === application.objectId)
+          ? prev
+          : [application, ...prev].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      );
+      notify('success', 'Candidature restaurée.');
+      void load();
+    } catch (error) {
+      notify(
+        'error',
+        error instanceof Error ? error.message : 'La candidature n’a pas pu être restaurée.',
+      );
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    const target = pendingDelete;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await archiveApplication(target.objectId);
+      setApplications((prev) => prev.filter((item) => item.objectId !== target.objectId));
+      if (selected?.objectId === target.objectId) setSelected(null);
+      setPendingDelete(null);
+      // Fenêtre d’annulation : le dossier est retiré, pas effacé.
+      pushToast({
+        variant: 'success',
+        message: `Candidature ${target.reference} supprimée.`,
+        durationMs: 8000,
+        action: { label: 'Annuler', onClick: () => void handleRestore(target) },
+      });
+      void load();
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : 'La candidature n’a pas pu être supprimée.',
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const toggleSpecialty = async (slug: string, open: boolean) => {
     setTogglingSlug(slug);
     try {
@@ -699,13 +753,26 @@ const AdminRecruitmentPage: React.FC = () => {
               <td className="px-4 py-3">
                 <StatusBadge status={row.status} />
               </td>
-              <td className="px-4 py-3 text-right">
-                <button
-                  onClick={() => setSelected(row)}
-                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
-                >
-                  Ouvrir
-                </button>
+              <td className="px-4 py-3">
+                <div className="flex items-center justify-end gap-1.5">
+                  <button
+                    onClick={() => setSelected(row)}
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
+                  >
+                    Ouvrir
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDeleteError('');
+                      setPendingDelete(row);
+                    }}
+                    aria-label={`Supprimer la candidature ${row.reference}`}
+                    title="Supprimer la candidature"
+                    className="rounded-lg p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
@@ -1048,6 +1115,39 @@ const AdminRecruitmentPage: React.FC = () => {
           />
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDelete(null);
+            setDeleteError('');
+          }
+        }}
+        title="Supprimer cette candidature ?"
+        description="Le dossier sortira de la liste, des statistiques et des exports."
+        record={
+          pendingDelete
+            ? {
+                name: `${pendingDelete.firstName} ${pendingDelete.lastName}`.trim(),
+                reference: pendingDelete.reference,
+                date: new Date(pendingDelete.createdAt).toLocaleDateString('fr-FR'),
+                imageUrl: pendingDelete.photoFile?.url,
+              }
+            : undefined
+        }
+        warning={
+          <>
+            La candidature est <strong>retirée, pas effacée</strong>. Vous pouvez
+            annuler juste après, ou la restaurer depuis Back4App.
+          </>
+        }
+        confirmLabel="Supprimer"
+        variant="danger"
+        loading={deleting}
+        error={deleteError}
+        onConfirm={() => void confirmDelete()}
+      />
 
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>

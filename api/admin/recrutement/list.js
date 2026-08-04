@@ -110,7 +110,11 @@ export default async function handler(request, response) {
 
   // Les filtres appliqués en base allègent la réponse ; la recherche libre et
   // la pagination restent côté client, sur un volume déjà réduit.
-  const where = {};
+  //
+  // `$ne: true` couvre aussi les dossiers antérieurs au champ : dans Parse, un
+  // champ absent satisfait `$ne`. Les candidatures supprimées sortent donc de
+  // la liste, mais aussi des statistiques et des exports qui en découlent.
+  const where = { archived: { $ne: true } };
   if (isRecruitmentStatus(payload.status)) where.status = payload.status;
   if (specialtyBySlug(payload.specialty)) where.specialty = payload.specialty;
   if (typeof payload.region === 'string' && payload.region.trim()) {
@@ -123,7 +127,7 @@ export default async function handler(request, response) {
   let rows = [];
   try {
     const found = await findObjects(environment, RECRUITMENT_CLASS, {
-      ...(Object.keys(where).length > 0 ? { where } : {}),
+      where,
       limit: MAX_ROWS,
       order: '-createdAt',
     });
