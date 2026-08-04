@@ -360,11 +360,14 @@ export const validateRecruitmentApplication = (payload = {}, today = new Date())
   });
   if (department) return fail('department', department);
 
+  // Numéro d’Ordre facultatif : il n’est pas toujours en main au moment de la
+  // candidature, et la commission le vérifie de toute façon à l’instruction.
+  // Le format reste contrôlé dès qu’une valeur est saisie.
   const orderNumber = compactWhitespace(payload.orderNumber);
-  if (!/^[A-Za-z0-9][A-Za-z0-9./\- ]{2,39}$/.test(orderNumber)) {
+  if (orderNumber && !/^[A-Za-z0-9][A-Za-z0-9./\- ]{2,39}$/.test(orderNumber)) {
     return fail(
       'orderNumber',
-      'Indiquez votre numéro d’inscription à l’Ordre (3 à 40 caractères).',
+      'Le numéro d’inscription à l’Ordre est invalide (3 à 40 caractères).',
     );
   }
 

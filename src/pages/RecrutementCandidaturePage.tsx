@@ -794,7 +794,8 @@ const RecrutementCandidaturePage: React.FC = () => {
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
               <label htmlFor="orderNumber" className="mb-2 block text-sm font-bold text-slate-800">
-                Numéro d’inscription à l’Ordre <span className="text-red-600">*</span>
+                Numéro d’inscription à l’Ordre{' '}
+                <span className="font-medium text-slate-400">(facultatif)</span>
               </label>
               <input
                 id="orderNumber"
@@ -804,10 +805,15 @@ const RecrutementCandidaturePage: React.FC = () => {
                 aria-invalid={Boolean(errors.orderNumber)}
                 aria-describedby={errors.orderNumber ? 'orderNumber-error' : undefined}
                 {...register('orderNumber', {
-                  required: 'Le numéro d’inscription à l’Ordre est requis.',
-                  pattern: {
-                    value: /^[A-Za-z0-9][A-Za-z0-9./\- ]{2,39}$/,
-                    message: 'Numéro invalide (3 à 40 caractères).',
+                  // Champ vide accepté ; le format n’est vérifié qu’une fois
+                  // renseigné, exactement comme côté serveur.
+                  validate: (value) => {
+                    const compact = value.trim();
+                    if (!compact) return true;
+                    return (
+                      /^[A-Za-z0-9][A-Za-z0-9./\- ]{2,39}$/.test(compact) ||
+                      'Numéro invalide (3 à 40 caractères).'
+                    );
                   },
                 })}
               />
