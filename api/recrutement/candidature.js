@@ -255,11 +255,16 @@ export default async function handler(request, response) {
     employer: compactWhitespace(payload.employer),
     availability: compactWhitespace(payload.availability),
     motivation: compactWhitespace(payload.motivation),
-    // Contact d’urgence
-    emergencyContactName: compactWhitespace(payload.emergencyContactName),
-    emergencyContactPhone:
-      normalizeSenegalPhone(payload.emergencyContactPhone) ??
-      compactWhitespace(payload.emergencyContactPhone),
+    // Appartenance à l’ASFO. Les précisions ne sont écrites que si la personne
+    // se déclare membre : répondre « non » ne doit pas laisser de numéro de
+    // carte résiduel dans le dossier.
+    isMember: payload.isMember === true,
+    ...(payload.isMember === true && compactWhitespace(payload.memberCardNumber)
+      ? { memberCardNumber: compactWhitespace(payload.memberCardNumber) }
+      : {}),
+    ...(payload.isMember === true && compactWhitespace(payload.memberSince)
+      ? { memberSince: Number(compactWhitespace(payload.memberSince)) }
+      : {}),
     // Pièces jointes, toutes facultatives : un champ absent n’est pas écrit,
     // plutôt que stocké à `null`, pour rester lisible dans Back4App.
     ...(payload.cvFile ? { cvFile: payload.cvFile } : {}),

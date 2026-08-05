@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   AlertCircle,
   ArrowLeft,
@@ -10,6 +10,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardCheck,
+  CreditCard,
   FileText,
   GraduationCap,
   Loader2,
@@ -30,6 +31,7 @@ import {
   FILE_RULES,
   GENDERS,
   MAX_RECRUITMENT_AGE,
+  MIN_MEMBERSHIP_YEAR,
   MIN_RECRUITMENT_AGE,
   specialtyBySlug,
 } from '../../api/_lib/recruitment.js';
@@ -75,9 +77,14 @@ interface FormInputs {
   employer: string;
   availability: string;
   motivation: string;
-  emergencyContactName: string;
+  /** Réponse du bouton radio : `'oui'` ou `'non'`, jamais vide une fois validé. */
+  isMember: string;
+  memberCardNumber: string;
+  memberSince: string;
   acceptTerms: boolean;
 }
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 const DEFAULT_VALUES: FormInputs = {
   lastName: '',
@@ -94,7 +101,9 @@ const DEFAULT_VALUES: FormInputs = {
   employer: '',
   availability: '',
   motivation: '',
-  emergencyContactName: '',
+  isMember: '',
+  memberCardNumber: '',
+  memberSince: '',
   acceptTerms: false,
 };
 
@@ -239,8 +248,6 @@ const RecrutementCandidaturePage: React.FC = () => {
   const [submissionId] = useState(createSubmissionId);
   const [phoneDigits, setPhoneDigits] = useState('');
   const [phoneTouched, setPhoneTouched] = useState(false);
-  const [emergencyDigits, setEmergencyDigits] = useState('');
-  const [emergencyTouched, setEmergencyTouched] = useState(false);
   const [uploads, setUploads] = useState<Record<FileKind, UploadState>>({
     cv: EMPTY_UPLOAD,
     diploma: EMPTY_UPLOAD,
@@ -294,9 +301,6 @@ const RecrutementCandidaturePage: React.FC = () => {
   }, [specialty]);
 
   const phoneError = phoneTouched ? senegalPhoneIssue(`${SENEGAL_DIALLING_CODE}${phoneDigits}`) : null;
-  const emergencyError = emergencyTouched
-    ? senegalPhoneIssue(`${SENEGAL_DIALLING_CODE}${emergencyDigits}`)
-    : null;
 
   const handleFile = useCallback(async (kind: FileKind, file: File | null) => {
     if (!file) return;
@@ -341,11 +345,9 @@ const RecrutementCandidaturePage: React.FC = () => {
     setSubmitError('');
 
     const phone = `${SENEGAL_DIALLING_CODE}${phoneDigits}`;
-    const emergencyPhone = `${SENEGAL_DIALLING_CODE}${emergencyDigits}`;
     setPhoneTouched(true);
-    setEmergencyTouched(true);
-    if (senegalPhoneIssue(phone) || senegalPhoneIssue(emergencyPhone)) {
-      setSubmitError('Vérifiez les numéros de téléphone avant d’envoyer votre candidature.');
+    if (senegalPhoneIssue(phone)) {
+      setSubmitError('Vérifiez votre numéro de téléphone avant d’envoyer votre candidature.');
       return;
     }
 
@@ -378,8 +380,15 @@ const RecrutementCandidaturePage: React.FC = () => {
         employer: data.employer.trim(),
         availability: data.availability,
         motivation: data.motivation.trim(),
-        emergencyContactName: data.emergencyContactName.trim(),
-        emergencyContactPhone: emergencyPhone,
+        isMember: data.isMember === 'oui',
+        // Répondre « non » n’envoie aucune précision d’adhésion, même si le
+        // visiteur avait commencé à les saisir avant de changer d’avis.
+        ...(data.isMember === 'oui'
+          ? {
+              memberCardNumber: data.memberCardNumber.trim(),
+              memberSince: data.memberSince.trim(),
+            }
+          : {}),
         ...(uploads.cv.file ? { cvFile: uploads.cv.file } : {}),
         ...(uploads.diploma.file ? { diplomaFile: uploads.diploma.file } : {}),
         ...(uploads.photo.file ? { photoFile: uploads.photo.file } : {}),
@@ -1020,8 +1029,8 @@ const RecrutementCandidaturePage: React.FC = () => {
         <Section
           icon={ClipboardCheck}
           step={5}
-          title="Motivation et contact d’urgence"
-          description="Dites-nous ce qui vous engage, et qui prévenir en cas de besoin sur le terrain."
+          title="Motivation et lien avec l’ASFO"
+          description="Dites-nous ce qui vous engage, et si vous êtes déjà membre de l’association."
         >
           <div>
             <label htmlFor="motivation" className="mb-2 block text-sm font-bold text-slate-800">
@@ -1046,69 +1055,140 @@ const RecrutementCandidaturePage: React.FC = () => {
             <FieldError id="motivation-error" message={errors.motivation?.message} />
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="emergencyContactName"
-                className="mb-2 block text-sm font-bold text-slate-800"
-              >
-                Personne à contacter en cas d’urgence <span className="text-red-600">*</span>
-              </label>
-              <input
-                id="emergencyContactName"
-                type="text"
-                placeholder="Nom et prénom"
-                className={inputClass(Boolean(errors.emergencyContactName))}
-                aria-invalid={Boolean(errors.emergencyContactName)}
-                aria-describedby={
-                  errors.emergencyContactName ? 'emergencyContactName-error' : undefined
-                }
-                {...register('emergencyContactName', {
-                  required: 'Indiquez une personne à contacter.',
-                  minLength: { value: 3, message: 'Nom trop court.' },
-                  maxLength: { value: 80, message: 'Nom trop long.' },
-                })}
-              />
-              <FieldError
-                id="emergencyContactName-error"
-                message={errors.emergencyContactName?.message}
-              />
+          <fieldset>
+            <legend className="mb-2 block text-sm font-bold text-slate-800">
+              Êtes-vous déjà membre de l’ASFO ? <span className="text-red-600">*</span>
+            </legend>
+            <div className="grid gap-3 sm:max-w-md sm:grid-cols-2">
+              {[
+                { value: 'oui', label: 'Oui' },
+                { value: 'non', label: 'Non' },
+              ].map((option) => {
+                const checked = values.isMember === option.value;
+                return (
+                  <label
+                    key={option.value}
+                    className={`flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-base font-semibold transition ${
+                      checked
+                        ? 'border-teal-600 bg-teal-50/70 text-teal-900 ring-4 ring-teal-50'
+                        : errors.isMember
+                          ? 'border-red-300 bg-white text-slate-700'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-teal-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      value={option.value}
+                      className="h-5 w-5 shrink-0 border-slate-300 text-teal-600 focus:ring-teal-500"
+                      aria-invalid={Boolean(errors.isMember)}
+                      aria-describedby={errors.isMember ? 'isMember-error' : undefined}
+                      {...register('isMember', {
+                        required: 'Indiquez si vous êtes déjà membre de l’ASFO.',
+                      })}
+                    />
+                    {option.label}
+                  </label>
+                );
+              })}
             </div>
+            <FieldError id="isMember-error" message={errors.isMember?.message} />
+          </fieldset>
 
-            <div>
-              <label
-                htmlFor="emergencyPhone"
-                className="mb-2 block text-sm font-bold text-slate-800"
+          {/* Précisions réservées aux membres : elles se replient entièrement
+              quand la réponse est « non », sans laisser d’espace vide. */}
+          <AnimatePresence initial={false}>
+            {values.isMember === 'oui' && (
+              <motion.div
+                key="member-details"
+                initial={reduceMotion ? false : { opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                transition={{ duration: 0.28, ease: 'easeOut' }}
+                className="overflow-hidden"
               >
-                Téléphone d’urgence <span className="text-red-600">*</span>
-              </label>
-              <div className="flex items-stretch gap-2">
-                <span className="flex min-h-[48px] items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-600">
-                  {SENEGAL_DIALLING_CODE}
-                </span>
-                <input
-                  id="emergencyPhone"
-                  type="tel"
-                  inputMode="numeric"
-                  placeholder="77 123 45 67"
-                  className={inputClass(Boolean(emergencyError))}
-                  aria-invalid={Boolean(emergencyError)}
-                  aria-describedby={emergencyError ? 'emergencyPhone-error' : undefined}
-                  value={formatSenegalLocal(emergencyDigits)}
-                  onChange={(event) =>
-                    setEmergencyDigits(
-                      extractSenegalLocalDigits(event.target.value).slice(0, SENEGAL_LOCAL_LENGTH),
-                    )
-                  }
-                  onBlur={() => setEmergencyTouched(true)}
-                />
-              </div>
-              <FieldError
-                id="emergencyPhone-error"
-                message={emergencyError ? 'Entrez un numéro sénégalais valide.' : undefined}
-              />
-            </div>
-          </div>
+                <div className="grid gap-5 pt-1 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="memberCardNumber"
+                      className="mb-2 block text-sm font-bold text-slate-800"
+                    >
+                      Numéro de carte membre ASFO{' '}
+                      <span className="font-medium text-slate-400">(facultatif)</span>
+                    </label>
+                    <div className="relative">
+                      <CreditCard
+                        size={17}
+                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                        aria-hidden="true"
+                      />
+                      <input
+                        id="memberCardNumber"
+                        type="text"
+                        placeholder="Ex. ASFO-2024-00125"
+                        className={`${inputClass(Boolean(errors.memberCardNumber))} pl-11`}
+                        aria-invalid={Boolean(errors.memberCardNumber)}
+                        aria-describedby={
+                          errors.memberCardNumber ? 'memberCardNumber-error' : undefined
+                        }
+                        {...register('memberCardNumber', {
+                          validate: (value) => {
+                            const compact = value.trim();
+                            if (!compact) return true;
+                            return (
+                              /^[A-Za-z0-9][A-Za-z0-9./\- ]{2,39}$/.test(compact) ||
+                              'Numéro invalide (3 à 40 caractères).'
+                            );
+                          },
+                        })}
+                      />
+                    </div>
+                    <FieldError
+                      id="memberCardNumber-error"
+                      message={errors.memberCardNumber?.message}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="memberSince"
+                      className="mb-2 block text-sm font-bold text-slate-800"
+                    >
+                      Année d’adhésion{' '}
+                      <span className="font-medium text-slate-400">(facultatif)</span>
+                    </label>
+                    <input
+                      id="memberSince"
+                      type="number"
+                      inputMode="numeric"
+                      min={MIN_MEMBERSHIP_YEAR}
+                      max={CURRENT_YEAR}
+                      step={1}
+                      placeholder={`Ex. ${CURRENT_YEAR - 2}`}
+                      className={inputClass(Boolean(errors.memberSince))}
+                      aria-invalid={Boolean(errors.memberSince)}
+                      aria-describedby={errors.memberSince ? 'memberSince-error' : undefined}
+                      {...register('memberSince', {
+                        validate: (value) => {
+                          const compact = value.trim();
+                          if (!compact) return true;
+                          const year = Number(compact);
+                          if (
+                            !Number.isInteger(year) ||
+                            year < MIN_MEMBERSHIP_YEAR ||
+                            year > CURRENT_YEAR
+                          ) {
+                            return `Indiquez une année entre ${MIN_MEMBERSHIP_YEAR} et ${CURRENT_YEAR}.`;
+                          }
+                          return true;
+                        },
+                      })}
+                    />
+                    <FieldError id="memberSince-error" message={errors.memberSince?.message} />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Section>
 
         {/* ─── 6. Consentement et envoi ─── */}

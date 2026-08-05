@@ -47,6 +47,7 @@ export declare const FILE_RULES: Record<'cv' | 'diploma' | 'photo', RecruitmentF
 export declare const FILE_KINDS: Array<'cv' | 'diploma' | 'photo'>;
 export declare const MIN_RECRUITMENT_AGE: number;
 export declare const MAX_RECRUITMENT_AGE: number;
+export declare const MIN_MEMBERSHIP_YEAR: number;
 
 export declare function specialtyBySlug(slug: unknown): RecruitmentSpecialty | null;
 export declare function isRecruitmentStatus(value: unknown): boolean;

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertCircle,
+  BadgeCheck,
   BarChart3,
   CheckCircle2,
   ClipboardList,
@@ -358,10 +359,30 @@ const ApplicationDrawer: React.FC<{
           )}
 
           <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <h3 className="mb-2 text-sm font-bold text-gray-800">Contact d’urgence</h3>
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-gray-800">
+              <BadgeCheck className="h-4 w-4 text-teal-600" aria-hidden="true" /> Membre ASFO
+            </h3>
             <div className="divide-y divide-gray-200">
-              <InfoRow label="Personne" value={application.emergencyContactName} />
-              <InfoRow label="Téléphone" value={application.emergencyContactPhone} />
+              <InfoRow
+                label="Membre ASFO"
+                value={
+                  application.isMember === undefined
+                    ? 'Non renseigné — dossier antérieur'
+                    : application.isMember
+                      ? 'Oui'
+                      : 'Non'
+                }
+              />
+              {/* Numéro et année n’ont de sens que pour un membre déclaré. */}
+              {application.isMember && (
+                <>
+                  <InfoRow label="Numéro de carte" value={application.memberCardNumber} />
+                  <InfoRow
+                    label="Année d’adhésion"
+                    value={application.memberSince ? String(application.memberSince) : ''}
+                  />
+                </>
+              )}
             </div>
           </div>
 
@@ -561,6 +582,7 @@ const AdminRecruitmentPage: React.FC = () => {
   const [specialtyFilter, setSpecialtyFilter] = useState('Toutes');
   const [regionFilter, setRegionFilter] = useState('Toutes');
   const [departmentFilter, setDepartmentFilter] = useState('Tous');
+  const [memberFilter, setMemberFilter] = useState('Tous');
   const [selected, setSelected] = useState<RecruitmentApplication | null>(null);
   const [togglingSlug, setTogglingSlug] = useState('');
   // Suppression réversible : la candidature attend une confirmation explicite.
@@ -649,9 +671,21 @@ const AdminRecruitmentPage: React.FC = () => {
       if (specialtyFilter !== 'Toutes' && item.specialty !== specialtyFilter) return false;
       if (regionFilter !== 'Toutes' && item.region !== regionFilter) return false;
       if (departmentFilter !== 'Tous' && item.department !== departmentFilter) return false;
+      // Les dossiers antérieurs au champ n’ont pas de valeur : ils ne sont
+      // comptés ni parmi les membres, ni parmi les non-membres.
+      if (memberFilter === 'Oui' && item.isMember !== true) return false;
+      if (memberFilter === 'Non' && item.isMember !== false) return false;
       return true;
     });
-  }, [applications, search, statusFilter, specialtyFilter, regionFilter, departmentFilter]);
+  }, [
+    applications,
+    search,
+    statusFilter,
+    specialtyFilter,
+    regionFilter,
+    departmentFilter,
+    memberFilter,
+  ]);
 
   const selectedProfessionals = useMemo(
     () => applications.filter((item) => SELECTED_STATUSES.includes(item.status)),
@@ -900,7 +934,7 @@ const AdminRecruitmentPage: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   <select
                     aria-label="Filtrer par statut"
                     value={statusFilter}
@@ -946,6 +980,16 @@ const AdminRecruitmentPage: React.FC = () => {
                     {departments.map((department) => (
                       <option key={department}>{department}</option>
                     ))}
+                  </select>
+                  <select
+                    aria-label="Filtrer par appartenance à l’ASFO"
+                    value={memberFilter}
+                    onChange={(event) => setMemberFilter(event.target.value)}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-teal-500"
+                  >
+                    <option value="Tous">Membre ASFO : tous</option>
+                    <option value="Oui">Membre ASFO : oui</option>
+                    <option value="Non">Membre ASFO : non</option>
                   </select>
                 </div>
               </div>

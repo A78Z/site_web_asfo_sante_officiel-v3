@@ -136,8 +136,10 @@ export interface ApplicationPayload {
   employer: string;
   availability: string;
   motivation: string;
-  emergencyContactName: string;
-  emergencyContactPhone: string;
+  /** Appartenance à l’ASFO ; les deux précisions ne valent que si `true`. */
+  isMember: boolean;
+  memberCardNumber?: string;
+  memberSince?: string;
   /** Pièces facultatives : la commission les réclame à l’instruction. */
   cvFile?: ParseFile;
   diplomaFile?: ParseFile;

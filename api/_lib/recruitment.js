@@ -263,6 +263,13 @@ export const FILE_KINDS = Object.keys(FILE_RULES);
 export const MIN_RECRUITMENT_AGE = 21;
 export const MAX_RECRUITMENT_AGE = 75;
 
+/**
+ * Année d’adhésion la plus ancienne acceptée. Volontairement antérieure à la
+ * création de l’association : la borne sert à écarter les fautes de frappe,
+ * pas à contester l’ancienneté déclarée par un membre.
+ */
+export const MIN_MEMBERSHIP_YEAR = 1990;
+
 const isIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
 const ageFromIso = (iso, today = new Date()) => {
@@ -400,19 +407,36 @@ export const validateRecruitmentApplication = (payload = {}, today = new Date())
   });
   if (motivation) return fail('motivation', motivation);
 
-  const emergencyName = textRule(payload.emergencyContactName, {
-    label: 'La personne à contacter en cas d’urgence',
-    min: 3,
-    max: 80,
-  });
-  if (emergencyName) return fail('emergencyContactName', emergencyName);
+  // Appartenance à l’ASFO : la réponse est obligatoire, mais les précisions
+  // qui la suivent ne le sont pas — un membre de longue date ne retrouve pas
+  // toujours son numéro de carte au moment de candidater.
+  if (typeof payload.isMember !== 'boolean') {
+    return fail('isMember', 'Indiquez si vous êtes déjà membre de l’ASFO.');
+  }
 
-  const emergencyPhoneIssue = senegalPhoneIssue(payload.emergencyContactPhone);
-  if (emergencyPhoneIssue) {
-    return fail(
-      'emergencyContactPhone',
-      'Entrez un numéro sénégalais valide pour le contact d’urgence.',
-    );
+  if (payload.isMember) {
+    const memberCardNumber = compactWhitespace(payload.memberCardNumber);
+    if (memberCardNumber && !/^[A-Za-z0-9][A-Za-z0-9./\- ]{2,39}$/.test(memberCardNumber)) {
+      return fail(
+        'memberCardNumber',
+        'Le numéro de carte membre est invalide (3 à 40 caractères).',
+      );
+    }
+
+    const memberSince = compactWhitespace(payload.memberSince);
+    if (memberSince) {
+      const year = Number(memberSince);
+      if (
+        !Number.isInteger(year) ||
+        year < MIN_MEMBERSHIP_YEAR ||
+        year > new Date().getUTCFullYear()
+      ) {
+        return fail(
+          'memberSince',
+          `Indiquez une année d’adhésion comprise entre ${MIN_MEMBERSHIP_YEAR} et ${new Date().getUTCFullYear()}.`,
+        );
+      }
+    }
   }
 
   if (payload.consentAccepted !== true) {

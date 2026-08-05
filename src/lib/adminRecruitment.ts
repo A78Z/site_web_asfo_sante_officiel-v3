@@ -47,8 +47,9 @@ export interface RecruitmentApplication {
   employer?: string;
   availability?: string;
   motivation?: string;
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
+  isMember?: boolean;
+  memberCardNumber?: string;
+  memberSince?: number;
   cvFile?: ParseFile;
   diplomaFile?: ParseFile;
   photoFile?: ParseFile;
