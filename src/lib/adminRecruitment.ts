@@ -43,6 +43,9 @@ export interface RecruitmentApplication {
   profession: string;
   orderNumber?: string;
   university?: string;
+  diplomaTitle?: string;
+  graduationYear?: number;
+  stockExperience?: string;
   experience?: number;
   employer?: string;
   availability?: string;

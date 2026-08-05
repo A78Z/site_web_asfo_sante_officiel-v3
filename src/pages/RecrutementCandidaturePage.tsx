@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   AlertCircle,
   ArrowLeft,
+  Award,
   BadgeCheck,
   Building2,
   CalendarDays,
@@ -31,9 +32,12 @@ import {
   FILE_RULES,
   GENDERS,
   MAX_RECRUITMENT_AGE,
+  MIN_GRADUATION_YEAR,
   MIN_MEMBERSHIP_YEAR,
   MIN_RECRUITMENT_AGE,
+  STOCK_EXPERIENCE_OPTIONS,
   specialtyBySlug,
+  specialtyFormLabels,
 } from '../../api/_lib/recruitment.js';
 import {
   SENEGAL_DIALLING_CODE,
@@ -73,6 +77,9 @@ interface FormInputs {
   department: string;
   orderNumber: string;
   university: string;
+  diplomaTitle: string;
+  graduationYear: string;
+  stockExperience: string;
   experience: string;
   employer: string;
   availability: string;
@@ -97,6 +104,9 @@ const DEFAULT_VALUES: FormInputs = {
   department: '',
   orderNumber: '',
   university: '',
+  diplomaTitle: '',
+  graduationYear: '',
+  stockExperience: '',
   experience: '',
   employer: '',
   availability: '',
@@ -179,9 +189,11 @@ const SuccessCard: React.FC<{ receipt: ApplicationReceipt; specialty: string }> 
         Votre candidature a bien été enregistrée
       </h1>
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        Merci pour votre engagement. Notre commission examinera votre dossier de{' '}
-        <strong>{specialty}</strong> et vous serez informé(e) de la suite par SMS ou
-        WhatsApp.
+        Votre candidature en tant que{' '}
+        <strong>{specialty.toLocaleLowerCase('fr')}</strong> pour la 27
+        <sup>e</sup> Grande Caravane Médicale ASFO 2026 a bien été enregistrée.
+        Notre commission examinera votre dossier et vous serez informé(e) de la
+        suite par SMS ou WhatsApp.
       </p>
 
       <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
@@ -243,6 +255,8 @@ const RecrutementCandidaturePage: React.FC = () => {
   const { specialite = '' } = useParams();
   const reduceMotion = useReducedMotion();
   const specialty = useMemo(() => specialtyBySlug(specialite), [specialite]);
+  // Intitulés du formulaire, ajustés au métier de la spécialité ouverte.
+  const formLabels = useMemo(() => specialtyFormLabels(specialty), [specialty]);
 
   const [openState, setOpenState] = useState<'loading' | 'open' | 'closed'>('loading');
   const [submissionId] = useState(createSubmissionId);
@@ -376,6 +390,11 @@ const RecrutementCandidaturePage: React.FC = () => {
         department: data.department,
         orderNumber: data.orderNumber.trim(),
         university: data.university.trim(),
+        diplomaTitle: data.diplomaTitle.trim(),
+        graduationYear: data.graduationYear.trim(),
+        // Question réservée aux spécialités qui la déclarent : ne rien envoyer
+        // depuis un formulaire où elle n’était pas affichée.
+        stockExperience: formLabels.asksStockExperience ? data.stockExperience : '',
         experience: Number(data.experience),
         employer: data.employer.trim(),
         availability: data.availability,
@@ -803,13 +822,13 @@ const RecrutementCandidaturePage: React.FC = () => {
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
               <label htmlFor="orderNumber" className="mb-2 block text-sm font-bold text-slate-800">
-                Numéro d’inscription à l’Ordre{' '}
+                {formLabels.orderLabel}{' '}
                 <span className="font-medium text-slate-400">(facultatif)</span>
               </label>
               <input
                 id="orderNumber"
                 type="text"
-                placeholder="Ex. ONMS-12345"
+                placeholder={formLabels.orderPlaceholder}
                 className={inputClass(Boolean(errors.orderNumber))}
                 aria-invalid={Boolean(errors.orderNumber)}
                 aria-describedby={errors.orderNumber ? 'orderNumber-error' : undefined}
@@ -831,7 +850,8 @@ const RecrutementCandidaturePage: React.FC = () => {
 
             <div>
               <label htmlFor="university" className="mb-2 block text-sm font-bold text-slate-800">
-                Université <span className="text-red-600">*</span>
+                Université ou établissement de formation{' '}
+                <span className="text-red-600">*</span>
               </label>
               <div className="relative">
                 <GraduationCap
@@ -854,6 +874,75 @@ const RecrutementCandidaturePage: React.FC = () => {
                 />
               </div>
               <FieldError id="university-error" message={errors.university?.message} />
+            </div>
+
+            <div>
+              <label htmlFor="diplomaTitle" className="mb-2 block text-sm font-bold text-slate-800">
+                Diplôme <span className="font-medium text-slate-400">(facultatif)</span>
+              </label>
+              <div className="relative">
+                <Award
+                  size={17}
+                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  aria-hidden="true"
+                />
+                <input
+                  id="diplomaTitle"
+                  type="text"
+                  placeholder="Ex. Doctorat en pharmacie"
+                  className={`${inputClass(Boolean(errors.diplomaTitle))} pl-11`}
+                  aria-invalid={Boolean(errors.diplomaTitle)}
+                  aria-describedby={errors.diplomaTitle ? 'diplomaTitle-error' : undefined}
+                  {...register('diplomaTitle', {
+                    validate: (value) => {
+                      const compact = value.trim();
+                      if (!compact) return true;
+                      return (
+                        (compact.length >= 3 && compact.length <= 120) ||
+                        'L’intitulé doit compter 3 à 120 caractères.'
+                      );
+                    },
+                  })}
+                />
+              </div>
+              <FieldError id="diplomaTitle-error" message={errors.diplomaTitle?.message} />
+            </div>
+
+            <div>
+              <label
+                htmlFor="graduationYear"
+                className="mb-2 block text-sm font-bold text-slate-800"
+              >
+                Année d’obtention <span className="font-medium text-slate-400">(facultatif)</span>
+              </label>
+              <input
+                id="graduationYear"
+                type="number"
+                inputMode="numeric"
+                min={MIN_GRADUATION_YEAR}
+                max={CURRENT_YEAR}
+                step={1}
+                placeholder={`Ex. ${CURRENT_YEAR - 5}`}
+                className={inputClass(Boolean(errors.graduationYear))}
+                aria-invalid={Boolean(errors.graduationYear)}
+                aria-describedby={errors.graduationYear ? 'graduationYear-error' : undefined}
+                {...register('graduationYear', {
+                  validate: (value) => {
+                    const compact = value.trim();
+                    if (!compact) return true;
+                    const year = Number(compact);
+                    if (
+                      !Number.isInteger(year) ||
+                      year < MIN_GRADUATION_YEAR ||
+                      year > CURRENT_YEAR
+                    ) {
+                      return `Indiquez une année entre ${MIN_GRADUATION_YEAR} et ${CURRENT_YEAR}.`;
+                    }
+                    return true;
+                  },
+                })}
+              />
+              <FieldError id="graduationYear-error" message={errors.graduationYear?.message} />
             </div>
 
             <div>
@@ -887,7 +976,7 @@ const RecrutementCandidaturePage: React.FC = () => {
 
             <div>
               <label htmlFor="employer" className="mb-2 block text-sm font-bold text-slate-800">
-                Employeur actuel{' '}
+                {formLabels.employerLabel}{' '}
                 <span className="font-medium text-slate-400">(facultatif)</span>
               </label>
               <div className="relative">
@@ -899,7 +988,7 @@ const RecrutementCandidaturePage: React.FC = () => {
                 <input
                   id="employer"
                   type="text"
-                  placeholder="Ex. Hôpital régional de Ndioum"
+                  placeholder={formLabels.employerPlaceholder}
                   className={`${inputClass(Boolean(errors.employer))} pl-11`}
                   aria-invalid={Boolean(errors.employer)}
                   {...register('employer', {
@@ -910,9 +999,38 @@ const RecrutementCandidaturePage: React.FC = () => {
               <FieldError id="employer-error" message={errors.employer?.message} />
             </div>
 
+            {/* Question propre aux métiers du médicament : elle n’apparaît que
+                si la spécialité la déclare, pour ne pas alourdir les autres. */}
+            {formLabels.asksStockExperience && (
+              <div className="sm:col-span-2">
+                <label
+                  htmlFor="stockExperience"
+                  className="mb-2 block text-sm font-bold text-slate-800"
+                >
+                  Expérience en gestion de médicaments ou de stocks{' '}
+                  <span className="font-medium text-slate-400">(facultatif)</span>
+                </label>
+                <select
+                  id="stockExperience"
+                  className={inputClass(Boolean(errors.stockExperience))}
+                  aria-invalid={Boolean(errors.stockExperience)}
+                  aria-describedby={errors.stockExperience ? 'stockExperience-error' : undefined}
+                  {...register('stockExperience')}
+                >
+                  <option value="">Sélectionner…</option>
+                  {STOCK_EXPERIENCE_OPTIONS.map((option: string) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <FieldError id="stockExperience-error" message={errors.stockExperience?.message} />
+              </div>
+            )}
+
             <div className="sm:col-span-2">
               <label htmlFor="availability" className="mb-2 block text-sm font-bold text-slate-800">
-                Disponibilité <span className="text-red-600">*</span>
+                Disponibilité pendant la campagne <span className="text-red-600">*</span>
               </label>
               <select
                 id="availability"

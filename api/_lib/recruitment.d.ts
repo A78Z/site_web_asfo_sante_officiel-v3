@@ -1,11 +1,27 @@
 /** Typage du module partagé `recruitment.js`. */
 
+export interface RecruitmentFormLabels {
+  orderLabel: string;
+  orderPlaceholder: string;
+  employerLabel: string;
+  employerPlaceholder: string;
+  asksStockExperience: boolean;
+}
+
 export interface RecruitmentSpecialty {
   slug: string;
   label: string;
   emoji: string;
   description: string;
   defaultOpen: boolean;
+  /** Accroche affichée sous la description sur la page publique. */
+  openingNote?: string;
+  /** Libellé du bouton principal ; « S’inscrire » par défaut. */
+  ctaLabel?: string;
+  /** Illustration affichée en regard de la carte, si le site en possède une. */
+  image?: { src: string; alt: string };
+  /** Intitulés propres au métier ; les absents reprennent les valeurs par défaut. */
+  form?: Partial<RecruitmentFormLabels>;
 }
 
 export interface RecruitmentSpecialtyState extends RecruitmentSpecialty {
@@ -48,6 +64,11 @@ export declare const FILE_KINDS: Array<'cv' | 'diploma' | 'photo'>;
 export declare const MIN_RECRUITMENT_AGE: number;
 export declare const MAX_RECRUITMENT_AGE: number;
 export declare const MIN_MEMBERSHIP_YEAR: number;
+export declare const MIN_GRADUATION_YEAR: number;
+export declare const STOCK_EXPERIENCE_OPTIONS: string[];
+export declare function specialtyFormLabels(
+  specialty: RecruitmentSpecialty | null,
+): RecruitmentFormLabels;
 
 export declare function specialtyBySlug(slug: unknown): RecruitmentSpecialty | null;
 export declare function isRecruitmentStatus(value: unknown): boolean;

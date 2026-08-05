@@ -132,6 +132,9 @@ export interface ApplicationPayload {
   department: string;
   orderNumber: string;
   university: string;
+  diplomaTitle?: string;
+  graduationYear?: string;
+  stockExperience?: string;
   experience: number;
   employer: string;
   availability: string;

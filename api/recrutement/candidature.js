@@ -251,6 +251,16 @@ export default async function handler(request, response) {
     profession: specialty.label,
     orderNumber: compactWhitespace(payload.orderNumber),
     university: compactWhitespace(payload.university),
+    // Précisions facultatives : absentes, elles ne créent pas de champ vide.
+    ...(compactWhitespace(payload.diplomaTitle)
+      ? { diplomaTitle: compactWhitespace(payload.diplomaTitle) }
+      : {}),
+    ...(compactWhitespace(payload.graduationYear)
+      ? { graduationYear: Number(compactWhitespace(payload.graduationYear)) }
+      : {}),
+    ...(compactWhitespace(payload.stockExperience)
+      ? { stockExperience: compactWhitespace(payload.stockExperience) }
+      : {}),
     experience: Number(payload.experience),
     employer: compactWhitespace(payload.employer),
     availability: compactWhitespace(payload.availability),

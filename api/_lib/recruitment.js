@@ -35,7 +35,7 @@ export const SPECIALTIES = [
     emoji: '🦷',
     description:
       'Consultations, soins conservateurs et extractions au sein de l’unité dentaire mobile.',
-    defaultOpen: true,
+    defaultOpen: false,
   },
   {
     slug: 'medecin-generaliste',
@@ -96,10 +96,28 @@ export const SPECIALTIES = [
   },
   {
     slug: 'pharmacien',
-    label: 'Pharmacien',
+    label: 'Pharmacien(ne)',
     emoji: '💊',
-    description: 'Gestion de la pharmacie de campagne, dispensation et conseil.',
-    defaultOpen: false,
+    description:
+      'Participez à la gestion de la pharmacie de campagne, à la dispensation sécurisée des médicaments, au conseil pharmaceutique et au suivi des stocks pendant la 27e Grande Caravane Médicale ASFO 2026.',
+    defaultOpen: true,
+    /** Accroche et libellé de bouton propres à la campagne en cours. */
+    openingNote: 'Les candidatures des pharmaciens sont ouvertes dès aujourd’hui.',
+    ctaLabel: 'S’inscrire comme pharmacien',
+    /** Illustration réelle du site, affichée en regard de la carte. */
+    image: {
+      src: '/soins-medicaux-base.webp',
+      alt: 'Professionnel de santé préparant des soins lors d’une mission ASFO',
+    },
+    // Libellés propres au métier : le formulaire est commun, seuls les
+    // intitulés s’ajustent pour parler la langue du candidat.
+    form: {
+      orderLabel: 'Numéro d’inscription à l’Ordre des pharmaciens',
+      orderPlaceholder: 'Ex. ONPS-04582',
+      employerLabel: 'Officine, hôpital, laboratoire ou établissement actuel',
+      employerPlaceholder: 'Ex. Pharmacie du Fleuve, Ndioum',
+      asksStockExperience: true,
+    },
   },
   {
     slug: 'kinesitherapeute',
@@ -141,6 +159,28 @@ export const SPECIALTIES = [
 const SPECIALTY_BY_SLUG = new Map(SPECIALTIES.map((item) => [item.slug, item]));
 
 export const specialtyBySlug = (slug) => SPECIALTY_BY_SLUG.get(String(slug ?? '')) ?? null;
+
+/** Intitulés par défaut du formulaire, valables pour toute spécialité. */
+const DEFAULT_FORM_LABELS = {
+  orderLabel: 'Numéro d’inscription à l’Ordre',
+  orderPlaceholder: 'Ex. ONMS-12345',
+  employerLabel: 'Employeur actuel',
+  employerPlaceholder: 'Ex. Hôpital régional de Ndioum',
+  asksStockExperience: false,
+};
+
+/** Intitulés effectifs pour une spécialité, valeurs par défaut comprises. */
+export const specialtyFormLabels = (specialty) => ({
+  ...DEFAULT_FORM_LABELS,
+  ...(specialty?.form ?? {}),
+});
+
+/** Niveaux d’expérience en gestion de médicaments et de stocks. */
+export const STOCK_EXPERIENCE_OPTIONS = [
+  'Aucune expérience',
+  'Quelques expériences ponctuelles',
+  'Expérience confirmée',
+];
 
 /**
  * Notifications par e-mail : interrupteur unique du module.
@@ -270,6 +310,9 @@ export const MAX_RECRUITMENT_AGE = 75;
  */
 export const MIN_MEMBERSHIP_YEAR = 1990;
 
+/** Année d’obtention de diplôme la plus ancienne acceptée. */
+export const MIN_GRADUATION_YEAR = 1960;
+
 const isIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
 const ageFromIso = (iso, today = new Date()) => {
@@ -384,6 +427,30 @@ export const validateRecruitmentApplication = (payload = {}, today = new Date())
     max: 120,
   });
   if (university) return fail('university', university);
+
+  // Diplôme, année d’obtention et expérience de gestion : facultatifs, mais
+  // contrôlés dès qu’ils sont renseignés.
+  const diplomaTitle = compactWhitespace(payload.diplomaTitle);
+  if (diplomaTitle && (diplomaTitle.length < 3 || diplomaTitle.length > 120)) {
+    return fail('diplomaTitle', 'L’intitulé du diplôme doit compter 3 à 120 caractères.');
+  }
+
+  const graduationYear = compactWhitespace(payload.graduationYear);
+  if (graduationYear) {
+    const year = Number(graduationYear);
+    const thisYear = new Date().getUTCFullYear();
+    if (!Number.isInteger(year) || year < MIN_GRADUATION_YEAR || year > thisYear) {
+      return fail(
+        'graduationYear',
+        `Indiquez une année d’obtention comprise entre ${MIN_GRADUATION_YEAR} et ${thisYear}.`,
+      );
+    }
+  }
+
+  const stockExperience = compactWhitespace(payload.stockExperience);
+  if (stockExperience && !STOCK_EXPERIENCE_OPTIONS.includes(stockExperience)) {
+    return fail('stockExperience', 'Sélectionnez un niveau d’expérience proposé.');
+  }
 
   const experience = Number(payload.experience);
   if (!Number.isInteger(experience) || experience < 0 || experience > 60) {

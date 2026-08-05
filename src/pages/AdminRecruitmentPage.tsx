@@ -343,7 +343,18 @@ const ApplicationDrawer: React.FC<{
               <InfoRow label="Profession" value={application.profession} />
               <InfoRow label="N° Ordre" value={application.orderNumber} />
               <InfoRow label="Université" value={application.university} />
+              <InfoRow label="Diplôme" value={application.diplomaTitle} />
+              <InfoRow
+                label="Année d’obtention"
+                value={application.graduationYear ? String(application.graduationYear) : ''}
+              />
               <InfoRow label="Expérience" value={`${application.experience ?? 0} an(s)`} />
+              {application.stockExperience && (
+                <InfoRow
+                  label="Gestion de médicaments / stocks"
+                  value={application.stockExperience}
+                />
+              )}
               <InfoRow label="Employeur" value={application.employer} />
               <InfoRow label="Disponibilité" value={application.availability} />
             </div>
