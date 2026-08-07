@@ -82,6 +82,10 @@ export declare const SPECIALTIES: RecruitmentSpecialty[];
 export declare const PARAMEDICAL_SPECIALITIES: string[];
 export declare const MEDICAL_SPECIALITIES: string[];
 export declare const EDUCATION_LEVELS: string[];
+export declare const OTHER_EDUCATION_LEVEL: string;
+export declare function educationLevelsForCategory(
+  category: RecruitmentCategory | string | null | undefined,
+): string[];
 export declare const EMAIL_NOTIFICATIONS_ENABLED: boolean;
 export declare const RECRUITMENT_STATUSES: string[];
 export declare const DEFAULT_RECRUITMENT_STATUS: string;

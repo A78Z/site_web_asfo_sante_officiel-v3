@@ -136,6 +136,7 @@ export interface ApplicationPayload {
   orderNumber?: string;
   university?: string;
   educationLevel?: string;
+  educationLevelOther?: string;
   speciality?: string;
   otherSpeciality?: string;
   diplomaTitle?: string;

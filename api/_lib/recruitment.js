@@ -156,6 +156,42 @@ export const MEDICAL_SPECIALITIES = [
   'Autre spécialité médicale',
 ];
 
+/**
+ * Niveaux d’études, catégorie par catégorie.
+ *
+ * Une seule liste commune proposait un doctorat en médecine ou en pharmacie à
+ * un(e) infirmier(ère) : le champ devenait illisible et incitait à des choix
+ * faux. Chaque parcours simplifié dispose donc de sa propre liste, et le
+ * serveur valide la valeur reçue avec la liste de la catégorie déclarée.
+ *
+ * Les deux formulaires complets (chirurgiens-dentistes, pharmaciens) n’ont pas
+ * ce champ : ils saisissent librement l’intitulé de leur diplôme
+ * (`diplomaTitle`), ce qui reste inchangé.
+ */
+export const OTHER_EDUCATION_LEVEL = 'Autre niveau ou diplôme';
+
+const PARAMEDICAL_EDUCATION_LEVELS = [
+  'BEP / CAP sanitaire',
+  'BT / Brevet de technicien',
+  'Bac',
+  'Bac+1',
+  'Bac+2 / Diplôme d’État',
+  'Bac+3 / Licence',
+  'Bac+4',
+  'Bac+5 / Master',
+  'Diplôme professionnel de santé',
+  OTHER_EDUCATION_LEVEL,
+];
+
+const SPECIALIST_EDUCATION_LEVELS = ['Diplôme de spécialisation (DES)', 'Autre diplôme de santé'];
+
+const GENERAL_PRACTITIONER_EDUCATION_LEVELS = ['Doctorat en médecine', 'Autre diplôme de santé'];
+
+/**
+ * Liste historique. Elle n’alimente plus aucun formulaire mais sert de repli
+ * de validation pour toute catégorie sans liste dédiée, afin qu’un parcours
+ * ajouté plus tard ne soit jamais rejeté faute de configuration.
+ */
 export const EDUCATION_LEVELS = [
   'Bac+2 / Diplôme d’État',
   'Bac+3 / Licence',
@@ -165,6 +201,18 @@ export const EDUCATION_LEVELS = [
   'Diplôme de spécialisation (DES)',
   'Autre diplôme de santé',
 ];
+
+const EDUCATION_LEVELS_BY_CATEGORY = {
+  paramedical: PARAMEDICAL_EDUCATION_LEVELS,
+  specialiste: SPECIALIST_EDUCATION_LEVELS,
+  generaliste: GENERAL_PRACTITIONER_EDUCATION_LEVELS,
+};
+
+/** Niveaux acceptés pour une catégorie, désignée par sa clé ou par son objet. */
+export const educationLevelsForCategory = (category) => {
+  const key = typeof category === 'string' ? category : category?.key;
+  return EDUCATION_LEVELS_BY_CATEGORY[String(key ?? '')] ?? EDUCATION_LEVELS;
+};
 
 const OTHER_PARAMEDICAL = 'Autre profession paramédicale';
 const OTHER_SPECIALIST = 'Autre spécialité médicale';
@@ -558,8 +606,20 @@ const validateSimplifiedRecruitmentApplication = (payload, category, today) => {
     return fail('email', 'Entrez une adresse e-mail valide.');
   }
 
-  if (!EDUCATION_LEVELS.includes(compactWhitespace(payload.educationLevel))) {
+  const educationLevel = compactWhitespace(payload.educationLevel);
+  if (!educationLevelsForCategory(category).includes(educationLevel)) {
     return fail('educationLevel', 'Sélectionnez votre niveau d’études.');
+  }
+
+  // Le niveau libre n’est réclamé que si la liste de la catégorie propose le
+  // choix « Autre » et qu’il a été retenu.
+  if (educationLevel === OTHER_EDUCATION_LEVEL) {
+    const otherLevel = textRule(payload.educationLevelOther, {
+      label: 'Le niveau ou diplôme',
+      min: 2,
+      max: 100,
+    });
+    if (otherLevel) return fail('educationLevelOther', otherLevel);
   }
 
   if (category.key === 'paramedical') {

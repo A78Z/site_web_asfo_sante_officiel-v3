@@ -44,6 +44,8 @@ export interface RecruitmentApplication {
   speciality?: string;
   profession: string;
   educationLevel?: string;
+  /** Saisie libre, présente uniquement avec le niveau « Autre ». */
+  educationLevelOther?: string;
   orderNumber?: string;
   university?: string;
   diplomaTitle?: string;

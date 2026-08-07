@@ -348,6 +348,9 @@ const ApplicationDrawer: React.FC<{
               <InfoRow label="Catégorie" value={categoryByKey(application.recruitmentCategory)?.label} />
               {application.speciality && <InfoRow label="Spécialité" value={application.speciality} />}
               {application.educationLevel && <InfoRow label="Niveau d’études" value={application.educationLevel} />}
+              {application.educationLevelOther && (
+                <InfoRow label="Niveau précisé" value={application.educationLevelOther} />
+              )}
               <InfoRow label="N° Ordre" value={application.orderNumber} />
               <InfoRow label="Université" value={application.university} />
               <InfoRow label="Diplôme" value={application.diplomaTitle} />

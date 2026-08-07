@@ -29,6 +29,7 @@ import { recruitmentReceivedEmail } from '../_lib/email-templates.js';
 import {
   DEFAULT_RECRUITMENT_STATUS,
   EMAIL_NOTIFICATIONS_ENABLED,
+  OTHER_EDUCATION_LEVEL,
   RECRUITMENT_CLASS,
   SPECIALTY_CLASS,
   buildRecruitmentReference,
@@ -273,7 +274,15 @@ export default async function handler(request, response) {
     profession,
     ...(speciality ? { speciality } : {}),
     ...(category.formKind === 'simplified'
-      ? { educationLevel: compactWhitespace(payload.educationLevel) }
+      ? {
+          educationLevel: compactWhitespace(payload.educationLevel),
+          // Précision libre : écrite seulement quand le niveau « Autre » est
+          // retenu, pour ne pas ajouter un champ vide aux autres dossiers.
+          ...(compactWhitespace(payload.educationLevel) === OTHER_EDUCATION_LEVEL &&
+          compactWhitespace(payload.educationLevelOther)
+            ? { educationLevelOther: compactWhitespace(payload.educationLevelOther) }
+            : {}),
+        }
       : {}),
     ...(isCompleteForm
       ? {

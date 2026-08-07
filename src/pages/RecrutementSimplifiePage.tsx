@@ -23,13 +23,14 @@ import {
   User,
 } from 'lucide-react';
 import {
-  EDUCATION_LEVELS,
   GENDERS,
   MAX_RECRUITMENT_AGE,
   MEDICAL_SPECIALITIES,
   MIN_MEMBERSHIP_YEAR,
   MIN_RECRUITMENT_AGE,
+  OTHER_EDUCATION_LEVEL,
   PARAMEDICAL_SPECIALITIES,
+  educationLevelsForCategory,
   type RecruitmentCategory,
 } from '../../api/_lib/recruitment.js';
 import {
@@ -65,6 +66,7 @@ interface FormInputs {
   address: string;
   email: string;
   educationLevel: string;
+  educationLevelOther: string;
   speciality: string;
   otherSpeciality: string;
   isMember: string;
@@ -81,6 +83,7 @@ const DEFAULT_VALUES: FormInputs = {
   address: '',
   email: '',
   educationLevel: '',
+  educationLevelOther: '',
   speciality: '',
   otherSpeciality: '',
   isMember: '',
@@ -251,6 +254,8 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
   const calculatedAge = birthDateIso ? ageOnDate(birthDateIso) : null;
   const phoneError = phoneTouched ? senegalPhoneIssue(`${SENEGAL_DIALLING_CODE}${phoneDigits}`) : null;
   const specialityOptions = category.key === 'specialiste' ? MEDICAL_SPECIALITIES : PARAMEDICAL_SPECIALITIES;
+  const educationLevelOptions = useMemo(() => educationLevelsForCategory(category), [category]);
+  const asksOtherEducationLevel = values.educationLevel === OTHER_EDUCATION_LEVEL;
   const asksSpeciality = category.key !== 'generaliste';
   const asksOther = values.speciality === 'Autre spécialité médicale' || values.speciality === 'Autre profession paramédicale';
   const profession = category.key === 'generaliste'
@@ -317,6 +322,7 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
         phone,
         email: data.email.trim(),
         educationLevel: data.educationLevel,
+        ...(asksOtherEducationLevel ? { educationLevelOther: data.educationLevelOther.trim() } : {}),
         ...(asksSpeciality ? { speciality: data.speciality } : {}),
         ...(asksOther ? { otherSpeciality: data.otherSpeciality.trim() } : {}),
         isMember: data.isMember === 'oui',
@@ -487,11 +493,23 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <label htmlFor="educationLevel" className="mb-2 block text-sm font-bold text-slate-800">Niveau d’études <span className="text-red-600">*</span></label>
-                <select id="educationLevel" className={inputClass(Boolean(errors.educationLevel))} {...register('educationLevel', { required: 'Sélectionnez votre niveau d’études.' })}>
+                <select id="educationLevel" className={inputClass(Boolean(errors.educationLevel))} {...register('educationLevel', { required: 'Sélectionnez votre niveau d’études.', validate: (value) => educationLevelOptions.includes(value) || 'Choisissez un niveau dans la liste.' })}>
                   <option value="">Sélectionner…</option>
-                  {EDUCATION_LEVELS.map((level) => <option key={level}>{level}</option>)}
+                  {educationLevelOptions.map((level) => <option key={level}>{level}</option>)}
                 </select>
                 <FieldError id="educationLevel-error" message={errors.educationLevel?.message} />
+
+                <AnimatePresence initial={false}>
+                  {asksOtherEducationLevel && (
+                    <motion.div initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                      <label htmlFor="educationLevelOther" className="mb-2 mt-4 block text-sm font-bold text-slate-800">
+                        Précisez votre niveau ou diplôme <span className="text-red-600">*</span>
+                      </label>
+                      <input id="educationLevelOther" placeholder="Ex. Diplôme d’État infirmier, technicien supérieur de santé…" className={inputClass(Boolean(errors.educationLevelOther))} {...register('educationLevelOther', { validate: (value) => !asksOtherEducationLevel || (value.trim().length >= 2 && value.trim().length <= 100) || 'Précisez votre niveau ou diplôme (2 à 100 caractères).' })} />
+                      <FieldError id="educationLevelOther-error" message={errors.educationLevelOther?.message} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div>
