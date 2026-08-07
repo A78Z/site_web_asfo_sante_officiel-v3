@@ -19,8 +19,8 @@ import { authorizeAdmin } from '../../_lib/admin-auth.js';
 import { readJsonBody, sendError } from '../../_lib/http.js';
 import {
   SPECIALTY_CLASS,
+  categoryBySlug,
   mergeSpecialtyStates,
-  specialtyBySlug,
 } from '../../_lib/recruitment.js';
 
 const readStates = async (environment) => {
@@ -80,9 +80,9 @@ export default async function handler(request, response) {
     return;
   }
 
-  const specialty = specialtyBySlug(payload.slug);
-  if (!specialty) {
-    sendError(response, 400, 'Spécialité inconnue.', 'unknown_specialty');
+  const category = categoryBySlug(payload.slug);
+  if (!category) {
+    sendError(response, 400, 'Catégorie inconnue.', 'unknown_category');
     return;
   }
   if (typeof payload.open !== 'boolean') {
@@ -91,8 +91,9 @@ export default async function handler(request, response) {
   }
 
   const fields = {
-    slug: specialty.slug,
-    label: specialty.label,
+    slug: category.slug,
+    label: category.label,
+    recruitmentCategory: category.key,
     open: payload.open,
     updatedBy: authorization.actor.name ?? '',
     updatedAt: parseDate(new Date()),
@@ -100,7 +101,7 @@ export default async function handler(request, response) {
 
   try {
     const existing = await findObjects(environment, SPECIALTY_CLASS, {
-      where: { slug: specialty.slug },
+      where: { slug: category.slug },
       limit: 1,
       keys: 'slug',
     });
@@ -126,7 +127,7 @@ export default async function handler(request, response) {
   }
 
   console.info('[recruitment-settings] updated', {
-    slug: specialty.slug,
+    slug: category.slug,
     open: payload.open,
     actorId: payload.actorId,
   });
@@ -135,7 +136,7 @@ export default async function handler(request, response) {
     success: true,
     specialties: mergeSpecialtyStates(rows),
     message: payload.open
-      ? `Les inscriptions « ${specialty.label} » sont ouvertes.`
-      : `Les inscriptions « ${specialty.label} » sont fermées.`,
+      ? `Les inscriptions « ${category.label} » sont ouvertes.`
+      : `Les inscriptions « ${category.label} » sont fermées.`,
   });
 }

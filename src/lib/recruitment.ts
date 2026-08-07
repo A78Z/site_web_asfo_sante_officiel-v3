@@ -9,10 +9,12 @@
 import type { ParseFile } from './parse';
 import {
   FILE_RULES,
-  type RecruitmentSpecialtyState,
+  type RecruitmentCategoryState,
 } from '../../api/_lib/recruitment.js';
 
-export type { RecruitmentSpecialtyState };
+export type { RecruitmentCategoryState };
+/** Alias temporaire pour les écrans existants ; le contenu est désormais une catégorie. */
+export type RecruitmentSpecialtyState = RecruitmentCategoryState;
 
 export type FileKind = 'cv' | 'diploma' | 'photo';
 
@@ -36,7 +38,7 @@ interface ErrorPayload {
   field?: string;
 }
 
-/** Catalogue des spécialités et leur état d’ouverture. */
+/** Catalogue des cinq catégories et leur état d’ouverture. */
 export const fetchSpecialties = async (): Promise<{
   campaign: string;
   specialties: RecruitmentSpecialtyState[];
@@ -120,7 +122,8 @@ export const uploadRecruitmentFile = async (
 
 export interface ApplicationPayload {
   submissionId: string;
-  specialty: string;
+  recruitmentCategory: string;
+  specialty?: string;
   lastName: string;
   firstName: string;
   gender: string;
@@ -128,17 +131,20 @@ export interface ApplicationPayload {
   phone: string;
   email: string;
   address: string;
-  region: string;
-  department: string;
-  orderNumber: string;
-  university: string;
+  region?: string;
+  department?: string;
+  orderNumber?: string;
+  university?: string;
+  educationLevel?: string;
+  speciality?: string;
+  otherSpeciality?: string;
   diplomaTitle?: string;
   graduationYear?: string;
   stockExperience?: string;
-  experience: number;
-  employer: string;
-  availability: string;
-  motivation: string;
+  experience?: number;
+  employer?: string;
+  availability?: string;
+  motivation?: string;
   /** Appartenance à l’ASFO ; les deux précisions ne valent que si `true`. */
   isMember: boolean;
   memberCardNumber?: string;

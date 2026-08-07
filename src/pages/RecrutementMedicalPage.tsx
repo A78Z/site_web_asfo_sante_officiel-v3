@@ -1,299 +1,147 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
-  AlertCircle,
+  Activity,
   ArrowRight,
-  BadgeCheck,
-  CalendarCheck,
-  CalendarDays,
   CheckCircle2,
-  ClipboardList,
-  Clock3,
-  FileText,
+  CircleOff,
   HeartPulse,
   Loader2,
-  MapPin,
   Pill,
   ShieldCheck,
+  Sparkles,
   Stethoscope,
-  Users,
 } from 'lucide-react';
-import {
-  fetchSpecialties,
-  type RecruitmentSpecialtyState,
-} from '../lib/recruitment';
-import { SPECIALTIES } from '../../api/_lib/recruitment.js';
+import { RECRUITMENT_CATEGORIES } from '../../api/_lib/recruitment.js';
+import { fetchSpecialties, type RecruitmentCategoryState } from '../lib/recruitment';
 
 const poppins = { fontFamily: "'Poppins', 'Inter', sans-serif" };
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 26 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: '-60px' },
-  transition: { duration: 0.55, delay, ease: 'easeOut' as const },
-});
-
-/** Repères du parcours, affichés sous le hero. */
-const STEPS = [
-  {
-    icon: ClipboardList,
-    title: 'Déposez votre dossier',
-    text: 'Formulaire en ligne, CV, diplôme et photo. Une dizaine de minutes suffisent.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Vérification de la commission',
-    text: 'Chaque dossier est examiné : diplôme, inscription à l’Ordre et expérience.',
-  },
-  {
-    icon: HeartPulse,
-    title: 'Affectation sur le terrain',
-    text: 'Les professionnels retenus rejoignent l’unité correspondant à leur spécialité.',
-  },
-];
-
-const HERO_IMAGES = [
-  { src: '/medicalteam.webp', alt: 'Équipe médicale ASFO en mission', span: 'col-span-2' },
-  { src: '/dentaire.jpg', alt: 'Consultation dentaire lors d’une caravane ASFO', span: '' },
-  { src: '/soins-medicaux-base.webp', alt: 'Soins médicaux de base dispensés aux populations', span: '' },
-];
-
-/**
- * Vrai sur les petits écrans. Les animations d’attention y sont allégées : sur
- * un téléphone tenu à trente centimètres, le mouvement qui attire l’œil sur un
- * grand écran devient vite fatigant.
- */
-const useIsSmallScreen = () => {
-  const [small, setSmall] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches,
-  );
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const query = window.matchMedia('(max-width: 639px)');
-    const update = () => setSmall(query.matches);
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, []);
-  return small;
+const iconByCategory: Record<string, React.ElementType> = {
+  dentiste: Sparkles,
+  pharmacien: Pill,
+  paramedical: Activity,
+  specialiste: HeartPulse,
+  generaliste: Stethoscope,
 };
 
-/* ─── Carte d’une spécialité ouverte ─── */
-/**
- * Composition éditoriale : contenu à gauche, photographie réelle du site à
- * droite sur grand écran. Une seule spécialité étant ouverte à la fois pendant
- * une campagne, la carte occupe toute la largeur plutôt que de flotter dans
- * une grille à trois colonnes vide aux deux tiers.
- */
-const OpenSpecialtyCard: React.FC<{
-  specialty: RecruitmentSpecialtyState;
-  index: number;
-  reduceMotion: boolean | null;
-}> = ({ specialty, index, reduceMotion }) => {
-  const isSmall = useIsSmallScreen();
-  // Brillance et halo n’existent que pour orienter le regard : ils s’effacent
-  // dès que le visiteur a demandé moins de mouvement.
-  const animate = !reduceMotion;
-  const image = specialty.image;
+const defaultStates = (): RecruitmentCategoryState[] =>
+  RECRUITMENT_CATEGORIES.map((category) => ({
+    ...category,
+    open: category.defaultOpen,
+    updatedAt: null,
+    updatedBy: null,
+  }));
 
-  /** Apparition progressive, dans l’ordre de lecture. */
-  const reveal = (delay: number) =>
-    animate
-      ? {
-          initial: { opacity: 0, y: 10 },
-          whileInView: { opacity: 1, y: 0 },
-          viewport: { once: true, margin: '-60px' },
-          transition: { duration: 0.45, delay },
-        }
-      : {};
+const CategoryCard: React.FC<{
+  category: RecruitmentCategoryState;
+  index: number;
+}> = ({ category, index }) => {
+  const reduceMotion = useReducedMotion();
+  const Icon = iconByCategory[category.key] ?? Stethoscope;
 
   return (
-    <div className="relative">
-      {/* Halo lumineux : décoratif, hors du flux et hors du clic. Statique,
-          donc conservé même en « mouvement réduit » — ce n’est pas une
-          animation, et c’est lui qui distingue la carte. */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -inset-2 rounded-[32px] bg-gradient-to-br from-teal-300/30 via-emerald-300/20 to-teal-400/25 blur-xl"
-      />
+    <motion.article
+      initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ duration: 0.45, delay: index * 0.05 }}
+      className={`group relative flex h-full flex-col overflow-hidden rounded-[28px] border bg-white p-6 shadow-[0_22px_60px_-38px_rgba(15,23,42,0.38)] transition duration-300 sm:p-7 ${
+        category.open
+          ? 'border-teal-200 hover:-translate-y-1 hover:border-teal-300 hover:shadow-[0_28px_72px_-38px_rgba(13,148,136,0.5)]'
+          : 'border-slate-200'
+      }`}
+    >
+      {category.open && (
+        <motion.span
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-teal-200/45 blur-3xl"
+          animate={reduceMotion ? undefined : { opacity: [0.45, 0.85, 0.45], scale: [1, 1.08, 1] }}
+          transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      )}
 
-      <motion.article
-        {...(animate ? fadeUp(Math.min(index, 4) * 0.05) : {})}
-        className="group relative overflow-hidden rounded-3xl border-2 border-teal-300 bg-gradient-to-br from-white via-white to-teal-50/60 shadow-[0_30px_80px_-38px_rgba(13,148,136,0.75)] transition duration-300 hover:-translate-y-0.5 hover:border-teal-400 hover:shadow-[0_36px_90px_-34px_rgba(13,148,136,0.85)]"
-      >
-        <div className="grid lg:grid-cols-[1.15fr_0.85fr]">
-          {/* ─ Contenu ─ */}
-          <div className="p-6 sm:p-8 lg:p-10">
-            <motion.p
-              {...reveal(0.05)}
-              className="inline-flex w-fit items-center gap-1.5 rounded-full bg-teal-600/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-teal-800"
-            >
-              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-teal-600" />
-              Recrutement en cours
-            </motion.p>
-
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <motion.span
-                {...(animate
-                  ? {
-                      initial: { opacity: 0, scale: 0.82, rotate: -8 },
-                      whileInView: { opacity: 1, scale: 1, rotate: 0 },
-                      viewport: { once: true, margin: '-60px' },
-                      transition: { duration: 0.5, delay: 0.14, ease: 'easeOut' as const },
-                    }
-                  : {})}
-                aria-hidden="true"
-                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-teal-600 text-white shadow-[0_12px_26px_-14px_rgba(13,148,136,0.9)]"
-              >
-                <Pill className="h-7 w-7" />
-              </motion.span>
-
-              <motion.span
-                {...(animate
-                  ? {
-                      initial: { opacity: 0, scale: 0.9 },
-                      whileInView: { opacity: 1, scale: 1 },
-                      viewport: { once: true, margin: '-60px' },
-                      transition: { duration: 0.35, delay: 0.28 },
-                    }
-                  : {})}
-                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-white shadow-sm"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                Inscriptions ouvertes
-              </motion.span>
-            </div>
-
-            <motion.h3
-              {...reveal(0.36)}
-              className="mt-5 text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-3xl"
-              style={poppins}
-            >
-              {specialty.label}
-            </motion.h3>
-
-            <motion.p
-              {...reveal(0.44)}
-              className="mt-3 max-w-xl text-[15px] leading-7 text-slate-600 sm:text-base"
-            >
-              {specialty.description}
-            </motion.p>
-
-            <motion.p
-              {...reveal(0.52)}
-              className="mt-5 flex items-start gap-2 rounded-xl bg-teal-50/80 px-3.5 py-3 text-sm font-semibold leading-5 text-teal-900 sm:text-[15px]"
-            >
-              <CalendarCheck className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" aria-hidden="true" />
-              {specialty.openingNote ?? 'Les candidatures sont ouvertes pour l’édition 2026.'}
-            </motion.p>
-
-            {/* ─ Bouton principal ─ */}
-            <motion.div {...reveal(0.6)} className="relative mt-6 sm:max-w-md">
-              {/* Halo respirant toutes les cinq secondes, jamais clignotant. */}
-              <motion.span
-                aria-hidden="true"
-                className="pointer-events-none absolute -inset-1 rounded-2xl bg-gradient-to-r from-teal-400/45 to-emerald-400/45 blur-md"
-                {...(animate
-                  ? {
-                      animate: { opacity: [0.55, 1, 0.55] },
-                      transition: {
-                        duration: 1.6,
-                        repeat: Infinity,
-                        repeatDelay: 5,
-                        delay: 2.2,
-                        ease: 'easeInOut' as const,
-                      },
-                    }
-                  : {})}
-              />
-
-              <Link
-                to={`/recrutement-medical/${specialty.slug}`}
-                aria-label={`S’inscrire comme ${specialty.label.toLocaleLowerCase('fr')} à la caravane médicale ASFO 2026`}
-                className="group/cta relative flex min-h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-teal-600 via-teal-600 to-emerald-600 px-5 text-[15px] font-bold tracking-tight text-white shadow-[0_14px_30px_-14px_rgba(13,148,136,0.9)] transition-transform duration-150 hover:from-teal-700 hover:to-emerald-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-300 focus-visible:ring-offset-2 active:scale-[0.985] sm:min-h-[56px] sm:text-base"
-              >
-                {/* Couche de brillance : interne, sous les coins arrondis du
-                    bouton, et jamais un obstacle au clic. */}
-                {animate && (
-                  <motion.span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                    initial={{ x: '-110%' }}
-                    animate={{ x: ['-110%', '110%'] }}
-                    transition={{
-                      duration: 1.25,
-                      repeat: Infinity,
-                      repeatDelay: isSmall ? 6 : 4.5,
-                      delay: 1.4,
-                      ease: 'easeInOut',
-                    }}
-                  />
-                )}
-                <span className="relative">{specialty.ctaLabel ?? 'S’inscrire'}</span>
-                <ArrowRight
-                  className="relative h-4 w-4 shrink-0 transition-transform duration-300 group-hover/cta:translate-x-1"
-                  aria-hidden="true"
-                />
-              </Link>
-            </motion.div>
-          </div>
-
-          {/* ─ Illustration ─ */}
-          {image && (
-            <div className="relative order-first h-44 overflow-hidden sm:h-56 lg:order-none lg:h-auto">
-              <img
-                src={image.src}
-                alt={image.alt}
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
-              />
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-teal-950/25 to-transparent lg:bg-gradient-to-l"
-              />
-            </div>
+      <div className="relative flex items-start justify-between gap-4">
+        <span
+          className={`flex h-14 w-14 items-center justify-center rounded-2xl ${
+            category.open
+              ? 'bg-gradient-to-br from-teal-600 to-emerald-600 text-white shadow-[0_16px_28px_-16px_rgba(13,148,136,0.9)]'
+              : 'bg-slate-100 text-slate-500'
+          }`}
+        >
+          <Icon className="h-7 w-7" strokeWidth={1.8} aria-hidden="true" />
+        </span>
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] ${
+            category.open
+              ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+              : 'bg-slate-100 text-slate-500 ring-1 ring-slate-200'
+          }`}
+        >
+          {category.open ? (
+            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <CircleOff className="h-3.5 w-3.5" aria-hidden="true" />
           )}
-        </div>
-      </motion.article>
-    </div>
+          {category.open ? 'Inscriptions ouvertes' : 'Fermées'}
+        </span>
+      </div>
+
+      <h2 className="relative mt-6 text-xl font-black tracking-tight text-slate-950 sm:text-2xl" style={poppins}>
+        {category.label}
+      </h2>
+      <p className="relative mt-3 flex-1 text-sm leading-6 text-slate-600">
+        {category.description}
+      </p>
+
+      {category.open ? (
+        <Link
+          to={`/recrutement-medical/${category.slug}`}
+          className="relative mt-6 inline-flex min-h-[50px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 px-5 text-sm font-black text-white shadow-[0_15px_30px_-18px_rgba(13,148,136,0.9)] transition hover:from-teal-700 hover:to-emerald-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-200 active:scale-[0.985]"
+        >
+          {!reduceMotion && (
+            <motion.span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 w-20 -skew-x-12 bg-white/20 blur-sm"
+              animate={{ x: ['-180%', '520%'] }}
+              transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 5, delay: index * 0.35 }}
+            />
+          )}
+          <span className="relative">S’inscrire</span>
+          <ArrowRight className="relative h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+        </Link>
+      ) : (
+        <button
+          type="button"
+          disabled
+          className="relative mt-6 inline-flex min-h-[50px] cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-5 text-sm font-black text-slate-400"
+        >
+          S’inscrire
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </button>
+      )}
+    </motion.article>
   );
 };
 
 const RecrutementMedicalPage: React.FC = () => {
-  const reduceMotion = useReducedMotion();
-  // Le catalogue est connu du bundle : la page s’affiche immédiatement, et
-  // l’appel réseau ne fait que corriger l’état d’ouverture.
-  const [specialties, setSpecialties] = useState<RecruitmentSpecialtyState[]>(() =>
-    SPECIALTIES.map((item) => ({
-      ...item,
-      open: item.defaultOpen,
-      updatedAt: null,
-      updatedBy: null,
-    })),
-  );
+  const [categories, setCategories] = useState<RecruitmentCategoryState[]>(defaultStates);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    document.title =
-      'Recrutement médical | ASFO - Action Sanitaire pour le Fouta';
+    document.title = 'Recrutement médical ASFO 2026 | Inscriptions';
   }, []);
 
   useEffect(() => {
     let active = true;
     fetchSpecialties()
-      .then((result) => {
-        if (!active) return;
-        setSpecialties(result.specialties);
+      .then(({ specialties }) => {
+        if (active) setCategories(specialties);
       })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setLoadError(
-          error instanceof Error
-            ? error.message
-            : 'Les spécialités n’ont pas pu être actualisées.',
-        );
+      .catch(() => {
+        if (active) setLoadError(true);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -303,250 +151,58 @@ const RecrutementMedicalPage: React.FC = () => {
     };
   }, []);
 
-  // Les spécialités fermées ne sont plus dérivées : elles ne sont pas rendues
-  // du tout côté public, y compris sous forme de carte grisée.
-  const openSpecialties = useMemo(
-    () => specialties.filter((item) => item.open),
-    [specialties],
-  );
-
   return (
-    <main className="bg-white">
-      {/* ─── Hero ─── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-teal-950 to-slate-900">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-teal-500/20 blur-3xl"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-emerald-400/10 blur-3xl"
-        />
-
-        <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:px-8 lg:py-24">
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <span className="inline-flex items-center gap-2 rounded-full border border-teal-400/30 bg-teal-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-teal-200">
-              <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
-              Recrutement ASFO 2026
-            </span>
-
-            <h1
-              className="mt-5 text-3xl font-black leading-[1.12] tracking-tight text-white sm:text-4xl lg:text-5xl"
-              style={poppins}
-            >
-              Rejoignez la 27<sup className="text-[0.55em]">e</sup> Grande Caravane
-              Médicale ASFO
-            </h1>
-
-            <p className="mt-5 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">
-              Les inscriptions sont ouvertes progressivement par spécialité.
-              Rejoignez notre équipe de professionnels de santé et participez à une
-              mission humanitaire au service des populations.
-            </p>
-
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <a
-                href="#specialites"
-                className="inline-flex items-center gap-2 rounded-xl bg-teal-500 px-6 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-teal-400 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/40"
-              >
-                Voir les spécialités
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </a>
-              <Link
-                to="/missions/prochaine-campagne"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-6 py-3.5 text-sm font-bold text-white transition hover:bg-white/10"
-              >
-                <CalendarDays className="h-4 w-4" aria-hidden="true" />
-                La campagne 2026
-              </Link>
-            </div>
-
-            <dl className="mt-10 grid max-w-lg grid-cols-3 gap-4 border-t border-white/10 pt-6">
-              {[
-                { icon: Users, value: `${specialties.length}`, label: 'Spécialités au programme' },
-                { icon: Stethoscope, value: `${openSpecialties.length}`, label: 'Ouvertes aujourd’hui' },
-                { icon: MapPin, value: 'Fouta', label: 'Zone d’intervention' },
-              ].map((stat) => (
-                <div key={stat.label}>
-                  <dt className="sr-only">{stat.label}</dt>
-                  <dd>
-                    <stat.icon className="h-4 w-4 text-teal-300" aria-hidden="true" />
-                    <p className="mt-2 text-2xl font-black text-white">{stat.value}</p>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                      {stat.label}
-                    </p>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </motion.div>
-
-          {/* Illustration : équipe médicale, unité dentaire, soins de base */}
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="grid grid-cols-2 gap-3 sm:gap-4"
-          >
-            {HERO_IMAGES.map((image) => (
-              <div
-                key={image.src}
-                className={`overflow-hidden rounded-2xl border border-white/10 bg-white/5 ${image.span}`}
-              >
-                <img
-                  src={image.src}
-                  alt={image.alt}
-                  loading="lazy"
-                  decoding="async"
-                  className={`w-full object-cover transition duration-700 hover:scale-105 ${
-                    image.span ? 'h-48 sm:h-60' : 'h-32 sm:h-40'
-                  }`}
-                />
-              </div>
-            ))}
-          </motion.div>
+    <main className="min-h-screen bg-[#f7faf9]">
+      <section className="relative overflow-hidden border-b border-teal-100 bg-gradient-to-br from-[#062f2b] via-[#0b4b45] to-[#087c70] text-white">
+        <div aria-hidden="true" className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-emerald-300/10 blur-3xl" />
+        <div aria-hidden="true" className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-teal-200/10 blur-3xl" />
+        <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.12em] text-teal-50 backdrop-blur">
+            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+            27e Grande Caravane Médicale · 2026
+          </span>
+          <h1 className="mt-6 max-w-4xl text-3xl font-black leading-tight tracking-tight sm:text-5xl" style={poppins}>
+            Rejoignez la mission médicale ASFO 2026
+          </h1>
+          <p className="mt-5 max-w-3xl text-base leading-7 text-teal-50/85 sm:text-lg">
+            Un parcours clair, cinq catégories professionnelles. Choisissez votre profil et déposez votre inscription en quelques minutes.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3 text-sm font-semibold text-teal-50/90">
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">5 liens d’inscription</span>
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">Aucun paiement</span>
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">Confirmation par SMS</span>
+          </div>
         </div>
       </section>
 
-      {/* ─── Parcours ─── */}
-      <section className="border-b border-slate-100 bg-slate-50/60">
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-12 sm:px-6 md:grid-cols-3 lg:px-8">
-          {STEPS.map((step, index) => (
-            <motion.div
-              key={step.title}
-              {...(reduceMotion ? {} : fadeUp(index * 0.06))}
-              className="rounded-2xl border border-slate-200 bg-white p-6"
-            >
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
-                <step.icon className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <h2 className="mt-4 text-base font-black text-slate-950" style={poppins}>
-                {index + 1}. {step.title}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{step.text}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* ─── Spécialités ─── */}
-      {/* `overflow-x-clip` : le halo flouté de la carte ouverte déborde de son
-          cadre, ce qui pourrait provoquer un défilement horizontal sur mobile. */}
-      <section id="specialites" className="scroll-mt-24 overflow-x-clip">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <motion.header {...(reduceMotion ? {} : fadeUp())} className="max-w-2xl">
-            <h2
-              className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl"
-              style={poppins}
-            >
-              Les spécialités recherchées
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.15em] text-teal-700">Votre porte d’entrée</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl" style={poppins}>
+              Choisissez votre catégorie
             </h2>
-            <p className="mt-3 text-base leading-7 text-slate-600">
-              Chaque spécialité ouvre à son tour, au fil de la constitution des
-              équipes. Les spécialités encore fermées le seront prochainement :
-              revenez consulter cette page.
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              Les spécialités sont regroupées dans leur famille professionnelle. Une fermeture bloque également l’envoi côté serveur.
             </p>
-          </motion.header>
-
+          </div>
           {loading && (
-            <p className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Actualisation des inscriptions…
-            </p>
-          )}
-
-          {loadError && (
-            <p
-              role="status"
-              className="mt-6 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
-            >
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              {loadError} Les spécialités affichées peuvent ne pas refléter les
-              dernières ouvertures.
-            </p>
-          )}
-
-          {/* Seules les spécialités réellement ouvertes sont publiées. Les
-              autres ne sont pas grisées : elles ne sont pas rendues du tout,
-              et ne laissent donc aucun espace vide. */}
-          {openSpecialties.length > 0 && (
-            <div className="mt-10 space-y-6">
-              {openSpecialties.map((specialty, index) => (
-                <OpenSpecialtyCard
-                  key={specialty.slug}
-                  specialty={specialty}
-                  index={index}
-                  reduceMotion={reduceMotion}
-                />
-              ))}
-            </div>
-          )}
-
-          {!loading && openSpecialties.length === 0 && (
-            <div className="mt-10 rounded-2xl border border-slate-200 bg-slate-50/70 p-8 text-center">
-              <Clock3 className="mx-auto h-8 w-8 text-slate-300" aria-hidden="true" />
-              <p className="mt-3 text-base font-black text-slate-700" style={poppins}>
-                Aucune inscription ouverte pour le moment
-              </p>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-                Les prochaines spécialités seront ouvertes au fil de la constitution
-                des équipes. Revenez consulter cette page prochainement.
-              </p>
-            </div>
+            <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500" role="status">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Actualisation des inscriptions…
+            </span>
           )}
         </div>
-      </section>
 
-      {/* ─── Pièces à préparer ─── */}
-      <section className="border-t border-slate-100 bg-slate-50/60">
-        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-          <motion.div
-            {...(reduceMotion ? {} : fadeUp())}
-            className="grid items-center gap-8 rounded-3xl border border-slate-200 bg-white p-7 sm:p-10 lg:grid-cols-[1.4fr_1fr]"
-          >
-            <div>
-              <h2
-                className="text-xl font-black tracking-tight text-slate-950 sm:text-2xl"
-                style={poppins}
-              >
-                Les pièces à prévoir
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
-                Ces documents sont facultatifs au moment de la candidature : la
-                commission vous réclamera ceux qui manquent lors de l’instruction.
-                Les joindre dès maintenant accélère l’examen de votre dossier.
-              </p>
-              <ul className="mt-5 grid gap-3 sm:grid-cols-3">
-                {[
-                  { icon: FileText, label: 'CV', hint: 'PDF · 5 Mo max · facultatif' },
-                  { icon: BadgeCheck, label: 'Diplôme', hint: 'PDF · 5 Mo max · facultatif' },
-                  { icon: Users, label: 'Photo', hint: 'JPG/PNG/WEBP · 2 Mo · facultatif' },
-                ].map((item) => (
-                  <li
-                    key={item.label}
-                    className="rounded-xl border border-slate-200 bg-slate-50/80 p-4"
-                  >
-                    <item.icon className="h-4 w-4 text-teal-600" aria-hidden="true" />
-                    <p className="mt-2 text-sm font-black text-slate-900">{item.label}</p>
-                    <p className="text-xs text-slate-500">{item.hint}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-2xl bg-slate-950 p-6 text-white">
-              <ShieldCheck className="h-6 w-6 text-teal-400" aria-hidden="true" />
-              <p className="mt-3 text-sm font-bold">Vos données restent confidentielles</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Les pièces transmises servent exclusivement à l’instruction de
-                votre candidature par la commission de recrutement de l’ASFO.
-                Aucun paiement n’est demandé à aucune étape.
-              </p>
-            </div>
-          </motion.div>
+        {loadError && (
+          <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="status">
+            L’état en direct n’a pas pu être actualisé. Rechargez la page avant de commencer une inscription.
+          </p>
+        )}
+
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {categories.map((category, index) => (
+            <CategoryCard key={category.key} category={category} index={index} />
+          ))}
         </div>
       </section>
     </main>

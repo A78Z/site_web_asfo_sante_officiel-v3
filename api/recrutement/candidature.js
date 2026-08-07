@@ -1,7 +1,7 @@
 /**
  * Dépôt d’une candidature au recrutement médical.
  *
- * Ordre imposé : on valide, on vérifie que la spécialité est réellement
+ * Ordre imposé : on valide, on vérifie que la catégorie est réellement
  * ouverte, on enregistre — et seulement ensuite on notifie. Aucun SMS ni
  * e-mail ne part si le dossier n’est pas en base, et l’échec d’une
  * notification n’annule jamais une candidature enregistrée.
@@ -32,44 +32,55 @@ import {
   RECRUITMENT_CLASS,
   SPECIALTY_CLASS,
   buildRecruitmentReference,
+  categoryByKey,
   mergeSpecialtyStates,
+  professionForCategory,
+  resolvedSpeciality,
   specialtyBySlug,
   validateRecruitmentApplication,
   validateRecruitmentFiles,
 } from '../_lib/recruitment.js';
 
-/** Durée minimale de remplissage plausible pour un dossier aussi long. */
+/** Durée minimale de remplissage plausible, y compris pour le parcours court. */
 const MIN_FILL_DURATION_MS = 5_000;
 
 const isValidSubmissionId = (value) =>
   typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
-/** Une spécialité fermée ne peut pas recevoir de candidature, même forcée. */
-const isSpecialtyOpen = async (environment, slug) => {
-  let rows = [];
+/** Une catégorie fermée ne peut pas recevoir de candidature, même forcée. */
+const isCategoryOpen = async (environment, slug) => {
   try {
     const found = await findObjects(environment, SPECIALTY_CLASS, {
       where: { slug },
       limit: 1,
       keys: 'slug,open',
     });
-    rows = found.results ?? [];
+    return mergeSpecialtyStates(found.results ?? []).find((item) => item.slug === slug)?.open === true;
   } catch {
-    // Lecture impossible : on retombe sur la valeur par défaut du catalogue.
-    rows = [];
+    // Échec de lecture : sécurité prioritaire, la route reste fermée.
+    return false;
   }
-  return mergeSpecialtyStates(rows).find((item) => item.slug === slug)?.open === true;
 };
 
 /** Refuse un second dossier en cours pour le même numéro ou le même e-mail. */
-const findPendingDuplicate = async (environment, phone, email, specialty) => {
+const findPendingDuplicate = async (environment, phone, email, category, legacySpecialties = []) => {
+  const categoryMatch = legacySpecialties.length > 0
+    ? {
+        $or: [
+          { recruitmentCategory: category },
+          ...legacySpecialties.map((specialty) => ({ specialty })),
+        ],
+      }
+    : { recruitmentCategory: category };
   try {
     const found = await findObjects(environment, RECRUITMENT_CLASS, {
       where: {
-        specialty,
         status: { $nin: ['Refusé'] },
-        $or: [{ phoneNormalized: phone }, { email }],
+        $and: [
+          categoryMatch,
+          { $or: [{ phoneNormalized: phone }, { email }] },
+        ],
       },
       limit: 1,
       keys: 'reference,status',
@@ -175,19 +186,23 @@ export default async function handler(request, response) {
     return;
   }
 
-  const specialty = specialtyBySlug(payload.specialty);
-  if (!specialty) {
-    sendError(response, 400, 'Spécialité inconnue.', 'unknown_specialty');
+  const category = categoryByKey(payload.recruitmentCategory);
+  if (!category) {
+    sendError(response, 400, 'Catégorie de recrutement inconnue.', 'unknown_category');
     return;
   }
 
+  const specialty = category.formKind === 'complete'
+    ? specialtyBySlug(category.legacySpecialtySlug)
+    : null;
+
   // Verrou serveur : l’état affiché au navigateur ne fait pas foi.
-  if (!(await isSpecialtyOpen(environment, specialty.slug))) {
+  if (!(await isCategoryOpen(environment, category.slug))) {
     sendError(
       response,
       409,
-      `Les inscriptions pour la spécialité « ${specialty.label} » ne sont pas ouvertes.`,
-      'specialty_closed',
+      `Les inscriptions pour la catégorie « ${category.label} » sont fermées.`,
+      'category_closed',
     );
     return;
   }
@@ -200,12 +215,16 @@ export default async function handler(request, response) {
     return;
   }
 
-  const fileError = validateRecruitmentFiles(payload);
-  if (fileError) {
-    response
-      .status(400)
-      .json({ success: false, error: fileError.message, code: 'invalid_file', field: fileError.field });
-    return;
+  // Les trois nouveaux formulaires courts ne demandent et n’acceptent aucune
+  // pièce. Les contrôles historiques restent en place pour dentistes/pharmaciens.
+  if (category.formKind === 'complete') {
+    const fileError = validateRecruitmentFiles(payload);
+    if (fileError) {
+      response
+        .status(400)
+        .json({ success: false, error: fileError.message, code: 'invalid_file', field: fileError.field });
+      return;
+    }
   }
 
   const phoneNormalized = normalizeSenegalPhone(payload.phone);
@@ -217,7 +236,8 @@ export default async function handler(request, response) {
     environment,
     phoneNormalized,
     email,
-    specialty.slug,
+    category.key,
+    category.legacySpecialtySlugs,
   );
   if (duplicate) {
     sendError(
@@ -230,10 +250,14 @@ export default async function handler(request, response) {
   }
 
   const reference = buildRecruitmentReference(crypto.randomBytes(6));
+  const speciality = resolvedSpeciality(category, payload);
+  const profession = professionForCategory(category, payload);
+  const isCompleteForm = category.formKind === 'complete';
 
   const record = {
     reference,
     submissionId: payload.submissionId,
+    recruitmentCategory: category.key,
     // Identité
     firstName,
     lastName,
@@ -244,27 +268,34 @@ export default async function handler(request, response) {
     phoneNormalized,
     email,
     address: compactWhitespace(payload.address),
-    region: compactWhitespace(payload.region),
-    department: compactWhitespace(payload.department),
     // Profil professionnel
-    specialty: specialty.slug,
-    profession: specialty.label,
-    orderNumber: compactWhitespace(payload.orderNumber),
-    university: compactWhitespace(payload.university),
-    // Précisions facultatives : absentes, elles ne créent pas de champ vide.
-    ...(compactWhitespace(payload.diplomaTitle)
-      ? { diplomaTitle: compactWhitespace(payload.diplomaTitle) }
+    specialty: specialty?.slug ?? category.key,
+    profession,
+    ...(speciality ? { speciality } : {}),
+    ...(category.formKind === 'simplified'
+      ? { educationLevel: compactWhitespace(payload.educationLevel) }
       : {}),
-    ...(compactWhitespace(payload.graduationYear)
-      ? { graduationYear: Number(compactWhitespace(payload.graduationYear)) }
+    ...(isCompleteForm
+      ? {
+          region: compactWhitespace(payload.region),
+          department: compactWhitespace(payload.department),
+          orderNumber: compactWhitespace(payload.orderNumber),
+          university: compactWhitespace(payload.university),
+          ...(compactWhitespace(payload.diplomaTitle)
+            ? { diplomaTitle: compactWhitespace(payload.diplomaTitle) }
+            : {}),
+          ...(compactWhitespace(payload.graduationYear)
+            ? { graduationYear: Number(compactWhitespace(payload.graduationYear)) }
+            : {}),
+          ...(compactWhitespace(payload.stockExperience)
+            ? { stockExperience: compactWhitespace(payload.stockExperience) }
+            : {}),
+          experience: Number(payload.experience),
+          employer: compactWhitespace(payload.employer),
+          availability: compactWhitespace(payload.availability),
+          motivation: compactWhitespace(payload.motivation),
+        }
       : {}),
-    ...(compactWhitespace(payload.stockExperience)
-      ? { stockExperience: compactWhitespace(payload.stockExperience) }
-      : {}),
-    experience: Number(payload.experience),
-    employer: compactWhitespace(payload.employer),
-    availability: compactWhitespace(payload.availability),
-    motivation: compactWhitespace(payload.motivation),
     // Appartenance à l’ASFO. Les précisions ne sont écrites que si la personne
     // se déclare membre : répondre « non » ne doit pas laisser de numéro de
     // carte résiduel dans le dossier.
@@ -275,11 +306,10 @@ export default async function handler(request, response) {
     ...(payload.isMember === true && compactWhitespace(payload.memberSince)
       ? { memberSince: Number(compactWhitespace(payload.memberSince)) }
       : {}),
-    // Pièces jointes, toutes facultatives : un champ absent n’est pas écrit,
-    // plutôt que stocké à `null`, pour rester lisible dans Back4App.
-    ...(payload.cvFile ? { cvFile: payload.cvFile } : {}),
-    ...(payload.diplomaFile ? { diplomaFile: payload.diplomaFile } : {}),
-    ...(payload.photoFile ? { photoFile: payload.photoFile } : {}),
+    // Les pièces ne sont reprises que pour les deux formulaires historiques.
+    ...(isCompleteForm && payload.cvFile ? { cvFile: payload.cvFile } : {}),
+    ...(isCompleteForm && payload.diplomaFile ? { diplomaFile: payload.diplomaFile } : {}),
+    ...(isCompleteForm && payload.photoFile ? { photoFile: payload.photoFile } : {}),
     // Instruction
     status: DEFAULT_RECRUITMENT_STATUS,
     comments: '',
@@ -315,7 +345,7 @@ export default async function handler(request, response) {
     try {
       smsOutcome = await sendSms(
         phoneNormalized,
-        recruitmentReceivedSms(firstName, specialty.label, reference),
+        recruitmentReceivedSms(firstName, speciality || profession || category.label, reference),
       );
     } catch (error) {
       smsOutcome = { status: 'failed', error: error?.message ?? 'Composition impossible.' };
@@ -336,7 +366,7 @@ export default async function handler(request, response) {
         ...recruitmentReceivedEmail({
           firstName,
           lastName,
-          specialty: specialty.label,
+          specialty: speciality || profession || category.label,
           reference,
           region: record.region,
           availability: record.availability,
@@ -357,7 +387,7 @@ export default async function handler(request, response) {
   }
 
   console.info('[recruitment-apply] created', {
-    specialty: specialty.slug,
+    category: category.key,
     sms: notifications.smsStatus,
     email: notifications.emailStatus,
   });

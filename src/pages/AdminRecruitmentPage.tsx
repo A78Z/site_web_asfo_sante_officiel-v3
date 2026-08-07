@@ -45,10 +45,12 @@ import {
 } from '../lib/adminRecruitment';
 import {
   EMAIL_NOTIFICATIONS_ENABLED,
+  RECRUITMENT_CATEGORIES,
   RECRUITMENT_CAMPAIGN,
   RECRUITMENT_STATUSES,
   SELECTED_STATUSES,
   SPECIALTIES,
+  categoryByKey,
 } from '../../api/_lib/recruitment.js';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { ToastStack } from '../components/ui/Toast';
@@ -110,13 +112,15 @@ const escapeCsv = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""'
 function exportCSV(rows: RecruitmentApplication[]) {
   const header = [
     'Référence', 'Nom', 'Prénom', 'Sexe', 'Date de naissance', 'Téléphone', 'Email',
-    'Adresse', 'Région', 'Département', 'Profession', 'N° Ordre', 'Université',
+    'Adresse', 'Région', 'Département', 'Catégorie', 'Profession', 'Spécialité',
+    'Niveau d’études', 'N° Ordre', 'Université',
     'Expérience', 'Employeur', 'Disponibilité', 'Statut', 'Déposée le',
   ];
   const lines = rows.map((row) => [
     row.reference, row.lastName, row.firstName, row.gender ?? '', formatBirth(row.birthDate),
     row.phone, row.email, row.address ?? '', row.region ?? '', row.department ?? '',
-    row.profession, row.orderNumber ?? '', row.university ?? '', row.experience ?? '',
+    categoryByKey(row.recruitmentCategory)?.label ?? '', row.profession, row.speciality ?? '',
+    row.educationLevel ?? '', row.orderNumber ?? '', row.university ?? '', row.experience ?? '',
     row.employer ?? '', row.availability ?? '', row.status,
     new Date(row.createdAt).toLocaleDateString('fr-FR'),
   ]);
@@ -341,6 +345,9 @@ const ApplicationDrawer: React.FC<{
             </h3>
             <div className="divide-y divide-gray-200">
               <InfoRow label="Profession" value={application.profession} />
+              <InfoRow label="Catégorie" value={categoryByKey(application.recruitmentCategory)?.label} />
+              {application.speciality && <InfoRow label="Spécialité" value={application.speciality} />}
+              {application.educationLevel && <InfoRow label="Niveau d’études" value={application.educationLevel} />}
               <InfoRow label="N° Ordre" value={application.orderNumber} />
               <InfoRow label="Université" value={application.university} />
               <InfoRow label="Diplôme" value={application.diplomaTitle} />
@@ -348,7 +355,9 @@ const ApplicationDrawer: React.FC<{
                 label="Année d’obtention"
                 value={application.graduationYear ? String(application.graduationYear) : ''}
               />
-              <InfoRow label="Expérience" value={`${application.experience ?? 0} an(s)`} />
+              {application.experience !== undefined && (
+                <InfoRow label="Expérience" value={`${application.experience} an(s)`} />
+              )}
               {application.stockExperience && (
                 <InfoRow
                   label="Gestion de médicaments / stocks"
@@ -397,7 +406,8 @@ const ApplicationDrawer: React.FC<{
             </div>
           </div>
 
-          {/* Pièces jointes */}
+          {/* Pièces historiques : les trois nouveaux parcours n’en demandent plus. */}
+          {(!application.recruitmentCategory || ['dentiste', 'pharmacien'].includes(application.recruitmentCategory)) && (
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {[
               { file: application.cvFile, label: 'CV', icon: FileText },
@@ -435,8 +445,9 @@ const ApplicationDrawer: React.FC<{
               </a>
             ))}
           </div>
+          )}
 
-          {!application.photoFile?.url && (
+          {(!application.recruitmentCategory || ['dentiste', 'pharmacien'].includes(application.recruitmentCategory)) && !application.photoFile?.url && (
             <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">
               Photo d’identité non fournie — à réclamer avant l’édition du badge.
             </p>
@@ -632,7 +643,7 @@ const AdminRecruitmentPage: React.FC = () => {
     } catch {
       // Les paramètres restent affichés avec les valeurs par défaut du catalogue.
       setSpecialtyStates(
-        SPECIALTIES.map((item: (typeof SPECIALTIES)[number]) => ({
+        RECRUITMENT_CATEGORIES.map((item: (typeof RECRUITMENT_CATEGORIES)[number]) => ({
           ...item,
           open: item.defaultOpen,
           updatedAt: null,
@@ -679,7 +690,15 @@ const AdminRecruitmentPage: React.FC = () => {
         .toLowerCase();
       if (query && !haystack.includes(query)) return false;
       if (statusFilter !== 'Tous' && item.status !== statusFilter) return false;
-      if (specialtyFilter !== 'Toutes' && item.specialty !== specialtyFilter) return false;
+      if (specialtyFilter !== 'Toutes') {
+        const category = categoryByKey(specialtyFilter);
+        if (category) {
+          if (
+            item.recruitmentCategory !== category.key &&
+            !(category.legacySpecialtySlugs ?? []).includes(item.specialty)
+          ) return false;
+        } else if (item.specialty !== specialtyFilter) return false;
+      }
       if (regionFilter !== 'Toutes' && item.region !== regionFilter) return false;
       if (departmentFilter !== 'Tous' && item.department !== departmentFilter) return false;
       // Les dossiers antérieurs au champ n’ont pas de valeur : ils ne sont
@@ -964,11 +983,16 @@ const AdminRecruitmentPage: React.FC = () => {
                     className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-teal-500"
                   >
                     <option value="Toutes">Toutes les professions</option>
-                    {SPECIALTIES.map((item: (typeof SPECIALTIES)[number]) => (
+                    {RECRUITMENT_CATEGORIES.map((item: (typeof RECRUITMENT_CATEGORIES)[number]) => (
                       <option key={item.slug} value={item.slug}>
                         {item.label}
                       </option>
                     ))}
+                    <optgroup label="Historique — anciennes spécialités">
+                      {SPECIALTIES.map((item: (typeof SPECIALTIES)[number]) => (
+                        <option key={`legacy-${item.slug}`} value={item.slug}>{item.label}</option>
+                      ))}
+                    </optgroup>
                   </select>
                   <select
                     aria-label="Filtrer par région"
@@ -1085,12 +1109,12 @@ const AdminRecruitmentPage: React.FC = () => {
             <div className="space-y-4">
               <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <h2 className="text-sm font-bold text-gray-900">
-                  Ouverture des inscriptions par spécialité
+                  Ouverture des inscriptions par catégorie
                 </h2>
                 <p className="mt-1 text-xs leading-5 text-gray-500">
-                  L’état est enregistré en base : ouvrir une spécialité la rend
+                  L’état est enregistré en base : ouvrir une catégorie la rend
                   immédiatement candidatable sur le site public, sans intervention
-                  technique. Le serveur refuse toute candidature à une spécialité fermée.
+                  technique. Le serveur refuse toute candidature à une catégorie fermée.
                 </p>
               </div>
 

@@ -95,7 +95,7 @@ export const megaMenus: MegaMenuDef[] = [
         heading: 'Campagnes',
         items: [
           { to: '/missions/prochaine-campagne', title: 'Prochaine campagne', description: 'Dates, lieux et préparation de la 27e édition.', icon: CalendarDays },
-          { to: '/recrutement-medical', title: 'Recrutement des professionnels', description: 'Inscriptions ouvertes par spécialité médicale.', icon: Stethoscope },
+          { to: '/recrutement-medical', title: 'Recrutement des professionnels', description: 'Cinq catégories d’inscription pour la caravane 2026.', icon: Stethoscope },
           { to: '/candidature', title: 'Candidature village', description: 'Accueillir une caravane médicale ASFO.', icon: ClipboardList },
           { to: '/guide-candidature', title: 'Guide de candidature', description: 'Les étapes pour déposer un dossier.', icon: ScrollText },
         ],
@@ -123,7 +123,7 @@ export const megaMenus: MegaMenuDef[] = [
       {
         heading: 'Rejoindre',
         items: [
-          { to: '/recrutement-medical', title: 'Rejoindre une mission médicale', description: 'Professionnels de santé : candidatez par spécialité.', icon: Stethoscope },
+          { to: '/recrutement-medical', title: 'Rejoindre une mission médicale', description: 'Professionnels de santé : choisissez votre catégorie.', icon: Stethoscope },
           { to: '/join', title: 'Devenir bénévole', description: 'Participez à nos missions sur le terrain.', icon: HandHeart },
           { to: '/member-card', title: 'Devenir membre', description: 'Adhérez et obtenez votre carte numérique.', icon: CreditCard },
           { to: '/about/partenaires', title: 'Devenir partenaire', description: 'Institutions, entreprises, mécènes.', icon: Handshake },

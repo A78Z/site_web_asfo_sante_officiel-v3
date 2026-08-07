@@ -1,9 +1,9 @@
 /**
- * Catalogue public des spécialités et de leur état d’ouverture.
+ * Catalogue public des cinq catégories et de leur état d’ouverture.
  *
  * Route en lecture seule, sans authentification : c’est elle qui alimente la
  * page publique. L’état vient de la classe `RecruitmentSpecialties`, pilotée
- * par le back-office — ouvrir une spécialité ne demande aucun déploiement.
+ * par le back-office — ouvrir une catégorie ne demande aucun déploiement.
  *
  * Si la classe n’existe pas encore (module fraîchement installé), la lecture
  * renvoie une liste vide et le catalogue reprend ses valeurs par défaut : la
@@ -53,9 +53,9 @@ export default async function handler(request, response) {
     });
   }
 
-  // Cache court : ouvrir une spécialité doit se voir en moins d’une minute,
-  // sans pour autant interroger Back4App à chaque visite.
-  response.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+  // Aucun cache partagé : un changement dans l’administration doit être visible
+  // dès le prochain chargement de la page publique.
+  response.setHeader('Cache-Control', 'no-store');
   response.status(200).json({
     success: true,
     campaign: RECRUITMENT_CAMPAIGN,

@@ -39,7 +39,7 @@ const loadApplication = async (environment, objectId) => {
     where: { objectId },
     limit: 1,
     keys:
-      'objectId,reference,firstName,lastName,email,phone,phoneNormalized,specialty,profession,status,comments,history,decisionSmsStatus,decisionEmailStatus',
+      'objectId,reference,firstName,lastName,email,phone,phoneNormalized,specialty,speciality,profession,status,comments,history,decisionSmsStatus,decisionEmailStatus',
   });
   return found.results?.[0] ?? null;
 };
@@ -206,7 +206,7 @@ export default async function handler(request, response) {
     }
 
     const specialtyLabel =
-      specialtyBySlug(application.specialty)?.label ?? application.profession ?? '';
+      application.speciality ?? specialtyBySlug(application.specialty)?.label ?? application.profession ?? '';
     const comment = String(payload.comment ?? '').trim().slice(0, 600);
     const fields = {};
     let outcome;

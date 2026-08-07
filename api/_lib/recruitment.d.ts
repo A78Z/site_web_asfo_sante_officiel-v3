@@ -30,6 +30,32 @@ export interface RecruitmentSpecialtyState extends RecruitmentSpecialty {
   updatedBy: string | null;
 }
 
+export type RecruitmentCategoryKey =
+  | 'dentiste'
+  | 'pharmacien'
+  | 'paramedical'
+  | 'specialiste'
+  | 'generaliste';
+
+export interface RecruitmentCategory {
+  key: RecruitmentCategoryKey;
+  slug: string;
+  label: string;
+  formTitle: string;
+  emoji: string;
+  description: string;
+  defaultOpen: boolean;
+  formKind: 'complete' | 'simplified';
+  legacySpecialtySlug?: string;
+  legacySpecialtySlugs?: string[];
+}
+
+export interface RecruitmentCategoryState extends RecruitmentCategory {
+  open: boolean;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
 export interface RecruitmentFileRule {
   field: string;
   label: string;
@@ -51,7 +77,11 @@ export declare const RECRUITMENT_CAMPAIGN: string;
 export declare const RECRUITMENT_YEAR: string;
 export declare const RECRUITMENT_CLASS: string;
 export declare const SPECIALTY_CLASS: string;
+export declare const RECRUITMENT_CATEGORIES: RecruitmentCategory[];
 export declare const SPECIALTIES: RecruitmentSpecialty[];
+export declare const PARAMEDICAL_SPECIALITIES: string[];
+export declare const MEDICAL_SPECIALITIES: string[];
+export declare const EDUCATION_LEVELS: string[];
 export declare const EMAIL_NOTIFICATIONS_ENABLED: boolean;
 export declare const RECRUITMENT_STATUSES: string[];
 export declare const DEFAULT_RECRUITMENT_STATUS: string;
@@ -71,6 +101,17 @@ export declare function specialtyFormLabels(
 ): RecruitmentFormLabels;
 
 export declare function specialtyBySlug(slug: unknown): RecruitmentSpecialty | null;
+export declare function categoryByKey(key: unknown): RecruitmentCategory | null;
+export declare function categoryBySlug(slug: unknown): RecruitmentCategory | null;
+export declare function categoryByLegacySpecialty(slug: unknown): RecruitmentCategory | null;
+export declare function resolvedSpeciality(
+  category: RecruitmentCategory | null,
+  payload?: Record<string, unknown>,
+): string;
+export declare function professionForCategory(
+  category: RecruitmentCategory | null,
+  payload?: Record<string, unknown>,
+): string;
 export declare function isRecruitmentStatus(value: unknown): boolean;
 export declare function validateRecruitmentApplication(
   payload?: Record<string, unknown>,
@@ -85,4 +126,4 @@ export declare function buildRecruitmentReference(
 export declare function isRecruitmentReference(value: unknown): boolean;
 export declare function mergeSpecialtyStates(
   rows?: Array<{ slug: string; open?: boolean; updatedAt?: string; updatedBy?: string }>,
-): RecruitmentSpecialtyState[];
+): RecruitmentCategoryState[];

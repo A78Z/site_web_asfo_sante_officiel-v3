@@ -8,7 +8,8 @@
  * Il est écrit en JavaScript, comme les autres modules de `api/_lib/` : le
  * typage est fourni par le fichier `.d.ts` voisin. Aucune classe existante
  * n’est touchée — ce module n’adresse que `MedicalRecruitments` et
- * `RecruitmentSpecialties`, toutes deux nouvelles.
+ * `RecruitmentSpecialties`. La refonte 2026 ajoute des champs aux nouveaux
+ * objets, sans réécrire les candidatures déjà présentes.
  */
 
 import { compactWhitespace, isJunkText } from './member-request-validation.js';
@@ -22,11 +23,178 @@ export const RECRUITMENT_CLASS = 'MedicalRecruitments';
 export const SPECIALTY_CLASS = 'RecruitmentSpecialties';
 
 /**
- * Catalogue des spécialités.
+ * Les cinq et seules portes d’entrée publiques du recrutement 2026.
  *
- * `defaultOpen` n’est qu’une valeur de départ : l’état réel vient de la classe
- * `RecruitmentSpecialties`, pilotée depuis le back-office. Ouvrir une
- * spécialité ne demande donc aucune modification de code.
+ * Les clés sont volontairement stables et correspondent aux valeurs écrites
+ * dans `recruitmentCategory`. Elles servent également de `slug` dans
+ * `RecruitmentSpecialties`, ce qui permet de réutiliser la classe de réglages
+ * existante sans migration destructive.
+ */
+export const RECRUITMENT_CATEGORIES = [
+  {
+    key: 'dentiste',
+    slug: 'dentiste',
+    label: 'Chirurgiens-dentistes',
+    formTitle: 'Inscription des Chirurgiens-dentistes — Caravane Médicale ASFO 2026',
+    emoji: '🦷',
+    description:
+      'Rejoignez l’unité dentaire pour les consultations, soins conservateurs et prises en charge de terrain.',
+    defaultOpen: false,
+    formKind: 'complete',
+    legacySpecialtySlug: 'chirurgien-dentiste',
+    legacySpecialtySlugs: ['chirurgien-dentiste'],
+  },
+  {
+    key: 'pharmacien',
+    slug: 'pharmacien',
+    label: 'Pharmaciens',
+    formTitle: 'Inscription des Pharmaciens — Caravane Médicale ASFO 2026',
+    emoji: '💊',
+    description:
+      'Participez à la dispensation sécurisée des médicaments et à la gestion de la pharmacie de campagne.',
+    defaultOpen: true,
+    formKind: 'complete',
+    legacySpecialtySlug: 'pharmacien',
+    legacySpecialtySlugs: ['pharmacien'],
+  },
+  {
+    key: 'paramedical',
+    slug: 'paramedical',
+    label: 'Paramédicaux',
+    formTitle: 'Inscription des Paramédicaux — Caravane Médicale ASFO 2026',
+    emoji: '🩹',
+    description:
+      'Infirmiers, sages-femmes, biologistes, nutritionnistes et autres métiers paramédicaux réunis dans un parcours unique.',
+    defaultOpen: false,
+    formKind: 'simplified',
+    legacySpecialtySlugs: [
+      'laboratoire',
+      'kinesitherapeute',
+      'nutritionniste',
+      'infirmier',
+      'sage-femme',
+      'technicien-imagerie',
+    ],
+  },
+  {
+    key: 'specialiste',
+    slug: 'specialiste',
+    label: 'Médecins spécialistes',
+    formTitle: 'Inscription des Médecins spécialistes — Caravane Médicale ASFO 2026',
+    emoji: '🫀',
+    description:
+      'Toutes les spécialités médicales dans un formulaire commun avec sélection rapide de votre discipline.',
+    defaultOpen: false,
+    formKind: 'simplified',
+    legacySpecialtySlugs: [
+      'pediatre',
+      'ophtalmologue',
+      'psychiatre',
+      'gynecologue',
+      'cardiologue',
+      'radiologue',
+    ],
+  },
+  {
+    key: 'generaliste',
+    slug: 'generaliste',
+    label: 'Médecins généralistes',
+    formTitle: 'Inscription des Médecins généralistes — Caravane Médicale ASFO 2026',
+    emoji: '🩺',
+    description:
+      'Consultations générales, orientation des patients et suivi des pathologies courantes pendant la caravane.',
+    defaultOpen: false,
+    formKind: 'simplified',
+    legacySpecialtySlugs: ['medecin-generaliste'],
+  },
+];
+
+const CATEGORY_BY_KEY = new Map(RECRUITMENT_CATEGORIES.map((item) => [item.key, item]));
+const CATEGORY_BY_SLUG = new Map(RECRUITMENT_CATEGORIES.map((item) => [item.slug, item]));
+const CATEGORY_BY_LEGACY_SPECIALTY = new Map(
+  RECRUITMENT_CATEGORIES.flatMap((category) =>
+    (category.legacySpecialtySlugs ?? []).map((slug) => [slug, category]),
+  ),
+);
+
+export const categoryByKey = (key) => CATEGORY_BY_KEY.get(String(key ?? '')) ?? null;
+export const categoryBySlug = (slug) => CATEGORY_BY_SLUG.get(String(slug ?? '')) ?? null;
+export const categoryByLegacySpecialty = (slug) =>
+  CATEGORY_BY_LEGACY_SPECIALTY.get(String(slug ?? '')) ?? null;
+
+export const PARAMEDICAL_SPECIALITIES = [
+  'Laboratoire / Biologie',
+  'Sage-femme',
+  'Infirmier(ère)',
+  'Nutritionniste',
+  'Kinésithérapeute',
+  'Technicien(ne) en imagerie médicale',
+  'Aide-soignant(e)',
+  'Autre profession paramédicale',
+];
+
+export const MEDICAL_SPECIALITIES = [
+  'Pédiatrie',
+  'Gynécologie / Obstétrique',
+  'Ophtalmologie',
+  'Psychiatrie',
+  'Cardiologie',
+  'Radiologie',
+  'Dermatologie',
+  'ORL',
+  'Neurologie',
+  'Anesthésie-Réanimation',
+  'Chirurgie',
+  'Médecine interne',
+  'Pneumologie',
+  'Gastro-entérologie',
+  'Néphrologie',
+  'Endocrinologie',
+  'Rhumatologie',
+  'Infectiologie',
+  'Urologie',
+  'Autre spécialité médicale',
+];
+
+export const EDUCATION_LEVELS = [
+  'Bac+2 / Diplôme d’État',
+  'Bac+3 / Licence',
+  'Bac+5 / Master',
+  'Doctorat en médecine',
+  'Doctorat en pharmacie',
+  'Diplôme de spécialisation (DES)',
+  'Autre diplôme de santé',
+];
+
+const OTHER_PARAMEDICAL = 'Autre profession paramédicale';
+const OTHER_SPECIALIST = 'Autre spécialité médicale';
+
+/** Spécialité finale, après résolution du choix « Autre ». */
+export const resolvedSpeciality = (category, payload = {}) => {
+  const selected = compactWhitespace(payload.speciality);
+  if (
+    (category?.key === 'paramedical' && selected === OTHER_PARAMEDICAL) ||
+    (category?.key === 'specialiste' && selected === OTHER_SPECIALIST)
+  ) {
+    return compactWhitespace(payload.otherSpeciality);
+  }
+  return selected;
+};
+
+/** Profession enregistrée : toujours calculée par le serveur, jamais fiable depuis le navigateur. */
+export const professionForCategory = (category, payload = {}) => {
+  if (category?.key === 'generaliste') return 'Médecin généraliste';
+  if (category?.key === 'specialiste') return 'Médecin spécialiste';
+  if (category?.key === 'paramedical') return resolvedSpeciality(category, payload);
+  const legacy = specialtyBySlug(category?.legacySpecialtySlug);
+  return legacy?.label ?? category?.label ?? '';
+};
+
+/**
+ * Catalogue historique des spécialités.
+ *
+ * Il reste disponible pour afficher et filtrer les anciennes candidatures.
+ * Il n’alimente plus la page publique ni les contrôles d’ouverture.
  */
 export const SPECIALTIES = [
   {
@@ -343,6 +511,116 @@ const textRule = (value, { label, min, max, junkCheck = true }) => {
   return null;
 };
 
+/** Validation des trois parcours 2026 volontairement courts et sans pièce jointe. */
+const validateSimplifiedRecruitmentApplication = (payload, category, today) => {
+  const fail = (field, message) => ({ field, message });
+
+  const lastName = textRule(payload.lastName, { label: 'Le nom', min: 2, max: 60 });
+  if (lastName) return fail('lastName', lastName);
+
+  const firstName = textRule(payload.firstName, { label: 'Le prénom', min: 2, max: 60 });
+  if (firstName) return fail('firstName', firstName);
+
+  if (!GENDERS.includes(compactWhitespace(payload.gender))) {
+    return fail('gender', 'Sélectionnez le sexe.');
+  }
+
+  const birthDate = compactWhitespace(payload.birthDate);
+  if (!isIsoDate(birthDate) || !isRealIsoDate(birthDate)) {
+    return fail('birthDate', 'Veuillez saisir une date valide au format JJ/MM/AAAA.');
+  }
+  const age = ageFromIso(birthDate, today);
+  if (age < MIN_RECRUITMENT_AGE) {
+    return fail(
+      'birthDate',
+      `Le recrutement est réservé aux professionnels âgés de ${MIN_RECRUITMENT_AGE} ans et plus.`,
+    );
+  }
+  if (age > MAX_RECRUITMENT_AGE) {
+    return fail('birthDate', 'Vérifiez la date de naissance saisie.');
+  }
+
+  const address = textRule(payload.address, { label: 'L’adresse', min: 3, max: 160 });
+  if (address) return fail('address', address);
+
+  const phoneIssue = senegalPhoneIssue(payload.phone);
+  if (phoneIssue) {
+    return fail(
+      'phone',
+      phoneIssue === 'landline'
+        ? 'Indiquez un mobile sénégalais : les numéros fixes ne reçoivent pas de SMS.'
+        : 'Entrez un numéro de mobile sénégalais valide (+221 suivi de 9 chiffres).',
+    );
+  }
+
+  const email = compactWhitespace(payload.email).toLocaleLowerCase('fr');
+  if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email) || email.length > 120) {
+    return fail('email', 'Entrez une adresse e-mail valide.');
+  }
+
+  if (!EDUCATION_LEVELS.includes(compactWhitespace(payload.educationLevel))) {
+    return fail('educationLevel', 'Sélectionnez votre niveau d’études.');
+  }
+
+  if (category.key === 'paramedical') {
+    const selected = compactWhitespace(payload.speciality);
+    if (!PARAMEDICAL_SPECIALITIES.includes(selected)) {
+      return fail('speciality', 'Sélectionnez votre spécialité paramédicale.');
+    }
+    if (selected === OTHER_PARAMEDICAL) {
+      const other = textRule(payload.otherSpeciality, {
+        label: 'La profession paramédicale',
+        min: 2,
+        max: 100,
+      });
+      if (other) return fail('otherSpeciality', other);
+    }
+  }
+
+  if (category.key === 'specialiste') {
+    const selected = compactWhitespace(payload.speciality);
+    if (!MEDICAL_SPECIALITIES.includes(selected)) {
+      return fail('speciality', 'Sélectionnez votre spécialité médicale.');
+    }
+    if (selected === OTHER_SPECIALIST) {
+      const other = textRule(payload.otherSpeciality, {
+        label: 'La spécialité médicale',
+        min: 2,
+        max: 100,
+      });
+      if (other) return fail('otherSpeciality', other);
+    }
+  }
+
+  if (typeof payload.isMember !== 'boolean') {
+    return fail('isMember', 'Indiquez si vous êtes membre de l’ASFO.');
+  }
+
+  if (payload.isMember) {
+    const memberCardNumber = compactWhitespace(payload.memberCardNumber);
+    if (memberCardNumber && !/^[A-Za-z0-9][A-Za-z0-9./\- ]{2,39}$/.test(memberCardNumber)) {
+      return fail('memberCardNumber', 'Le numéro de carte membre est invalide.');
+    }
+    const memberSince = compactWhitespace(payload.memberSince);
+    if (memberSince) {
+      const year = Number(memberSince);
+      if (
+        !Number.isInteger(year) ||
+        year < MIN_MEMBERSHIP_YEAR ||
+        year > new Date().getUTCFullYear()
+      ) {
+        return fail('memberSince', 'Vérifiez votre année d’adhésion.');
+      }
+    }
+  }
+
+  if (payload.consentAccepted !== true) {
+    return fail('consentAccepted', 'Vous devez accepter les conditions pour candidater.');
+  }
+
+  return null;
+};
+
 /**
  * Valide une candidature complète.
  * Renvoie `{ field, message }` au premier problème rencontré, ou `null`.
@@ -352,8 +630,16 @@ const textRule = (value, { label, min, max, junkCheck = true }) => {
 export const validateRecruitmentApplication = (payload = {}, today = new Date()) => {
   const fail = (field, message) => ({ field, message });
 
+  const category = categoryByKey(payload.recruitmentCategory);
+  if (!category) return fail('recruitmentCategory', 'Catégorie de recrutement inconnue.');
+  if (category.formKind === 'simplified') {
+    return validateSimplifiedRecruitmentApplication(payload, category, today);
+  }
+
   const specialty = specialtyBySlug(payload.specialty);
-  if (!specialty) return fail('specialty', 'Spécialité inconnue.');
+  if (!specialty || specialty.slug !== category.legacySpecialtySlug) {
+    return fail('specialty', 'Spécialité inconnue.');
+  }
 
   const lastName = textRule(payload.lastName, { label: 'Le nom', min: 2, max: 60 });
   if (lastName) return fail('lastName', lastName);
@@ -563,11 +849,11 @@ export const isRecruitmentReference = (value) =>
  */
 export const mergeSpecialtyStates = (rows = []) => {
   const byslug = new Map(rows.map((row) => [row.slug, row]));
-  return SPECIALTIES.map((specialty) => {
-    const row = byslug.get(specialty.slug);
+  return RECRUITMENT_CATEGORIES.map((category) => {
+    const row = byslug.get(category.slug);
     return {
-      ...specialty,
-      open: typeof row?.open === 'boolean' ? row.open : specialty.defaultOpen,
+      ...category,
+      open: typeof row?.open === 'boolean' ? row.open : category.defaultOpen,
       updatedAt: row?.updatedAt ?? null,
       updatedBy: row?.updatedBy ?? null,
     };

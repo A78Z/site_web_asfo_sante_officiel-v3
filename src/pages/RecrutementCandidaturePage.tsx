@@ -36,6 +36,7 @@ import {
   MIN_MEMBERSHIP_YEAR,
   MIN_RECRUITMENT_AGE,
   STOCK_EXPERIENCE_OPTIONS,
+  categoryBySlug,
   specialtyBySlug,
   specialtyFormLabels,
 } from '../../api/_lib/recruitment.js';
@@ -49,6 +50,7 @@ import {
 import {
   ageOnDate,
   frenchDateToIso,
+  isoToFrenchDate,
   maskBirthDateInput,
 } from '../lib/birthDateField';
 import {
@@ -92,6 +94,7 @@ interface FormInputs {
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
+const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
 const DEFAULT_VALUES: FormInputs = {
   lastName: '',
@@ -254,7 +257,11 @@ const SuccessCard: React.FC<{ receipt: ApplicationReceipt; specialty: string }> 
 const RecrutementCandidaturePage: React.FC = () => {
   const { specialite = '' } = useParams();
   const reduceMotion = useReducedMotion();
-  const specialty = useMemo(() => specialtyBySlug(specialite), [specialite]);
+  const category = useMemo(() => categoryBySlug(specialite), [specialite]);
+  const specialty = useMemo(
+    () => specialtyBySlug(category?.legacySpecialtySlug),
+    [category],
+  );
   // Intitulés du formulaire, ajustés au métier de la spécialité ouverte.
   const formLabels = useMemo(() => specialtyFormLabels(specialty), [specialty]);
 
@@ -272,6 +279,7 @@ const RecrutementCandidaturePage: React.FC = () => {
   const [receipt, setReceipt] = useState<ApplicationReceipt | null>(null);
   const openedAt = useRef(Date.now());
   const submitting = useRef(false);
+  const birthDatePickerRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -283,6 +291,8 @@ const RecrutementCandidaturePage: React.FC = () => {
   } = useForm<FormInputs>({ mode: 'onBlur', defaultValues: DEFAULT_VALUES });
 
   const values = watch();
+  const birthDateIso = frenchDateToIso(values.birthDate);
+  const calculatedAge = birthDateIso ? ageOnDate(birthDateIso) : null;
   const regions = useMemo(() => getRegions(), []);
   const departments = useMemo(
     () => (values.region ? getDepartements(values.region) : []),
@@ -298,12 +308,12 @@ const RecrutementCandidaturePage: React.FC = () => {
   // L’ouverture est reconfirmée auprès du serveur : le catalogue embarqué ne
   // connaît que les valeurs par défaut, la vérité vit en base.
   useEffect(() => {
-    if (!specialty) return;
+    if (!specialty || !category) return;
     let active = true;
     fetchSpecialties()
       .then(({ specialties }) => {
         if (!active) return;
-        const found = specialties.find((item) => item.slug === specialty.slug);
+        const found = specialties.find((item) => item.slug === category.slug);
         setOpenState(found?.open ? 'open' : 'closed');
       })
       .catch(() => {
@@ -312,9 +322,23 @@ const RecrutementCandidaturePage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [specialty]);
+  }, [category, specialty]);
 
   const phoneError = phoneTouched ? senegalPhoneIssue(`${SENEGAL_DIALLING_CODE}${phoneDigits}`) : null;
+
+  const openBirthDatePicker = () => {
+    const picker = birthDatePickerRef.current;
+    if (!picker) return;
+    if (typeof picker.showPicker === 'function') {
+      try {
+        picker.showPicker();
+        return;
+      } catch {
+        // Le clic natif ci-dessous reste le repli multi-navigateur.
+      }
+    }
+    picker.click();
+  };
 
   const handleFile = useCallback(async (kind: FileKind, file: File | null) => {
     if (!file) return;
@@ -355,7 +379,7 @@ const RecrutementCandidaturePage: React.FC = () => {
     setUploads((prev) => ({ ...prev, [kind]: EMPTY_UPLOAD }));
 
   const onSubmit = async (data: FormInputs) => {
-    if (submitting.current || !specialty) return;
+    if (submitting.current || !specialty || !category) return;
     setSubmitError('');
 
     const phone = `${SENEGAL_DIALLING_CODE}${phoneDigits}`;
@@ -378,6 +402,7 @@ const RecrutementCandidaturePage: React.FC = () => {
     try {
       const result = await submitApplication({
         submissionId,
+        recruitmentCategory: category.key,
         specialty: specialty.slug,
         lastName: data.lastName.trim(),
         firstName: data.firstName.trim(),
@@ -433,7 +458,7 @@ const RecrutementCandidaturePage: React.FC = () => {
     }
   };
 
-  if (!specialty) {
+  if (!specialty || !category || category.formKind !== 'complete') {
     return (
       <main className="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6">
         <X className="mx-auto h-10 w-10 text-slate-300" aria-hidden="true" />
@@ -463,7 +488,7 @@ const RecrutementCandidaturePage: React.FC = () => {
           Inscriptions non ouvertes
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          Les inscriptions pour la spécialité « {specialty.label} » ne sont pas encore
+          Les inscriptions pour la catégorie « {category.label} » ne sont pas encore
           ouvertes. Elles le seront prochainement : revenez consulter la page du
           recrutement.
         </p>
@@ -615,7 +640,7 @@ const RecrutementCandidaturePage: React.FC = () => {
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="Ex. 15/08/1990"
-                  className={`${inputClass(Boolean(errors.birthDate))} pl-11`}
+                  className={`${inputClass(Boolean(errors.birthDate))} pl-11 pr-12`}
                   aria-invalid={Boolean(errors.birthDate)}
                   aria-describedby={errors.birthDate ? 'birthDate-error' : undefined}
                   value={values.birthDate}
@@ -639,7 +664,34 @@ const RecrutementCandidaturePage: React.FC = () => {
                     },
                   })}
                 />
+                <button
+                  type="button"
+                  onClick={openBirthDatePicker}
+                  aria-label="Ouvrir le calendrier"
+                  className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-teal-50 hover:text-teal-700"
+                >
+                  <CalendarDays className="h-5 w-5" aria-hidden="true" />
+                </button>
+                <input
+                  ref={birthDatePickerRef}
+                  type="date"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  max={TODAY_ISO}
+                  value={birthDateIso}
+                  onChange={(event) =>
+                    setValue(
+                      'birthDate',
+                      event.target.value ? isoToFrenchDate(event.target.value) : '',
+                      { shouldValidate: true },
+                    )
+                  }
+                  className="pointer-events-none absolute h-px w-px opacity-0"
+                />
               </div>
+              {calculatedAge !== null && !errors.birthDate && calculatedAge >= 0 && (
+                <p className="mt-1.5 text-xs font-semibold text-teal-700">{calculatedAge} ans</p>
+              )}
               <FieldError id="birthDate-error" message={errors.birthDate?.message} />
             </div>
           </div>

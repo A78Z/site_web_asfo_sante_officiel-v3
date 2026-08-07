@@ -55,7 +55,7 @@ const CandidaturePage = lazy(() => import('./pages/CandidaturePage'));
 const GuideCandidaturePage = lazy(() => import('./pages/GuideCandidaturePage'));
 const FirstAidGuidePage = lazy(() => import('./pages/FirstAidGuidePage'));
 const RecrutementMedicalPage = lazy(() => import('./pages/RecrutementMedicalPage'));
-const RecrutementCandidaturePage = lazy(() => import('./pages/RecrutementCandidaturePage'));
+const RecrutementApplicationPage = lazy(() => import('./pages/RecrutementApplicationPage'));
 const AdminRecruitmentPage = lazy(() => import('./pages/AdminRecruitmentPage'));
 const AdminCandidaturesPage = lazy(() => import('./pages/AdminCandidaturesPage'));
 const AdminMemberRequestsPage = lazy(() => import('./pages/AdminMemberRequestsPage'));
@@ -118,7 +118,7 @@ function App() {
           <Route path="/recrutement-medical" element={<RecrutementMedicalPage />} />
           <Route
             path="/recrutement-medical/:specialite"
-            element={<RecrutementCandidaturePage />}
+            element={<RecrutementApplicationPage />}
           />
           <Route path="/guide-candidature" element={<GuideCandidaturePage />} />
           <Route path="/presidents" element={<PresidentsPage />} />

@@ -15,9 +15,12 @@ import { authorizeAdmin } from '../../_lib/admin-auth.js';
 import { readJsonBody, sendError } from '../../_lib/http.js';
 import {
   RECRUITMENT_CLASS,
+  RECRUITMENT_CATEGORIES,
   RECRUITMENT_STATUSES,
   SELECTED_STATUSES,
   SPECIALTIES,
+  categoryByKey,
+  categoryByLegacySpecialty,
   isRecruitmentStatus,
   specialtyBySlug,
 } from '../../_lib/recruitment.js';
@@ -64,7 +67,14 @@ const buildStats = (rows, now = new Date()) => {
   return {
     total: rows.length,
     byStatus,
-    bySpecialty: countBy(rows, (row) => specialtyBySlug(row.specialty)?.label ?? row.profession),
+    bySpecialty: countBy(
+      rows,
+      (row) =>
+        categoryByKey(row.recruitmentCategory)?.label ??
+        categoryByLegacySpecialty(row.specialty)?.label ??
+        specialtyBySlug(row.specialty)?.label ??
+        row.profession,
+    ),
     byRegion: countBy(rows, (row) => row.region),
     byDepartment: countBy(rows, (row) => row.department),
     today: rows.filter((row) => createdAt(row) >= todayIso).length,
@@ -116,7 +126,15 @@ export default async function handler(request, response) {
   // la liste, mais aussi des statistiques et des exports qui en découlent.
   const where = { archived: { $ne: true } };
   if (isRecruitmentStatus(payload.status)) where.status = payload.status;
-  if (specialtyBySlug(payload.specialty)) where.specialty = payload.specialty;
+  const categoryFilter = categoryByKey(payload.specialty);
+  if (categoryFilter) {
+    where.$or = [
+      { recruitmentCategory: categoryFilter.key },
+      ...(categoryFilter.legacySpecialtySlugs ?? []).map((specialty) => ({ specialty })),
+    ];
+  } else if (specialtyBySlug(payload.specialty)) {
+    where.specialty = payload.specialty;
+  }
   if (typeof payload.region === 'string' && payload.region.trim()) {
     where.region = payload.region.trim();
   }
@@ -148,6 +166,7 @@ export default async function handler(request, response) {
     applications: rows,
     stats: buildStats(rows),
     statuses: RECRUITMENT_STATUSES,
+    categories: RECRUITMENT_CATEGORIES.map(({ key, label, emoji }) => ({ slug: key, label, emoji })),
     specialties: SPECIALTIES.map(({ slug, label, emoji }) => ({ slug, label, emoji })),
     // Signale une liste plafonnée plutôt que de laisser croire à l’exhaustivité.
     truncated: rows.length >= MAX_ROWS,

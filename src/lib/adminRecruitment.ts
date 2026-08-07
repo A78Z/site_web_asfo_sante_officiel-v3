@@ -8,10 +8,10 @@
 
 import type { ParseFile } from './parse';
 import { AdminActionError, currentActor } from './adminReminders';
-import type { RecruitmentSpecialtyState } from '../../api/_lib/recruitment.js';
+import type { RecruitmentCategoryState } from '../../api/_lib/recruitment.js';
 
 export { AdminActionError };
-export type { RecruitmentSpecialtyState };
+export type RecruitmentSpecialtyState = RecruitmentCategoryState;
 
 export interface RecruitmentHistoryEntry {
   at: string;
@@ -39,8 +39,11 @@ export interface RecruitmentApplication {
   address?: string;
   region?: string;
   department?: string;
+  recruitmentCategory?: string;
   specialty: string;
+  speciality?: string;
   profession: string;
+  educationLevel?: string;
   orderNumber?: string;
   university?: string;
   diplomaTitle?: string;
@@ -126,6 +129,7 @@ export const listApplications = (filters: {
     applications: RecruitmentApplication[];
     stats: RecruitmentStats;
     statuses: string[];
+    categories: Array<{ slug: string; label: string; emoji: string }>;
     specialties: Array<{ slug: string; label: string; emoji: string }>;
     truncated: boolean;
   }>('/api/admin/recrutement/list', filters);
