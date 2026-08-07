@@ -185,7 +185,16 @@ const PARAMEDICAL_EDUCATION_LEVELS = [
 
 const SPECIALIST_EDUCATION_LEVELS = ['Diplôme de spécialisation (DES)', 'Autre diplôme de santé'];
 
-const GENERAL_PRACTITIONER_EDUCATION_LEVELS = ['Doctorat en médecine', 'Autre diplôme de santé'];
+// Le DES est le seul niveau écarté : il désigne une spécialisation, donc un
+// parcours qui relève du formulaire « Médecins spécialistes ».
+const GENERAL_PRACTITIONER_EDUCATION_LEVELS = [
+  'Bac+2 / Diplôme d’État',
+  'Bac+3 / Licence',
+  'Bac+5 / Master',
+  'Doctorat en médecine',
+  'Doctorat en pharmacie',
+  'Autre diplôme de santé',
+];
 
 /**
  * Liste historique. Elle n’alimente plus aucun formulaire mais sert de repli
