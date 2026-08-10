@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
+  Copy,
   Download,
   ExternalLink,
   FileDown,
@@ -66,6 +67,38 @@ const TABS: Array<{ id: TabId; label: string; icon: React.ElementType }> = [
   { id: 'exports', label: 'Exports', icon: Download },
   { id: 'settings', label: 'Paramètres', icon: Settings },
 ];
+
+/**
+ * Profil médecin d’un dossier, toutes générations confondues : porte unique
+ * (champ `medicalProfile`), anciennes catégories dédiées, ou dossiers
+ * historiques rangés par spécialité.
+ */
+const SPECIALIST_LEGACY_SLUGS = [
+  'pediatre',
+  'ophtalmologue',
+  'psychiatre',
+  'gynecologue',
+  'cardiologue',
+  'radiologue',
+];
+
+const medicalProfileOf = (item: RecruitmentApplication): 'generaliste' | 'specialiste' | null => {
+  if (item.recruitmentCategory === 'medecins') {
+    if (item.medicalProfile === 'specialiste') return 'specialiste';
+    if (item.medicalProfile === 'generaliste') return 'generaliste';
+    return null;
+  }
+  if (item.recruitmentCategory === 'generaliste') return 'generaliste';
+  if (item.recruitmentCategory === 'specialiste') return 'specialiste';
+  if (!item.recruitmentCategory) {
+    if (item.specialty === 'medecin-generaliste') return 'generaliste';
+    if (SPECIALIST_LEGACY_SLUGS.includes(item.specialty)) return 'specialiste';
+  }
+  return null;
+};
+
+const isMedecinRow = (item: RecruitmentApplication) =>
+  item.recruitmentCategory === 'medecins' || medicalProfileOf(item) !== null;
 
 const STATUS_STYLES: Record<string, string> = {
   'En attente': 'bg-amber-50 text-amber-700 border-amber-200',
@@ -346,6 +379,12 @@ const ApplicationDrawer: React.FC<{
             <div className="divide-y divide-gray-200">
               <InfoRow label="Profession" value={application.profession} />
               <InfoRow label="Catégorie" value={categoryByKey(application.recruitmentCategory)?.label} />
+              {application.medicalProfile && (
+                <InfoRow
+                  label="Profil médical"
+                  value={application.medicalProfile === 'specialiste' ? 'Médecin spécialiste' : 'Médecin généraliste'}
+                />
+              )}
               {application.speciality && <InfoRow label="Spécialité" value={application.speciality} />}
               {application.educationLevel && <InfoRow label="Niveau d’études" value={application.educationLevel} />}
               {application.educationLevelOther && (
@@ -646,7 +685,9 @@ const AdminRecruitmentPage: React.FC = () => {
     } catch {
       // Les paramètres restent affichés avec les valeurs par défaut du catalogue.
       setSpecialtyStates(
-        RECRUITMENT_CATEGORIES.map((item: (typeof RECRUITMENT_CATEGORIES)[number]) => ({
+        RECRUITMENT_CATEGORIES.filter(
+          (item: (typeof RECRUITMENT_CATEGORIES)[number]) => !item.hidden,
+        ).map((item: (typeof RECRUITMENT_CATEGORIES)[number]) => ({
           ...item,
           open: item.defaultOpen,
           updatedAt: null,
@@ -694,13 +735,23 @@ const AdminRecruitmentPage: React.FC = () => {
       if (query && !haystack.includes(query)) return false;
       if (statusFilter !== 'Tous' && item.status !== statusFilter) return false;
       if (specialtyFilter !== 'Toutes') {
-        const category = categoryByKey(specialtyFilter);
-        if (category) {
-          if (
-            item.recruitmentCategory !== category.key &&
-            !(category.legacySpecialtySlugs ?? []).includes(item.specialty)
-          ) return false;
-        } else if (item.specialty !== specialtyFilter) return false;
+        // Porte unique « Médecins » : « tous » regroupe anciens et nouveaux
+        // dossiers ; les deux sous-filtres distinguent les profils.
+        if (specialtyFilter === 'medecins') {
+          if (!isMedecinRow(item)) return false;
+        } else if (specialtyFilter === 'medecins:generaliste') {
+          if (medicalProfileOf(item) !== 'generaliste') return false;
+        } else if (specialtyFilter === 'medecins:specialiste') {
+          if (medicalProfileOf(item) !== 'specialiste') return false;
+        } else {
+          const category = categoryByKey(specialtyFilter);
+          if (category) {
+            if (
+              item.recruitmentCategory !== category.key &&
+              !(category.legacySpecialtySlugs ?? []).includes(item.specialty)
+            ) return false;
+          } else if (item.specialty !== specialtyFilter) return false;
+        }
       }
       if (regionFilter !== 'Toutes' && item.region !== regionFilter) return false;
       if (departmentFilter !== 'Tous' && item.department !== departmentFilter) return false;
@@ -768,6 +819,16 @@ const AdminRecruitmentPage: React.FC = () => {
       );
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const copyPublicLink = async (slug: string) => {
+    const url = `${window.location.origin}/recrutement-medical/${slug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      notify('success', 'Lien d’inscription copié.');
+    } catch {
+      notify('error', `Le lien n’a pas pu être copié automatiquement : ${url}`);
     }
   };
 
@@ -986,11 +1047,21 @@ const AdminRecruitmentPage: React.FC = () => {
                     className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-teal-500"
                   >
                     <option value="Toutes">Toutes les professions</option>
-                    {RECRUITMENT_CATEGORIES.map((item: (typeof RECRUITMENT_CATEGORIES)[number]) => (
-                      <option key={item.slug} value={item.slug}>
-                        {item.label}
-                      </option>
-                    ))}
+                    {RECRUITMENT_CATEGORIES.filter(
+                      (item: (typeof RECRUITMENT_CATEGORIES)[number]) => !item.hidden,
+                    ).map((item: (typeof RECRUITMENT_CATEGORIES)[number]) =>
+                      item.key === 'medecins' ? (
+                        <React.Fragment key={item.slug}>
+                          <option value="medecins">Médecins — tous</option>
+                          <option value="medecins:generaliste">Médecins — généralistes</option>
+                          <option value="medecins:specialiste">Médecins — spécialistes</option>
+                        </React.Fragment>
+                      ) : (
+                        <option key={item.slug} value={item.slug}>
+                          {item.label}
+                        </option>
+                      ),
+                    )}
                     <optgroup label="Historique — anciennes spécialités">
                       {SPECIALTIES.map((item: (typeof SPECIALTIES)[number]) => (
                         <option key={`legacy-${item.slug}`} value={item.slug}>{item.label}</option>
@@ -1142,6 +1213,9 @@ const AdminRecruitmentPage: React.FC = () => {
                       </span>
                     </div>
                     <p className="mt-2 text-sm font-bold text-gray-900">{item.label}</p>
+                    {item.subtitle && (
+                      <p className="mt-0.5 text-xs font-semibold text-teal-700">{item.subtitle}</p>
+                    )}
                     {item.updatedBy && (
                       <p className="mt-1 text-[11px] text-gray-400">
                         Modifié par {item.updatedBy}
@@ -1164,6 +1238,35 @@ const AdminRecruitmentPage: React.FC = () => {
                       )}
                       {item.open ? 'Fermer les inscriptions' : 'Ouvrir les inscriptions'}
                     </button>
+                    {/* Le lien public n’est proposé que lorsque la catégorie est
+                        ouverte : un lien fermé renverrait « Inscriptions fermées ». */}
+                    {item.open && (
+                      <div className="mt-3 rounded-lg border border-emerald-200 bg-white/80 p-2.5">
+                        <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">
+                          Lien public d’inscription
+                        </p>
+                        <p className="mt-1 truncate font-mono text-[11px] text-gray-700">
+                          /recrutement-medical/{item.slug}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void copyPublicLink(item.slug)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-gray-700 transition hover:bg-gray-50"
+                          >
+                            <Copy className="h-3.5 w-3.5" aria-hidden="true" /> Copier le lien
+                          </button>
+                          <a
+                            href={`/recrutement-medical/${item.slug}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-[11px] font-bold text-teal-700 transition hover:bg-teal-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> Ouvrir le formulaire
+                          </a>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

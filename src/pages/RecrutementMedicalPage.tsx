@@ -22,12 +22,13 @@ const iconByCategory: Record<string, React.ElementType> = {
   dentiste: Sparkles,
   pharmacien: Pill,
   paramedical: Activity,
+  medecins: Stethoscope,
   specialiste: HeartPulse,
   generaliste: Stethoscope,
 };
 
 const defaultStates = (): RecruitmentCategoryState[] =>
-  RECRUITMENT_CATEGORIES.map((category) => ({
+  RECRUITMENT_CATEGORIES.filter((category) => !category.hidden).map((category) => ({
     ...category,
     open: category.defaultOpen,
     updatedAt: null,
@@ -91,6 +92,9 @@ const CategoryCard: React.FC<{
       <h2 className="relative mt-6 text-xl font-black tracking-tight text-slate-950 sm:text-2xl" style={poppins}>
         {category.label}
       </h2>
+      {category.subtitle && (
+        <p className="relative mt-1 text-sm font-bold text-teal-700">{category.subtitle}</p>
+      )}
       <p className="relative mt-3 flex-1 text-sm leading-6 text-slate-600">
         {category.description}
       </p>
@@ -108,7 +112,7 @@ const CategoryCard: React.FC<{
               transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 5, delay: index * 0.35 }}
             />
           )}
-          <span className="relative">S’inscrire</span>
+          <span className="relative">{category.ctaLabel ?? 'S’inscrire'}</span>
           <ArrowRight className="relative h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
         </Link>
       ) : (
@@ -117,7 +121,7 @@ const CategoryCard: React.FC<{
           disabled
           className="relative mt-6 inline-flex min-h-[50px] cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-5 text-sm font-black text-slate-400"
         >
-          S’inscrire
+          {category.ctaLabel ?? 'S’inscrire'}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
@@ -165,10 +169,10 @@ const RecrutementMedicalPage: React.FC = () => {
             Rejoignez la mission médicale ASFO 2026
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-teal-50/85 sm:text-lg">
-            Un parcours clair, cinq catégories professionnelles. Choisissez votre profil et déposez votre inscription en quelques minutes.
+            Un parcours clair, quatre catégories professionnelles. Choisissez votre profil et déposez votre inscription en quelques minutes.
           </p>
           <div className="mt-8 flex flex-wrap gap-3 text-sm font-semibold text-teal-50/90">
-            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">5 liens d’inscription</span>
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">4 liens d’inscription</span>
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">Aucun paiement</span>
             <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">Confirmation par SMS</span>
           </div>

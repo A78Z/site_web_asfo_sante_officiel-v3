@@ -40,6 +40,8 @@ export interface RecruitmentApplication {
   region?: string;
   department?: string;
   recruitmentCategory?: string;
+  /** Porte unique « Médecins » : 'generaliste' ou 'specialiste'. */
+  medicalProfile?: string;
   specialty: string;
   speciality?: string;
   profession: string;

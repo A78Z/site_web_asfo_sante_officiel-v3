@@ -123,6 +123,8 @@ export const uploadRecruitmentFile = async (
 export interface ApplicationPayload {
   submissionId: string;
   recruitmentCategory: string;
+  /** Porte unique « Médecins » : 'generaliste' ou 'specialiste'. */
+  medicalProfile?: string;
   specialty?: string;
   lastName: string;
   firstName: string;

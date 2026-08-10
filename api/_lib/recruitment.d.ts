@@ -34,19 +34,37 @@ export type RecruitmentCategoryKey =
   | 'dentiste'
   | 'pharmacien'
   | 'paramedical'
+  | 'medecins'
   | 'specialiste'
   | 'generaliste';
+
+export type MedicalProfileKey = 'generaliste' | 'specialiste';
+
+export interface MedicalProfile {
+  key: MedicalProfileKey;
+  label: string;
+  description: string;
+}
 
 export interface RecruitmentCategory {
   key: RecruitmentCategoryKey;
   slug: string;
   label: string;
+  /** Sous-titre affiché sous le nom de la catégorie (porte unique « Médecins »). */
+  subtitle?: string;
   formTitle: string;
   emoji: string;
   description: string;
   defaultOpen: boolean;
   formKind: 'complete' | 'simplified';
+  /** Libellé du bouton public ; « S’inscrire » par défaut. */
+  ctaLabel?: string;
+  /** Catégorie fusionnée dans une autre : plus proposée, mais toujours résolue. */
+  hidden?: boolean;
+  /** Clé de la porte qui remplace cette catégorie ; ses liens y redirigent. */
+  mergedInto?: string;
   legacySpecialtySlug?: string;
+  legacyCategoryKeys?: string[];
   legacySpecialtySlugs?: string[];
 }
 
@@ -78,6 +96,10 @@ export declare const RECRUITMENT_YEAR: string;
 export declare const RECRUITMENT_CLASS: string;
 export declare const SPECIALTY_CLASS: string;
 export declare const RECRUITMENT_CATEGORIES: RecruitmentCategory[];
+export declare const MEDICAL_PROFILES: MedicalProfile[];
+export declare function medicalProfileByKey(
+  key: string | null | undefined,
+): MedicalProfile | null;
 export declare const SPECIALTIES: RecruitmentSpecialty[];
 export declare const PARAMEDICAL_SPECIALITIES: string[];
 export declare const MEDICAL_SPECIALITIES: string[];

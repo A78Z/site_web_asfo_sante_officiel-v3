@@ -66,14 +66,15 @@ const isCategoryOpen = async (environment, slug) => {
 
 /** Refuse un second dossier en cours pour le même numéro ou le même e-mail. */
 const findPendingDuplicate = async (environment, phone, email, category, legacySpecialties = []) => {
-  const categoryMatch = legacySpecialties.length > 0
-    ? {
-        $or: [
-          { recruitmentCategory: category },
-          ...legacySpecialties.map((specialty) => ({ specialty })),
-        ],
-      }
-    : { recruitmentCategory: category };
+  // La porte unique « Médecins » couvre aussi les dossiers déposés sous les
+  // anciennes catégories : un même candidat ne peut pas redéposer via le
+  // nouveau lien tant que son ancien dossier est en cours.
+  const matches = [
+    { recruitmentCategory: category.key },
+    ...(category.legacyCategoryKeys ?? []).map((key) => ({ recruitmentCategory: key })),
+    ...legacySpecialties.map((specialty) => ({ specialty })),
+  ];
+  const categoryMatch = matches.length > 1 ? { $or: matches } : matches[0];
   try {
     const found = await findObjects(environment, RECRUITMENT_CLASS, {
       where: {
@@ -237,7 +238,7 @@ export default async function handler(request, response) {
     environment,
     phoneNormalized,
     email,
-    category.key,
+    category,
     category.legacySpecialtySlugs,
   );
   if (duplicate) {
@@ -272,6 +273,11 @@ export default async function handler(request, response) {
     // Profil professionnel
     specialty: specialty?.slug ?? category.key,
     profession,
+    // Porte unique « Médecins » : le profil choisi distingue généralistes et
+    // spécialistes dans l’administration, sous une même catégorie.
+    ...(category.key === 'medecins'
+      ? { medicalProfile: compactWhitespace(payload.medicalProfile) }
+      : {}),
     ...(speciality ? { speciality } : {}),
     ...(category.formKind === 'simplified'
       ? {

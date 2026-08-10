@@ -95,7 +95,7 @@ export const megaMenus: MegaMenuDef[] = [
         heading: 'Campagnes',
         items: [
           { to: '/missions/prochaine-campagne', title: 'Prochaine campagne', description: 'Dates, lieux et préparation de la 27e édition.', icon: CalendarDays },
-          { to: '/recrutement-medical', title: 'Recrutement des professionnels', description: 'Cinq catégories d’inscription pour la caravane 2026.', icon: Stethoscope },
+          { to: '/recrutement-medical', title: 'Recrutement des professionnels', description: 'Quatre catégories d’inscription pour la caravane 2026.', icon: Stethoscope },
           { to: '/candidature', title: 'Candidature village', description: 'Accueillir une caravane médicale ASFO.', icon: ClipboardList },
           { to: '/guide-candidature', title: 'Guide de candidature', description: 'Les étapes pour déposer un dossier.', icon: ScrollText },
         ],

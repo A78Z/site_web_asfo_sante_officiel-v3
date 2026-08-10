@@ -23,12 +23,20 @@ export const RECRUITMENT_CLASS = 'MedicalRecruitments';
 export const SPECIALTY_CLASS = 'RecruitmentSpecialties';
 
 /**
- * Les cinq et seules portes d’entrée publiques du recrutement 2026.
+ * Les portes d’entrée publiques du recrutement 2026.
  *
  * Les clés sont volontairement stables et correspondent aux valeurs écrites
  * dans `recruitmentCategory`. Elles servent également de `slug` dans
  * `RecruitmentSpecialties`, ce qui permet de réutiliser la classe de réglages
  * existante sans migration destructive.
+ *
+ * Quatre catégories sont visibles : les médecins généralistes et spécialistes
+ * partagent désormais une porte unique « Médecins », dont le formulaire
+ * commence par le choix du profil. Les deux anciennes catégories restent dans
+ * le catalogue avec `hidden: true` : elles ne sont plus proposées nulle part,
+ * mais les candidatures enregistrées sous leurs clés continuent d’être
+ * résolues, affichées et filtrées, et leurs anciens liens redirigent vers la
+ * porte unique via `mergedInto`.
  */
 export const RECRUITMENT_CATEGORIES = [
   {
@@ -77,6 +85,31 @@ export const RECRUITMENT_CATEGORIES = [
     ],
   },
   {
+    key: 'medecins',
+    slug: 'medecins',
+    label: 'Médecins',
+    subtitle: 'Médecins généralistes & spécialistes',
+    formTitle: 'Inscription des Médecins — Caravane Médicale ASFO 2026',
+    emoji: '🩺',
+    description:
+      'Généralistes et spécialistes réunis dans un formulaire unique : choisissez votre profil, le parcours s’adapte automatiquement.',
+    defaultOpen: false,
+    formKind: 'simplified',
+    ctaLabel: 'S’inscrire comme médecin',
+    // Anciennes clés de catégorie couvertes par cette porte : elles servent au
+    // contrôle de doublon et au regroupement dans l’administration.
+    legacyCategoryKeys: ['generaliste', 'specialiste'],
+    legacySpecialtySlugs: [
+      'medecin-generaliste',
+      'pediatre',
+      'ophtalmologue',
+      'psychiatre',
+      'gynecologue',
+      'cardiologue',
+      'radiologue',
+    ],
+  },
+  {
     key: 'specialiste',
     slug: 'specialiste',
     label: 'Médecins spécialistes',
@@ -86,14 +119,9 @@ export const RECRUITMENT_CATEGORIES = [
       'Toutes les spécialités médicales dans un formulaire commun avec sélection rapide de votre discipline.',
     defaultOpen: false,
     formKind: 'simplified',
-    legacySpecialtySlugs: [
-      'pediatre',
-      'ophtalmologue',
-      'psychiatre',
-      'gynecologue',
-      'cardiologue',
-      'radiologue',
-    ],
+    hidden: true,
+    mergedInto: 'medecins',
+    legacySpecialtySlugs: [],
   },
   {
     key: 'generaliste',
@@ -105,9 +133,32 @@ export const RECRUITMENT_CATEGORIES = [
       'Consultations générales, orientation des patients et suivi des pathologies courantes pendant la caravane.',
     defaultOpen: false,
     formKind: 'simplified',
-    legacySpecialtySlugs: ['medecin-generaliste'],
+    hidden: true,
+    mergedInto: 'medecins',
+    legacySpecialtySlugs: [],
   },
 ];
+
+/**
+ * Les deux profils proposés par la porte unique « Médecins ». Leurs clés
+ * reprennent volontairement celles des anciennes catégories : le filtre de
+ * l’administration regroupe ainsi anciens et nouveaux dossiers sans mapping.
+ */
+export const MEDICAL_PROFILES = [
+  {
+    key: 'generaliste',
+    label: 'Médecin généraliste',
+    description: 'Consultations générales, orientation des patients et suivi des pathologies courantes.',
+  },
+  {
+    key: 'specialiste',
+    label: 'Médecin spécialiste',
+    description: 'Cardiologie, pédiatrie, gynécologie… Vous préciserez votre spécialité juste après.',
+  },
+];
+
+const MEDICAL_PROFILE_BY_KEY = new Map(MEDICAL_PROFILES.map((item) => [item.key, item]));
+export const medicalProfileByKey = (key) => MEDICAL_PROFILE_BY_KEY.get(String(key ?? '')) ?? null;
 
 const CATEGORY_BY_KEY = new Map(RECRUITMENT_CATEGORIES.map((item) => [item.key, item]));
 const CATEGORY_BY_SLUG = new Map(RECRUITMENT_CATEGORIES.map((item) => [item.slug, item]));
@@ -231,12 +282,20 @@ export const educationLevelsForCategory = (category) => {
 const OTHER_PARAMEDICAL = 'Autre profession paramédicale';
 const OTHER_SPECIALIST = 'Autre spécialité médicale';
 
+/** Le parcours demande-t-il une spécialité médicale (porte unique comprise) ? */
+const isSpecialistPath = (category, payload = {}) =>
+  category?.key === 'specialiste' ||
+  (category?.key === 'medecins' && compactWhitespace(payload.medicalProfile) === 'specialiste');
+
 /** Spécialité finale, après résolution du choix « Autre ». */
 export const resolvedSpeciality = (category, payload = {}) => {
+  // Un généraliste de la porte unique n’a pas de spécialité, même si le
+  // navigateur en transmettait une par erreur.
+  if (category?.key === 'medecins' && !isSpecialistPath(category, payload)) return '';
   const selected = compactWhitespace(payload.speciality);
   if (
     (category?.key === 'paramedical' && selected === OTHER_PARAMEDICAL) ||
-    (category?.key === 'specialiste' && selected === OTHER_SPECIALIST)
+    (isSpecialistPath(category, payload) && selected === OTHER_SPECIALIST)
   ) {
     return compactWhitespace(payload.otherSpeciality);
   }
@@ -247,6 +306,9 @@ export const resolvedSpeciality = (category, payload = {}) => {
 export const professionForCategory = (category, payload = {}) => {
   if (category?.key === 'generaliste') return 'Médecin généraliste';
   if (category?.key === 'specialiste') return 'Médecin spécialiste';
+  if (category?.key === 'medecins') {
+    return isSpecialistPath(category, payload) ? 'Médecin spécialiste' : 'Médecin généraliste';
+  }
   if (category?.key === 'paramedical') return resolvedSpeciality(category, payload);
   const legacy = specialtyBySlug(category?.legacySpecialtySlug);
   return legacy?.label ?? category?.label ?? '';
@@ -573,9 +635,15 @@ const textRule = (value, { label, min, max, junkCheck = true }) => {
   return null;
 };
 
-/** Validation des trois parcours 2026 volontairement courts et sans pièce jointe. */
+/** Validation des parcours 2026 volontairement courts et sans pièce jointe. */
 const validateSimplifiedRecruitmentApplication = (payload, category, today) => {
   const fail = (field, message) => ({ field, message });
+
+  // La porte unique « Médecins » commence par le choix du profil : c’est la
+  // première question du formulaire, donc la première contrôlée.
+  if (category.key === 'medecins' && !medicalProfileByKey(payload.medicalProfile)) {
+    return fail('medicalProfile', 'Sélectionnez votre profil médical.');
+  }
 
   const lastName = textRule(payload.lastName, { label: 'Le nom', min: 2, max: 60 });
   if (lastName) return fail('lastName', lastName);
@@ -620,8 +688,11 @@ const validateSimplifiedRecruitmentApplication = (payload, category, today) => {
     return fail('email', 'Entrez une adresse e-mail valide.');
   }
 
+  // Porte unique : les niveaux acceptés sont ceux du profil choisi, les clés
+  // des profils reprenant celles des anciennes catégories.
   const educationLevel = compactWhitespace(payload.educationLevel);
-  if (!educationLevelsForCategory(category).includes(educationLevel)) {
+  const levelsKey = category.key === 'medecins' ? compactWhitespace(payload.medicalProfile) : category;
+  if (!educationLevelsForCategory(levelsKey).includes(educationLevel)) {
     return fail('educationLevel', 'Sélectionnez votre niveau d’études.');
   }
 
@@ -651,7 +722,7 @@ const validateSimplifiedRecruitmentApplication = (payload, category, today) => {
     }
   }
 
-  if (category.key === 'specialiste') {
+  if (isSpecialistPath(category, payload)) {
     const selected = compactWhitespace(payload.speciality);
     if (!MEDICAL_SPECIALITIES.includes(selected)) {
       return fail('speciality', 'Sélectionnez votre spécialité médicale.');
@@ -923,7 +994,9 @@ export const isRecruitmentReference = (value) =>
  */
 export const mergeSpecialtyStates = (rows = []) => {
   const byslug = new Map(rows.map((row) => [row.slug, row]));
-  return RECRUITMENT_CATEGORIES.map((category) => {
+  // Les catégories fusionnées dans une porte unique ne sont plus pilotables ni
+  // affichées : seule la porte qui les remplace apparaît.
+  return RECRUITMENT_CATEGORIES.filter((category) => !category.hidden).map((category) => {
     const row = byslug.get(category.slug);
     return {
       ...category,

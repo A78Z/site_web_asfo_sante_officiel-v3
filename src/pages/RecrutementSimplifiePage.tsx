@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ChevronDown,
   CreditCard,
+  HeartPulse,
   Loader2,
   Lock,
   Mail,
@@ -25,6 +26,7 @@ import {
 import {
   GENDERS,
   MAX_RECRUITMENT_AGE,
+  MEDICAL_PROFILES,
   MEDICAL_SPECIALITIES,
   MIN_MEMBERSHIP_YEAR,
   MIN_RECRUITMENT_AGE,
@@ -60,6 +62,7 @@ const CURRENT_YEAR = new Date().getFullYear();
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
 interface FormInputs {
+  medicalProfile: string;
   lastName: string;
   firstName: string;
   birthDate: string;
@@ -77,6 +80,7 @@ interface FormInputs {
 }
 
 const DEFAULT_VALUES: FormInputs = {
+  medicalProfile: '',
   lastName: '',
   firstName: '',
   birthDate: '',
@@ -254,8 +258,17 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
   const birthDateIso = frenchDateToIso(values.birthDate);
   const calculatedAge = birthDateIso ? ageOnDate(birthDateIso) : null;
   const phoneError = phoneTouched ? senegalPhoneIssue(`${SENEGAL_DIALLING_CODE}${phoneDigits}`) : null;
-  const specialityOptions = category.key === 'specialiste' ? MEDICAL_SPECIALITIES : PARAMEDICAL_SPECIALITIES;
-  const educationLevelOptions = useMemo(() => educationLevelsForCategory(category), [category]);
+  // Porte unique « Médecins » : le formulaire commence par le choix du profil,
+  // qui pilote le reste du parcours (niveaux d’études, spécialité, profession).
+  const isMedecins = category.key === 'medecins';
+  const profileKey = isMedecins ? values.medicalProfile : '';
+  const isSpecialistPath = category.key === 'specialiste' || (isMedecins && profileKey === 'specialiste');
+  const isGeneralistPath = category.key === 'generaliste' || (isMedecins && profileKey === 'generaliste');
+  const specialityOptions = isSpecialistPath ? MEDICAL_SPECIALITIES : PARAMEDICAL_SPECIALITIES;
+  const educationLevelOptions = useMemo(
+    () => (isMedecins ? (profileKey ? educationLevelsForCategory(profileKey) : []) : educationLevelsForCategory(category)),
+    [category, isMedecins, profileKey],
+  );
   const asksOtherEducationLevel = isOtherEducationLevel(values.educationLevel);
   // Les paramédicaux précisent un « niveau ou diplôme » ; les médecins, un diplôme.
   const otherEducationLabels = values.educationLevel === OTHER_EDUCATION_LEVEL
@@ -269,15 +282,28 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
         placeholder: 'Ex. diplôme ou qualification médicale',
         error: 'Précisez votre diplôme (2 à 100 caractères).',
       };
-  const asksSpeciality = category.key !== 'generaliste';
+  const asksSpeciality = category.key === 'paramedical' || isSpecialistPath;
   const asksOther = values.speciality === 'Autre spécialité médicale' || values.speciality === 'Autre profession paramédicale';
-  const profession = category.key === 'generaliste'
+  const profession = isGeneralistPath
     ? 'Médecin généraliste'
-    : category.key === 'specialiste'
+    : isSpecialistPath
       ? 'Médecin spécialiste'
-      : asksOther
-        ? values.otherSpeciality || 'À préciser'
-        : values.speciality || 'Sélectionnez d’abord votre spécialité';
+      : isMedecins
+        ? 'Choisissez d’abord votre profil médical'
+        : asksOther
+          ? values.otherSpeciality || 'À préciser'
+          : values.speciality || 'Sélectionnez d’abord votre spécialité';
+
+  // Changer de profil remet à zéro les champs qui en dépendent : un niveau ou
+  // une spécialité de l’autre profil ne doit jamais rester sélectionné.
+  const selectProfile = (key: string) => {
+    if (values.medicalProfile === key) return;
+    setValue('medicalProfile', key, { shouldValidate: true });
+    setValue('educationLevel', '');
+    setValue('educationLevelOther', '');
+    setValue('speciality', '');
+    setValue('otherSpeciality', '');
+  };
 
   useEffect(() => {
     document.title = category.formTitle;
@@ -335,6 +361,7 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
         phone,
         email: data.email.trim(),
         educationLevel: data.educationLevel,
+        ...(isMedecins ? { medicalProfile: data.medicalProfile } : {}),
         ...(asksOtherEducationLevel ? { educationLevelOther: data.educationLevelOther.trim() } : {}),
         ...(asksSpeciality ? { speciality: data.speciality } : {}),
         ...(asksOther ? { otherSpeciality: data.otherSpeciality.trim() } : {}),
@@ -381,7 +408,7 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
         </p>
         {openState === 'closed' && (
           <Link to="/recrutement-medical" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-bold text-white hover:bg-teal-700">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Voir les cinq catégories
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Voir les catégories d’inscription
           </Link>
         )}
       </main>
@@ -412,6 +439,47 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
           <label htmlFor="website">Ne pas remplir</label>
           <input id="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(event) => setHoneypot(event.target.value)} />
         </div>
+
+        {isMedecins && (
+          <Section icon={Stethoscope} title="Quel est votre profil médical ?" description="Votre réponse adapte automatiquement la suite du formulaire.">
+            <fieldset>
+              <legend className="sr-only">Quel est votre profil médical ?</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {MEDICAL_PROFILES.map((option) => {
+                  const checked = values.medicalProfile === option.key;
+                  const Icon = option.key === 'specialiste' ? HeartPulse : Stethoscope;
+                  return (
+                    <label
+                      key={option.key}
+                      className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition ${
+                        checked
+                          ? 'border-teal-600 bg-teal-50 ring-4 ring-teal-50'
+                          : 'border-slate-200 hover:border-teal-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        value={option.key}
+                        checked={checked}
+                        className="mt-1 h-5 w-5 shrink-0 text-teal-600"
+                        {...register('medicalProfile', { required: 'Sélectionnez votre profil médical.' })}
+                        onChange={() => selectProfile(option.key)}
+                      />
+                      <span className="min-w-0">
+                        <span className={`flex items-center gap-2 text-base font-black ${checked ? 'text-teal-950' : 'text-slate-900'}`}>
+                          <Icon className={`h-5 w-5 shrink-0 ${checked ? 'text-teal-600' : 'text-slate-400'}`} aria-hidden="true" />
+                          {option.label}
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-600">{option.description}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <FieldError id="medicalProfile-error" message={errors.medicalProfile?.message} />
+            </fieldset>
+          </Section>
+        )}
 
         <Section icon={User} title="Identité" description="Vos informations personnelles telles qu’elles doivent apparaître dans le dossier.">
           <div className="grid gap-5 sm:grid-cols-2">
@@ -506,10 +574,15 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <label htmlFor="educationLevel" className="mb-2 block text-sm font-bold text-slate-800">Niveau d’études <span className="text-red-600">*</span></label>
-                <select id="educationLevel" className={inputClass(Boolean(errors.educationLevel))} {...register('educationLevel', { required: 'Sélectionnez votre niveau d’études.', validate: (value) => educationLevelOptions.includes(value) || 'Choisissez un niveau dans la liste.' })}>
+                <select id="educationLevel" disabled={isMedecins && !profileKey} aria-describedby={isMedecins && !profileKey ? 'educationLevel-hint' : undefined} className={`${inputClass(Boolean(errors.educationLevel))} disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400`} {...register('educationLevel', { required: 'Sélectionnez votre niveau d’études.', validate: (value) => educationLevelOptions.includes(value) || 'Choisissez un niveau dans la liste.' })}>
                   <option value="">Sélectionner…</option>
                   {educationLevelOptions.map((level) => <option key={level}>{level}</option>)}
                 </select>
+                {isMedecins && !profileKey && (
+                  <p id="educationLevel-hint" className="mt-1.5 text-xs text-slate-500">
+                    Choisissez d’abord votre profil médical en haut du formulaire.
+                  </p>
+                )}
                 <FieldError id="educationLevel-error" message={errors.educationLevel?.message} />
 
                 <AnimatePresence initial={false}>
@@ -537,7 +610,7 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
             {asksSpeciality && (
               <div>
                 <label htmlFor="speciality" className="mb-2 block text-sm font-bold text-slate-800">Spécialité <span className="text-red-600">*</span></label>
-                {category.key === 'specialiste' ? (
+                {isSpecialistPath ? (
                   <SearchableSpeciality
                     options={specialityOptions}
                     value={values.speciality}
@@ -550,11 +623,11 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
                     {specialityOptions.map((option) => <option key={option}>{option}</option>)}
                   </select>
                 )}
-                {category.key === 'specialiste' && (
+                {isSpecialistPath && (
                   <input type="hidden" {...register('speciality', { required: 'Sélectionnez votre spécialité.', validate: (value) => specialityOptions.includes(value) || 'Choisissez une spécialité dans la liste.' })} />
                 )}
                 <p id="speciality-hint" className="mt-1.5 text-xs text-slate-500">
-                  {category.key === 'specialiste' ? 'Tapez quelques lettres pour filtrer la liste.' : 'Votre profession sera préremplie à partir de ce choix.'}
+                  {isSpecialistPath ? 'Tapez quelques lettres pour filtrer la liste.' : 'Votre profession sera préremplie à partir de ce choix.'}
                 </p>
                 <FieldError id="speciality-error" message={errors.speciality?.message} />
               </div>
@@ -564,7 +637,7 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
               {asksOther && (
                 <motion.div initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                   <label htmlFor="otherSpeciality" className="mb-2 block text-sm font-bold text-slate-800">
-                    {category.key === 'specialiste' ? 'Précisez votre spécialité' : 'Précisez votre profession paramédicale'} <span className="text-red-600">*</span>
+                    {isSpecialistPath ? 'Précisez votre spécialité' : 'Précisez votre profession paramédicale'} <span className="text-red-600">*</span>
                   </label>
                   <input id="otherSpeciality" className={inputClass(Boolean(errors.otherSpeciality))} {...register('otherSpeciality', { validate: (value) => !asksOther || (value.trim().length >= 2 && value.trim().length <= 100) || 'Précisez votre spécialité (2 à 100 caractères).' })} />
                   <FieldError id="otherSpeciality-error" message={errors.otherSpeciality?.message} />
