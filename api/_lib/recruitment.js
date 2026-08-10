@@ -169,6 +169,11 @@ export const MEDICAL_SPECIALITIES = [
  * (`diplomaTitle`), ce qui reste inchangé.
  */
 export const OTHER_EDUCATION_LEVEL = 'Autre niveau ou diplôme';
+export const OTHER_HEALTH_DIPLOMA = 'Autre diplôme de santé';
+
+/** Choix « Autre » : ils ouvrent un champ libre de précision, obligatoire. */
+export const isOtherEducationLevel = (value) =>
+  value === OTHER_EDUCATION_LEVEL || value === OTHER_HEALTH_DIPLOMA;
 
 const PARAMEDICAL_EDUCATION_LEVELS = [
   'BEP / CAP sanitaire',
@@ -183,17 +188,17 @@ const PARAMEDICAL_EDUCATION_LEVELS = [
   OTHER_EDUCATION_LEVEL,
 ];
 
-const SPECIALIST_EDUCATION_LEVELS = ['Diplôme de spécialisation (DES)', 'Autre diplôme de santé'];
+const SPECIALIST_EDUCATION_LEVELS = ['Diplôme de spécialisation (DES)', OTHER_HEALTH_DIPLOMA];
 
-// Le DES est le seul niveau écarté : il désigne une spécialisation, donc un
-// parcours qui relève du formulaire « Médecins spécialistes ».
+// Écartés : le DES, qui désigne une spécialisation et relève du formulaire
+// « Médecins spécialistes », et le doctorat en pharmacie, étranger au parcours
+// d’un médecin généraliste.
 const GENERAL_PRACTITIONER_EDUCATION_LEVELS = [
   'Bac+2 / Diplôme d’État',
   'Bac+3 / Licence',
   'Bac+5 / Master',
   'Doctorat en médecine',
-  'Doctorat en pharmacie',
-  'Autre diplôme de santé',
+  OTHER_HEALTH_DIPLOMA,
 ];
 
 /**
@@ -620,9 +625,9 @@ const validateSimplifiedRecruitmentApplication = (payload, category, today) => {
     return fail('educationLevel', 'Sélectionnez votre niveau d’études.');
   }
 
-  // Le niveau libre n’est réclamé que si la liste de la catégorie propose le
+  // Le niveau libre n’est réclamé que si la liste de la catégorie propose un
   // choix « Autre » et qu’il a été retenu.
-  if (educationLevel === OTHER_EDUCATION_LEVEL) {
+  if (isOtherEducationLevel(educationLevel)) {
     const otherLevel = textRule(payload.educationLevelOther, {
       label: 'Le niveau ou diplôme',
       min: 2,

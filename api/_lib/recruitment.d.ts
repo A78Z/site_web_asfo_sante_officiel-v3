@@ -83,6 +83,8 @@ export declare const PARAMEDICAL_SPECIALITIES: string[];
 export declare const MEDICAL_SPECIALITIES: string[];
 export declare const EDUCATION_LEVELS: string[];
 export declare const OTHER_EDUCATION_LEVEL: string;
+export declare const OTHER_HEALTH_DIPLOMA: string;
+export declare function isOtherEducationLevel(value: string): boolean;
 export declare function educationLevelsForCategory(
   category: RecruitmentCategory | string | null | undefined,
 ): string[];

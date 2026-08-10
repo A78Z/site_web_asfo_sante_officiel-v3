@@ -31,6 +31,7 @@ import {
   OTHER_EDUCATION_LEVEL,
   PARAMEDICAL_SPECIALITIES,
   educationLevelsForCategory,
+  isOtherEducationLevel,
   type RecruitmentCategory,
 } from '../../api/_lib/recruitment.js';
 import {
@@ -255,7 +256,19 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
   const phoneError = phoneTouched ? senegalPhoneIssue(`${SENEGAL_DIALLING_CODE}${phoneDigits}`) : null;
   const specialityOptions = category.key === 'specialiste' ? MEDICAL_SPECIALITIES : PARAMEDICAL_SPECIALITIES;
   const educationLevelOptions = useMemo(() => educationLevelsForCategory(category), [category]);
-  const asksOtherEducationLevel = values.educationLevel === OTHER_EDUCATION_LEVEL;
+  const asksOtherEducationLevel = isOtherEducationLevel(values.educationLevel);
+  // Les paramédicaux précisent un « niveau ou diplôme » ; les médecins, un diplôme.
+  const otherEducationLabels = values.educationLevel === OTHER_EDUCATION_LEVEL
+    ? {
+        label: 'Précisez votre niveau ou diplôme',
+        placeholder: 'Ex. Diplôme d’État infirmier, technicien supérieur de santé…',
+        error: 'Précisez votre niveau ou diplôme (2 à 100 caractères).',
+      }
+    : {
+        label: 'Précisez votre diplôme',
+        placeholder: 'Ex. diplôme ou qualification médicale',
+        error: 'Précisez votre diplôme (2 à 100 caractères).',
+      };
   const asksSpeciality = category.key !== 'generaliste';
   const asksOther = values.speciality === 'Autre spécialité médicale' || values.speciality === 'Autre profession paramédicale';
   const profession = category.key === 'generaliste'
@@ -503,9 +516,9 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
                   {asksOtherEducationLevel && (
                     <motion.div initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                       <label htmlFor="educationLevelOther" className="mb-2 mt-4 block text-sm font-bold text-slate-800">
-                        Précisez votre niveau ou diplôme <span className="text-red-600">*</span>
+                        {otherEducationLabels.label} <span className="text-red-600">*</span>
                       </label>
-                      <input id="educationLevelOther" placeholder="Ex. Diplôme d’État infirmier, technicien supérieur de santé…" className={inputClass(Boolean(errors.educationLevelOther))} {...register('educationLevelOther', { validate: (value) => !asksOtherEducationLevel || (value.trim().length >= 2 && value.trim().length <= 100) || 'Précisez votre niveau ou diplôme (2 à 100 caractères).' })} />
+                      <input id="educationLevelOther" placeholder={otherEducationLabels.placeholder} className={inputClass(Boolean(errors.educationLevelOther))} {...register('educationLevelOther', { validate: (value) => !asksOtherEducationLevel || (value.trim().length >= 2 && value.trim().length <= 100) || otherEducationLabels.error })} />
                       <FieldError id="educationLevelOther-error" message={errors.educationLevelOther?.message} />
                     </motion.div>
                   )}
