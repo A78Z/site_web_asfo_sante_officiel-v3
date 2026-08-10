@@ -29,6 +29,7 @@ import { recruitmentReceivedEmail } from '../_lib/email-templates.js';
 import {
   DEFAULT_RECRUITMENT_STATUS,
   EMAIL_NOTIFICATIONS_ENABLED,
+  OTHER_CURRENT_STUDY_LEVEL,
   RECRUITMENT_CLASS,
   SPECIALTY_CLASS,
   buildRecruitmentReference,
@@ -274,9 +275,17 @@ export default async function handler(request, response) {
     specialty: specialty?.slug ?? category.key,
     profession,
     // Porte unique « Médecins » : le profil choisi distingue généralistes et
-    // spécialistes dans l’administration, sous une même catégorie.
+    // spécialistes dans l’administration, sous une même catégorie, et l’année
+    // ou le niveau actuel de formation situe le candidat dans son cursus.
     ...(category.key === 'medecins'
-      ? { medicalProfile: compactWhitespace(payload.medicalProfile) }
+      ? {
+          medicalProfile: compactWhitespace(payload.medicalProfile),
+          currentStudyLevel: compactWhitespace(payload.currentStudyLevel),
+          ...(compactWhitespace(payload.currentStudyLevel) === OTHER_CURRENT_STUDY_LEVEL &&
+          compactWhitespace(payload.currentStudyLevelOther)
+            ? { currentStudyLevelOther: compactWhitespace(payload.currentStudyLevelOther) }
+            : {}),
+        }
       : {}),
     ...(speciality ? { speciality } : {}),
     ...(category.formKind === 'simplified'

@@ -279,6 +279,61 @@ export const educationLevelsForCategory = (category) => {
   return EDUCATION_LEVELS_BY_CATEGORY[String(key ?? '')] ?? EDUCATION_LEVELS;
 };
 
+/**
+ * Année ou niveau actuel dans le cursus — formulaire « Médecins » uniquement.
+ *
+ * Le niveau d’études dit quel diplôme est visé ou obtenu ; ce champ précise où
+ * la personne en est réellement : il distingue l’étudiant en médecine, le
+ * doctorant, la personne en année de thèse et le médecin diplômé. Les choix
+ * proposés dépendent du niveau d’études sélectionné, et un niveau sans liste
+ * dédiée reçoit la liste générique.
+ */
+export const OTHER_CURRENT_STUDY_LEVEL = 'Autre';
+
+const GENERIC_CURRENT_STUDY_LEVELS = [
+  'En cours',
+  'Dernière année',
+  'Diplôme obtenu',
+  OTHER_CURRENT_STUDY_LEVEL,
+];
+
+const CURRENT_STUDY_LEVELS_BY_EDUCATION = new Map([
+  [
+    'Bac+3 / Licence',
+    ['Licence 1', 'Licence 2', 'Licence 3', 'Diplôme obtenu', OTHER_CURRENT_STUDY_LEVEL],
+  ],
+  ['Bac+5 / Master', ['Master 1', 'Master 2', 'Diplôme obtenu', OTHER_CURRENT_STUDY_LEVEL]],
+  [
+    'Doctorat en médecine',
+    [
+      'Doctorat 1',
+      'Doctorat 2',
+      'Doctorat 3',
+      'Année de thèse',
+      'Thèse soutenue',
+      'Diplôme obtenu',
+      OTHER_CURRENT_STUDY_LEVEL,
+    ],
+  ],
+  [
+    'Diplôme de spécialisation (DES)',
+    [
+      'DES 1',
+      'DES 2',
+      'DES 3',
+      'DES 4',
+      'Fin de spécialisation',
+      'Diplôme obtenu',
+      OTHER_CURRENT_STUDY_LEVEL,
+    ],
+  ],
+]);
+
+/** Années / niveaux proposés pour un niveau d’études donné. */
+export const currentStudyLevelsForEducation = (educationLevel) =>
+  CURRENT_STUDY_LEVELS_BY_EDUCATION.get(String(educationLevel ?? '')) ??
+  GENERIC_CURRENT_STUDY_LEVELS;
+
 const OTHER_PARAMEDICAL = 'Autre profession paramédicale';
 const OTHER_SPECIALIST = 'Autre spécialité médicale';
 
@@ -705,6 +760,24 @@ const validateSimplifiedRecruitmentApplication = (payload, category, today) => {
       max: 100,
     });
     if (otherLevel) return fail('educationLevelOther', otherLevel);
+  }
+
+  // Formulaire « Médecins » : l’année ou le niveau actuel de formation est
+  // obligatoire et doit appartenir à la liste du niveau d’études choisi. Les
+  // dossiers des autres catégories, comme les anciens, ne portent pas ce champ.
+  if (category.key === 'medecins') {
+    const currentStudyLevel = compactWhitespace(payload.currentStudyLevel);
+    if (!currentStudyLevelsForEducation(educationLevel).includes(currentStudyLevel)) {
+      return fail('currentStudyLevel', 'Précisez votre année ou niveau actuel de formation.');
+    }
+    if (currentStudyLevel === OTHER_CURRENT_STUDY_LEVEL) {
+      const other = textRule(payload.currentStudyLevelOther, {
+        label: 'Le niveau actuel',
+        min: 2,
+        max: 100,
+      });
+      if (other) return fail('currentStudyLevelOther', other);
+    }
   }
 
   if (category.key === 'paramedical') {

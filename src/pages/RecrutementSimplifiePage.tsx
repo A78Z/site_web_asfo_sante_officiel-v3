@@ -30,8 +30,10 @@ import {
   MEDICAL_SPECIALITIES,
   MIN_MEMBERSHIP_YEAR,
   MIN_RECRUITMENT_AGE,
+  OTHER_CURRENT_STUDY_LEVEL,
   OTHER_EDUCATION_LEVEL,
   PARAMEDICAL_SPECIALITIES,
+  currentStudyLevelsForEducation,
   educationLevelsForCategory,
   isOtherEducationLevel,
   type RecruitmentCategory,
@@ -71,6 +73,8 @@ interface FormInputs {
   email: string;
   educationLevel: string;
   educationLevelOther: string;
+  currentStudyLevel: string;
+  currentStudyLevelOther: string;
   speciality: string;
   otherSpeciality: string;
   isMember: string;
@@ -89,6 +93,8 @@ const DEFAULT_VALUES: FormInputs = {
   email: '',
   educationLevel: '',
   educationLevelOther: '',
+  currentStudyLevel: '',
+  currentStudyLevelOther: '',
   speciality: '',
   otherSpeciality: '',
   isMember: '',
@@ -282,6 +288,13 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
         placeholder: 'Ex. diplôme ou qualification médicale',
         error: 'Précisez votre diplôme (2 à 100 caractères).',
       };
+  // Année / niveau actuel de formation : réservé au formulaire « Médecins »,
+  // avec des choix qui dépendent du niveau d’études sélectionné.
+  const currentStudyLevelOptions = useMemo(
+    () => (isMedecins && values.educationLevel ? currentStudyLevelsForEducation(values.educationLevel) : []),
+    [isMedecins, values.educationLevel],
+  );
+  const asksOtherCurrentStudyLevel = isMedecins && values.currentStudyLevel === OTHER_CURRENT_STUDY_LEVEL;
   const asksSpeciality = category.key === 'paramedical' || isSpecialistPath;
   const asksOther = values.speciality === 'Autre spécialité médicale' || values.speciality === 'Autre profession paramédicale';
   const profession = isGeneralistPath
@@ -301,6 +314,8 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
     setValue('medicalProfile', key, { shouldValidate: true });
     setValue('educationLevel', '');
     setValue('educationLevelOther', '');
+    setValue('currentStudyLevel', '');
+    setValue('currentStudyLevelOther', '');
     setValue('speciality', '');
     setValue('otherSpeciality', '');
   };
@@ -361,7 +376,15 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
         phone,
         email: data.email.trim(),
         educationLevel: data.educationLevel,
-        ...(isMedecins ? { medicalProfile: data.medicalProfile } : {}),
+        ...(isMedecins
+          ? {
+              medicalProfile: data.medicalProfile,
+              currentStudyLevel: data.currentStudyLevel,
+              ...(asksOtherCurrentStudyLevel
+                ? { currentStudyLevelOther: data.currentStudyLevelOther.trim() }
+                : {}),
+            }
+          : {}),
         ...(asksOtherEducationLevel ? { educationLevelOther: data.educationLevelOther.trim() } : {}),
         ...(asksSpeciality ? { speciality: data.speciality } : {}),
         ...(asksOther ? { otherSpeciality: data.otherSpeciality.trim() } : {}),
@@ -574,7 +597,7 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <label htmlFor="educationLevel" className="mb-2 block text-sm font-bold text-slate-800">Niveau d’études <span className="text-red-600">*</span></label>
-                <select id="educationLevel" disabled={isMedecins && !profileKey} aria-describedby={isMedecins && !profileKey ? 'educationLevel-hint' : undefined} className={`${inputClass(Boolean(errors.educationLevel))} disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400`} {...register('educationLevel', { required: 'Sélectionnez votre niveau d’études.', validate: (value) => educationLevelOptions.includes(value) || 'Choisissez un niveau dans la liste.' })}>
+                <select id="educationLevel" disabled={isMedecins && !profileKey} aria-describedby={isMedecins && !profileKey ? 'educationLevel-hint' : undefined} className={`${inputClass(Boolean(errors.educationLevel))} disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400`} {...register('educationLevel', { required: 'Sélectionnez votre niveau d’études.', validate: (value) => educationLevelOptions.includes(value) || 'Choisissez un niveau dans la liste.', onChange: () => { setValue('currentStudyLevel', ''); setValue('currentStudyLevelOther', ''); } })}>
                   <option value="">Sélectionner…</option>
                   {educationLevelOptions.map((level) => <option key={level}>{level}</option>)}
                 </select>
@@ -597,6 +620,45 @@ const RecrutementSimplifiePage: React.FC<{ category: RecruitmentCategory }> = ({
                   )}
                 </AnimatePresence>
               </div>
+
+              {isMedecins && (
+                <div>
+                  <label htmlFor="currentStudyLevel" className="mb-2 block text-sm font-bold text-slate-800">Année / niveau actuel de formation <span className="text-red-600">*</span></label>
+                  <select
+                    id="currentStudyLevel"
+                    disabled={!values.educationLevel}
+                    aria-describedby={!values.educationLevel ? 'currentStudyLevel-hint' : undefined}
+                    className={`${inputClass(Boolean(errors.currentStudyLevel))} disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400`}
+                    {...register('currentStudyLevel', {
+                      validate: (value) =>
+                        !isMedecins ||
+                        currentStudyLevelOptions.includes(value) ||
+                        'Précisez votre année ou niveau actuel de formation.',
+                    })}
+                  >
+                    <option value="">Sélectionner…</option>
+                    {currentStudyLevelOptions.map((level) => <option key={level}>{level}</option>)}
+                  </select>
+                  {!values.educationLevel && (
+                    <p id="currentStudyLevel-hint" className="mt-1.5 text-xs text-slate-500">
+                      Choisissez d’abord votre niveau d’études.
+                    </p>
+                  )}
+                  <FieldError id="currentStudyLevel-error" message={errors.currentStudyLevel?.message} />
+
+                  <AnimatePresence initial={false}>
+                    {asksOtherCurrentStudyLevel && (
+                      <motion.div initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                        <label htmlFor="currentStudyLevelOther" className="mb-2 mt-4 block text-sm font-bold text-slate-800">
+                          Précisez votre niveau actuel <span className="text-red-600">*</span>
+                        </label>
+                        <input id="currentStudyLevelOther" placeholder="Ex. Internat, DES 2, année de spécialisation…" className={inputClass(Boolean(errors.currentStudyLevelOther))} {...register('currentStudyLevelOther', { validate: (value) => !asksOtherCurrentStudyLevel || (value.trim().length >= 2 && value.trim().length <= 100) || 'Précisez votre niveau actuel (2 à 100 caractères).' })} />
+                        <FieldError id="currentStudyLevelOther-error" message={errors.currentStudyLevelOther?.message} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
 
               <div>
                 <label className="mb-2 block text-sm font-bold text-slate-800">Profession <span className="text-red-600">*</span></label>

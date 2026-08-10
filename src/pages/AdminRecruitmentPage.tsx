@@ -146,14 +146,16 @@ function exportCSV(rows: RecruitmentApplication[]) {
   const header = [
     'Référence', 'Nom', 'Prénom', 'Sexe', 'Date de naissance', 'Téléphone', 'Email',
     'Adresse', 'Région', 'Département', 'Catégorie', 'Profession', 'Spécialité',
-    'Niveau d’études', 'N° Ordre', 'Université',
+    'Niveau d’études', 'Niveau actuel', 'N° Ordre', 'Université',
     'Expérience', 'Employeur', 'Disponibilité', 'Statut', 'Déposée le',
   ];
   const lines = rows.map((row) => [
     row.reference, row.lastName, row.firstName, row.gender ?? '', formatBirth(row.birthDate),
     row.phone, row.email, row.address ?? '', row.region ?? '', row.department ?? '',
     categoryByKey(row.recruitmentCategory)?.label ?? '', row.profession, row.speciality ?? '',
-    row.educationLevel ?? '', row.orderNumber ?? '', row.university ?? '', row.experience ?? '',
+    row.educationLevel ?? '',
+    [row.currentStudyLevel, row.currentStudyLevelOther].filter(Boolean).join(' — '),
+    row.orderNumber ?? '', row.university ?? '', row.experience ?? '',
     row.employer ?? '', row.availability ?? '', row.status,
     new Date(row.createdAt).toLocaleDateString('fr-FR'),
   ]);
@@ -389,6 +391,12 @@ const ApplicationDrawer: React.FC<{
               {application.educationLevel && <InfoRow label="Niveau d’études" value={application.educationLevel} />}
               {application.educationLevelOther && (
                 <InfoRow label="Niveau précisé" value={application.educationLevelOther} />
+              )}
+              {application.currentStudyLevel && (
+                <InfoRow label="Année / niveau actuel" value={application.currentStudyLevel} />
+              )}
+              {application.currentStudyLevelOther && (
+                <InfoRow label="Niveau actuel précisé" value={application.currentStudyLevelOther} />
               )}
               <InfoRow label="N° Ordre" value={application.orderNumber} />
               <InfoRow label="Université" value={application.university} />
@@ -729,6 +737,8 @@ const AdminRecruitmentPage: React.FC = () => {
       const haystack = [
         item.reference, item.firstName, item.lastName, item.phone, item.email,
         item.profession, item.region, item.department, item.orderNumber, item.university,
+        // Recherche par niveau actuel : « thèse », « master 2 », « DES 2 »…
+        item.currentStudyLevel, item.currentStudyLevelOther,
       ]
         .join(' ')
         .toLowerCase();

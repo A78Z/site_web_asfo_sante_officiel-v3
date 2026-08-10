@@ -107,6 +107,10 @@ export declare const EDUCATION_LEVELS: string[];
 export declare const OTHER_EDUCATION_LEVEL: string;
 export declare const OTHER_HEALTH_DIPLOMA: string;
 export declare function isOtherEducationLevel(value: string): boolean;
+export declare const OTHER_CURRENT_STUDY_LEVEL: string;
+export declare function currentStudyLevelsForEducation(
+  educationLevel: string | null | undefined,
+): string[];
 export declare function educationLevelsForCategory(
   category: RecruitmentCategory | string | null | undefined,
 ): string[];

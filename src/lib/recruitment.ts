@@ -139,6 +139,9 @@ export interface ApplicationPayload {
   university?: string;
   educationLevel?: string;
   educationLevelOther?: string;
+  /** Formulaire « Médecins » : année ou niveau actuel dans le cursus. */
+  currentStudyLevel?: string;
+  currentStudyLevelOther?: string;
   speciality?: string;
   otherSpeciality?: string;
   diplomaTitle?: string;

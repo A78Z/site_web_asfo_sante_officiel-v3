@@ -48,6 +48,9 @@ export interface RecruitmentApplication {
   educationLevel?: string;
   /** Saisie libre, présente uniquement avec le niveau « Autre ». */
   educationLevelOther?: string;
+  /** Formulaire « Médecins » : année ou niveau actuel dans le cursus. */
+  currentStudyLevel?: string;
+  currentStudyLevelOther?: string;
   orderNumber?: string;
   university?: string;
   diplomaTitle?: string;
