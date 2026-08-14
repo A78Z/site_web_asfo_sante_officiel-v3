@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import SplashScreen from '../components/common/SplashScreen';
 import Hero from '../components/home/Hero';
 import CampaignPostersShowcase from '../components/home/CampaignPostersShowcase';
+import MediaFeature from '../components/media/MediaFeature';
+import { RTS_MEDIA_FEATURE } from '../data/media';
 import PresidentMessage from '../components/home/PresidentMessage';
 import AboutPreview from '../components/home/AboutPreview';
 import ImpactStats from '../components/home/ImpactStats';
@@ -49,6 +51,7 @@ const HomePage: React.FC = () => {
     <div className={`transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
       <Hero />
       <CampaignPostersShowcase />
+      <MediaFeature media={RTS_MEDIA_FEATURE} />
       <PresidentMessage />
       <AboutPreview />
       <ImpactStats />

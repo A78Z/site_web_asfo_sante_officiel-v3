@@ -191,16 +191,23 @@ const VideoCard: React.FC<{ video: DocVideo; onPlay: () => void }> = ({ video, o
           <Play className="ml-0.5 h-6 w-6 fill-current" />
         </span>
       </span>
-      <span className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-semibold text-white" aria-hidden="true">
-        <Clock className="h-3 w-3" />
-        {video.duration}
-      </span>
+      {video.duration && (
+        <span className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-semibold text-white" aria-hidden="true">
+          <Clock className="h-3 w-3" />
+          {video.duration}
+        </span>
+      )}
       <span
         className={`absolute left-2.5 top-2.5 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${tagStyle(video.tag)}`}
         style={poppins}
       >
         {video.tag}
       </span>
+      {video.broadcaster && (
+        <span className="absolute right-2.5 top-2.5 inline-flex rounded-full border border-white/25 bg-black/65 px-2.5 py-1 text-[11px] font-extrabold tracking-wide text-white backdrop-blur-sm">
+          {video.broadcaster}
+        </span>
+      )}
     </button>
 
     <div className="flex flex-grow flex-col p-5">
@@ -360,10 +367,12 @@ const VideoPlayer: React.FC<{
             </h3>
             {video.note && <p className="mt-1 text-sm text-white/70">{video.note}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/60">
-              <span className="inline-flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                {video.duration}
-              </span>
+              {video.duration && (
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                  {video.duration}
+                </span>
+              )}
               {video.year && (
                 <span className="inline-flex items-center gap-1">
                   <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
@@ -641,7 +650,7 @@ const DocumentairePage: React.FC = () => {
                 style={poppins}
               >
                 <Play className="h-4 w-4 fill-current" aria-hidden="true" />
-                Regarder le film
+                Regarder la vidéo
               </button>
               <button
                 type="button"
@@ -798,10 +807,12 @@ const DocumentairePage: React.FC = () => {
               <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${tagStyle(FEATURED.tag)}`} style={poppins}>
                 {FEATURED.tag}
               </span>
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500">
-                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                {FEATURED.duration}
-              </span>
+              {FEATURED.duration && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500">
+                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                  {FEATURED.duration}
+                </span>
+              )}
             </div>
             <h3 className="mt-4 text-2xl font-extrabold text-[#123f38]" style={poppins}>
               {FEATURED.title}

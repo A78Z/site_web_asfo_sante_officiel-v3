@@ -292,10 +292,12 @@ const DocumentarySection: React.FC = () => {
                           <p className="mt-1 hidden text-sm text-teal-100/85 sm:block">{active.note}</p>
                         )}
                         <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1 text-xs font-semibold text-teal-100 backdrop-blur-sm">
-                            <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                            {active.duration}
-                          </span>
+                          {active.duration && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1 text-xs font-semibold text-teal-100 backdrop-blur-sm">
+                              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                              {active.duration}
+                            </span>
+                          )}
                           {active.year && (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1 text-xs font-semibold text-teal-100 backdrop-blur-sm">
                               <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
@@ -323,7 +325,7 @@ const DocumentarySection: React.FC = () => {
               { icon: Clapperboard, label: 'Format', value: active.tag },
               { icon: CalendarDays, label: 'Année', value: active.year ?? '2024–2025' },
               { icon: MapPin, label: 'Zone couverte', value: active.zone ?? 'Fouta' },
-              { icon: Clock, label: 'Durée', value: active.duration },
+              ...(active.duration ? [{ icon: Clock, label: 'Durée', value: active.duration }] : []),
               { icon: Stethoscope, label: 'Professionnels', value: '600+' },
               { icon: Heart, label: 'Bénéficiaires', value: '25 000+' },
             ].map((item) => (
@@ -428,7 +430,7 @@ const DocumentarySection: React.FC = () => {
                   type="button"
                   {...fadeUp(0.05 + i * 0.06)}
                   onClick={() => selectVideo(video, true)}
-                  aria-label={`Regarder : ${video.title} (${video.duration})`}
+                  aria-label={`Regarder : ${video.title}${video.duration ? ` (${video.duration})` : ''}`}
                   aria-pressed={isActive}
                   className={`group relative overflow-hidden rounded-2xl border text-left shadow-[0_15px_40px_-18px_rgba(18,63,56,0.25)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_-18px_rgba(18,63,56,0.35)] focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-300/70 ${
                     isActive ? 'border-teal-400/70 ring-2 ring-teal-400/40' : 'border-white/80 hover:border-teal-200'
@@ -446,9 +448,11 @@ const DocumentarySection: React.FC = () => {
                     <span className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/50 opacity-0 backdrop-blur-sm transition-all duration-300 group-hover:opacity-100 group-hover:scale-110">
                       <Play className="ml-0.5 h-4 w-4 fill-white text-white" aria-hidden="true" />
                     </span>
-                    <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
-                      {video.duration}
-                    </span>
+                    {video.duration && (
+                      <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+                        {video.duration}
+                      </span>
+                    )}
                     {isActive && (
                       <span className="absolute left-2 top-2 rounded-full bg-teal-400/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#04201b]">
                         En lecture

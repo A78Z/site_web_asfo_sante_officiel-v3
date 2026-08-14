@@ -13,13 +13,44 @@ export interface DocVideo {
   id: string; // ID YouTube réel
   title: string;
   tag: string;
-  duration: string;
+  duration?: string;
   year?: string;
   zone?: string;
   note?: string;
+  broadcaster?: string;
+  program?: string;
 }
 
+export interface MediaFeatureContent {
+  youtubeId: string;
+  network: string;
+  program: string;
+  campaign: string;
+  title: string;
+  description: string;
+}
+
+export const RTS_MEDIA_FEATURE: MediaFeatureContent = {
+  youtubeId: '4IDwG00hp90',
+  network: 'RTS 1',
+  program: 'KEENKELIBAA',
+  campaign: 'Grande Campagne Médicale ASFO 2026',
+  title: 'La 27e Grande Campagne Médicale ASFO à l’honneur sur RTS 1',
+  description:
+    'Dans le cadre de la mobilisation autour de la 27e Grande Campagne Médicale ASFO — Podor 2026, l’ASFO était invitée dans l’émission KEENKELIBAA sur RTS 1 pour présenter la campagne, ses objectifs et l’engagement des équipes mobilisées au service des populations.',
+};
+
 export const VIDEOS: DocVideo[] = [
+  {
+    id: RTS_MEDIA_FEATURE.youtubeId,
+    title: 'ASFO sur RTS 1 — KEENKELIBAA',
+    tag: 'Passage média',
+    year: '2026',
+    zone: 'Podor',
+    note: '27e Grande Campagne Médicale ASFO — Podor 2026',
+    broadcaster: RTS_MEDIA_FEATURE.network,
+    program: RTS_MEDIA_FEATURE.program,
+  },
   {
     id: 'TjVqSYDwYcg',
     title: 'Campagne médicale ASFO — Matam 2025',
